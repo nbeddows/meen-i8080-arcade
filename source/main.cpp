@@ -23,7 +23,7 @@ int main(void)
 	auto memoryController = MakeDefaultMemoryController(16);
 
 	/*
-		Load the ROM into memory, The layout
+		Load the ROM into memory, the layout
 		is as follows:
 
 			invaders-h 0000-07FF
@@ -40,7 +40,7 @@ int main(void)
 	machine->SetMemoryController(std::move(memoryController));
 	machine->SetIoController(std::move(ioController));
 	
-	//Only returns when signalled by I/O, for our demonstration it will be after 10 seconds.
+	//Only returns when signalled by an I/O device, for our demonstration it will be after 10 seconds.
 	machine->Run(0x00);
 
 	return 0;
