@@ -1,3 +1,7 @@
+module;
+
+#include <fstream>
+
 module SpaceInvaders;
 
 import <chrono>;
@@ -7,6 +11,61 @@ using namespace Emulator;
 
 namespace SpaceInvaders
 {
+	MemoryController::MemoryController(uint8_t addrSize)
+	{
+		memorySize_ = static_cast<size_t>(std::pow(2, addrSize));
+		memory_ = std::make_unique<uint8_t[]>(memorySize_);
+	}
+
+	size_t MemoryController::Size() const
+	{
+		return memorySize_;
+	}
+
+	void MemoryController::Load(std::filesystem::path romFile, uint16_t offset)
+	{
+		std::ifstream fin(romFile, std::ios::binary | std::ios::ate);
+
+		if (!fin)
+		{
+			throw std::runtime_error("The program file failed to open");
+		}
+
+		if (static_cast<size_t>(fin.tellg()) > memorySize_)
+		{
+			throw std::length_error("The length of the program is too big");
+		}
+
+		uint16_t size = static_cast<uint16_t>(fin.tellg());
+
+		if (size > memorySize_ - offset)
+		{
+			throw std::length_error("The length of the program is too big to fit at the specified offset");
+		}
+
+		fin.seekg(0, std::ios::beg);
+
+		if (!(fin.read(reinterpret_cast<char*>(&memory_[offset]), size)))
+		{
+			throw std::invalid_argument("The program specified failed to load");
+		}
+	}
+
+	uint8_t MemoryController::Read(uint16_t addr)
+	{
+		return memory_[addr];
+	}
+
+	void MemoryController::Write(uint16_t addr, uint8_t data)
+	{
+		memory_[addr] = data;
+	}
+
+	ISR MemoryController::ServiceInterrupts([[maybe_unused]] nanoseconds currTime)
+	{
+		return ISR::NoInterrupt;
+	}
+
 	IoController::IoController(std::shared_ptr<ControlBus<8>> controlBus)
 	{
 		controlBus_ = controlBus;
@@ -150,7 +209,7 @@ namespace SpaceInvaders
 
 		//The raster resolution is 256x224 at 60Hz.
 		//Space Invaders triggers two interrupts, ISR::One
-		//when it gets to te middle of the screen and
+		//when it gets to the middle of the screen and
 		//ISR::Two when it gets the end of the screen
 		//(Start of VBLANK).
 		if (currTime - lastTime_ > nanoseconds(16666666))
