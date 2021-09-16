@@ -23,7 +23,6 @@
     <ClCompile Include="..\..\Controller\module\IController.ixx" />
     <ClCompile Include="..\..\Machine\module\IMachine.ixx" />
     <ClCompile Include="..\..\Machine\module\MachineFactory.ixx" />
-    <ClCompile Include="..\..\SystemBus\module\SystemBus.ixx" />
     <ClCompile Include="..\module\SpaceInvaders.ixx" />
     <ClCompile Include="..\source\main.cpp" />
     <ClCompile Include="..\source\SpaceInvaders.cpp" />
