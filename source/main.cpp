@@ -18,7 +18,7 @@ int main(void)
 		//The machine to run Space Invaders on.
 		auto machine = MakeMachine();
 		//Create our custom Space Invaders I/O controller.
-		auto ioController = std::make_shared<IoController>(machine->ControlBus());
+		auto ioController = std::make_shared<IoController>();
 		//Create our custom Space Invaders memory controller.
 		auto memoryController = std::make_shared<MemoryController>(16);
 
