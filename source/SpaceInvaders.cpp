@@ -66,16 +66,11 @@ namespace SpaceInvaders
 		return ISR::NoInterrupt;
 	}
 
-	IoController::IoController(std::shared_ptr<ControlBus<8>> controlBus)
-	{
-		controlBus_ = controlBus;
-	}
-
 	uint8_t IoController::Read(uint16_t port)
 	{
 		/*
 			Read the value from the input device (keyboard for example)
-			and set the relevant bit in the return table according to
+			and set the relevant bit in the return value according to
 			the following:
 
 			Port 0
@@ -233,7 +228,7 @@ namespace SpaceInvaders
 		//For demonstration purposes we will quit after 10 seconds.
 		if (currTime >= nanoseconds(10000000000))
 		{
-			controlBus_->Send(Signal::PowerOff);
+			isr = ISR::Quit;
 		}
 
 		return isr;
