@@ -20,7 +20,6 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\Base\module\Base.ixx" />
-    <ClCompile Include="..\..\Controller\module\ControllerFactory.ixx" />
     <ClCompile Include="..\..\Controller\module\IController.ixx" />
     <ClCompile Include="..\..\Machine\module\IMachine.ixx" />
     <ClCompile Include="..\..\Machine\module\MachineFactory.ixx" />
