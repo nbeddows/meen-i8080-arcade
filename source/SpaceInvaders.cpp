@@ -17,6 +17,54 @@ namespace SpaceInvaders
 		memory_ = std::make_unique<uint8_t[]>(memorySize_);
 	}
 
+	MemoryController::~MemoryController()
+	{
+		//Dump the current state of the video ram to disk as a 1 bpp bitmap.
+
+		/*
+			Memory Map
+				0000 - 1FFF 8K ROM
+				2000 - 23FF 1K RAM
+				2400 - 3FFF 7K Video RAM
+				4000 - RAM mirror
+		*/
+
+		//A bitmap header for a 256 * 224 image @ 1bpp
+		std::array<uint8_t, 62> bmpHeader
+		{
+			0x42, 0x4D, 0x36, 0x1C, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x3E, 0x00, 0x00, 0x00, 0x28, 0x00,
+			0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0xE0, 0x00, 0x00, 0x00, 0x01, 0x00, 0x01, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x1C, 0x00, 0x00, 0x13, 0x0B, 0x00, 0x00, 0x13, 0x0B, 0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0x00
+		};
+
+		//allocate the bitmap buffer
+		auto bmp = std::make_unique<uint8_t[]>(7230); //(256 * 224) / 8 - Video Memory + 62 - Bitmap header
+		auto bmpPtr = bmp.get();
+		//The start of video ram
+		auto memPtr = memory_.get() + 0x2400;
+		auto bmpHeaderSize = bmpHeader.size();
+
+		memcpy (bmpPtr, bmpHeader.data(), bmpHeaderSize);
+		memcpy (bmpPtr + bmpHeaderSize, memPtr, 7168);
+
+		std::ofstream fout("../roms/invaders.bmp", std::ofstream::binary);
+
+		if (fout.fail() == false)
+		{
+			fout.write (reinterpret_cast<char*>(bmpPtr), 7230);
+
+			if (fout.fail() == true)
+			{
+				printf ("Failed to write bitmap to ../roms/invaders.bmp.\n");
+			}
+		}
+		else
+		{
+			printf ("Failed to open ../roms/invaders.bmp for writing.\n");
+		}
+	}
+
 	size_t MemoryController::Size() const
 	{
 		return memorySize_;
