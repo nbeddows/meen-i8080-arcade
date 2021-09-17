@@ -20,6 +20,7 @@ namespace SpaceInvaders
 		std::unique_ptr<uint8_t[]> memory_;
 	public:
 		MemoryController(uint8_t addressBusSize);
+		~MemoryController();
 
 		//IMemoryContoller virtual overrides
 		void Load(std::filesystem::path romFile, uint16_t offset) override final;
