@@ -1,4 +1,4 @@
-This demo project shows how to make use of the machemu sdk to emulate an arcade machine, in this case, Space Invaders. It sets up and instance of Emulator::IMachine, adds the Space Invaders custom controllers and runs the machine for 10 seconds. When the run time is complete is writes the contents of the video memory to disk as a bitmap located in roms/ called invaders.bmp.
+This demo project shows how to make use of the machemu sdk to emulate an arcade machine, in this case, Space Invaders. It sets up and instance of Emulator::IMachine, adds the Space Invaders custom controllers and runs the machine for 10 seconds. When the run time is complete it writes the contents of the video memory to disk as a bitmap located in roms/ called invaders.bmp.
 
 NOTE: Space Invaders ROM files are not supplied but can be easily obtained online. Once you have them place them in the roms directory. There should be 4 roms and the demo expects the e, f, g and h roms to be named invaders-e.bin, invaders-f.bin, invaders-g.bin and invaders-h.bin.
 
