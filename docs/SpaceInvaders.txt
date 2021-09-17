@@ -18,7 +18,7 @@ Basic principles of operation:
 
 4. Run the machine.
 
-	Once the previous prequisties have been done, calling Emulator::IMachine::Run() will start the machine cpu execution loop.
+	Once the previous prerequisites have been fulfilled, calling Emulator::IMachine::Run() will start the machine cpu execution loop.
 
 Based on the principles of operation one can see how the machemu sdk can be used to create a multi machine arcade emulator.
 
