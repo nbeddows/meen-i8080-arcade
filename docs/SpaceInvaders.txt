@@ -1,0 +1,30 @@
+This demo project shows how to make use of the machemu sdk to emulate an arcade machine, in this case, Space Invaders. It sets up and instance of Emulator::IMachine, adds the Space Invaders custom controllers and runs the machine for 10 seconds. When the run time is complete is writes the contents of the video memory to disk as a bitmap located in roms/ called invaders.bmp.
+
+NOTE: Space Invaders ROM files are not supplied but can be easily obtained online. Once you have them place them in the roms directory. There should be 4 roms and the demo expects the e, f, g and h roms to be named invaders-e.bin, invaders-f.bin, invaders-g.bin and invaders-h.bin.
+
+Basic principles of operation:
+
+1. Determine the memory and io layout of the target application.
+
+	See SpaceInvaders.ixx module documentation which documents the memory and io layout for Space Invaders.
+
+2. Write a memory and io controller which targets the desire application.
+
+	See SpaceInvaders.cpp for a custom memory and io controller targetting Space Invaders.
+
+3. Register these controllers with an instance of Emulator::IMachine.
+
+	See main.cpp for IMachine instatiation and controller registration.
+
+4. Run the machine.
+
+	Once the previous prequisties have been done, calling Emulator::IMachine::Run() will start the machine cpu execution loop.
+
+Based on the principles of operation one can see how the machemu sdk can be used to create a multi machine arcade emulator.
+
+1. Create an IMachine instance.
+2. Register controllers for target application 'one'.
+3. Run the machine for target application 'one' until an input device decides to exit the control loop.
+4. When Run completes register controllers for target application 'two'.
+5. Run the machine for target application 'two' until an input device decides to exit the control loop.
+6. Repeat register and run sequence for n target applications.
