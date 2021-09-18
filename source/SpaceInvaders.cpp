@@ -48,13 +48,19 @@ namespace SpaceInvaders
 		memcpy (bmpPtr, bmpHeader.data(), bmpHeaderSize);
 		memcpy (bmpPtr + bmpHeaderSize, memPtr, 7168);
 
+		printf ("Writing current video ram to ../roms/invaders.bmp\n");
+
 		std::ofstream fout("../roms/invaders.bmp", std::ofstream::binary);
 
 		if (fout.fail() == false)
 		{
 			fout.write (reinterpret_cast<char*>(bmpPtr), 7230);
 
-			if (fout.fail() == true)
+			if (fout.fail() == false)
+			{
+				printf("Write complete\n");
+			}
+			else
 			{
 				printf ("Failed to write bitmap to ../roms/invaders.bmp.\n");
 			}
