@@ -2,6 +2,8 @@ This demo project shows how to make use of the machemu sdk to emulate an arcade 
 
 NOTE: Space Invaders ROM files are not supplied but can be easily obtained online. Once you have them place them in the roms directory. There should be 4 roms and the demo expects the e, f, g and h roms to be named invaders-e.bin, invaders-f.bin, invaders-g.bin and invaders-h.bin.
 
+To run the example project a sample Microsoft Visual Studio 2019 solution file is provided in the Windows directory called SpaceInvaders.sln. Note that only the x64 configuration is currently suppoorted. There is only one project in the solution so it should be selected by default. Choose Debug or Release configuration, then build and run. 
+
 Basic principles of operation:
 
 1. Determine the memory and io layout of the target application.
@@ -20,7 +22,7 @@ Basic principles of operation:
 
 	Once the previous prerequisites have been fulfilled, calling Emulator::IMachine::Run() will start the machine cpu execution loop.
 
-Based on the principles of operation one can see how the machemu sdk can be used to create a multi machine arcade emulator.
+Based on the principles of operation one can see how the machemu sdk can be used to create a multi arcade machine emulator.
 
 1. Create an IMachine instance.
 2. Register controllers for target application 'one'.
