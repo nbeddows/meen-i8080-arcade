@@ -9,7 +9,7 @@ using namespace Emulator;
 
 namespace SpaceInvaders
 {
-	/** MemoryController
+	/** Custom memory controller.
 
 		A custom memory controller targetting the Space Invaders arcade ROM.
 
@@ -18,19 +18,19 @@ namespace SpaceInvaders
 	export class MemoryController final : public IMemoryController
 	{
 	private:
-		/** memorySize_
+		/** Memory size.
 
 			The size in bytes of the memory.
 		*/
 		size_t memorySize_{};
 
-		/** memory_
+		/** Memory buffer.
 
 			The memory bytes that the cpu will read from and write to.
 		*/
 		std::unique_ptr<uint8_t[]> memory_;
 	public:
-		/** Contructor
+		/** Contructor.
 
 			Create a memory controller that can address memory of the
 			specified address bus size. For this demo Space Invaders
@@ -42,7 +42,7 @@ namespace SpaceInvaders
 		*/
 		MemoryController(uint8_t addressBusSize);
 
-		/** Destructor
+		/** Destructor.
 
 			Performs operations that are required when the memory controller
 			will be destroyed.
@@ -52,7 +52,7 @@ namespace SpaceInvaders
 		*/
 		~MemoryController();
 
-		/** IMemoryContoller Load override
+		/** Load ROM file.
 
 			Loads the specified rom file and the given memory address offset.
 
@@ -67,7 +67,7 @@ namespace SpaceInvaders
 		*/
 		void Load(std::filesystem::path romFile, uint16_t offset) override final;
 
-		/** IMemoryContoller Size override.
+		/** Memory size.
 
 			Returns the size of the memory, in our example it will be 64k (2^addressBusSize(16))
 
@@ -75,7 +75,7 @@ namespace SpaceInvaders
 		*/
 		size_t Size() const override final;
 
-		/** IController Read virtual override
+		/** Read from controller.
 
 			Reads 8 bits of data from the specifed 16 bit memory address.
 
@@ -83,7 +83,7 @@ namespace SpaceInvaders
 		*/
 		uint8_t Read(uint16_t address) override final;
 
-		/** IController Write virtual override
+		/** Write to controller.
 
 			Write 8 bits of data to the specifed 16 bit memory address.
 
@@ -91,23 +91,25 @@ namespace SpaceInvaders
 		*/
 		void Write(uint16_t address, uint8_t value) override final;
 
-		/** IController::ServiceInterrupts virtual override.
+		/** Service memory interrupts.
 
 			Memory interrupts are never generated.
 
-			The function will always return ISR::NoInterrupy.
+			The function will always return ISR::NoInterrupt.
 		*/
 		ISR ServiceInterrupts(nanoseconds currTime) override final;
 	};
 
-	/** IoController
+	/** Custom io controller.
 
 		A custom io controller targetting the Space Invaders arcade ROM.
 	*/
 	export class IoController final : public IController
 	{
 	private:
-		/** nextInterrupt_ holds the next ISR that will be sent to the cpu.
+		/** The next interrupt to execute.
+
+			nextInterrupt_ holds the next ISR that will be sent to the cpu.
 
 			Space Invaders listens for two interrupts, ISR::One and ISR::Two.
 			ISR::One is issued when the 'CRT beam' is near the center of the screen.
@@ -115,14 +117,16 @@ namespace SpaceInvaders
 		*/
 		ISR nextInterrupt_{ ISR::NoInterrupt };
 
-		/** lastTime_ hold the previous cpu time that ServiceInterrupts was last called.
+		/** Last cpu time.
+
+			lastTime_ hold the previous cpu time that ServiceInterrupts was last called.
 
 			In order to emulate a 60hz display we need to fire ISR::One and ISR::Two
 			at 60hz intervals.
 		*/
 		nanoseconds lastTime_{};
 
-		/** Dedicated Shift Hardware
+		/** Dedicated Shift Hardware.
 
 			The 8080 instruction set does not include opcodes for shifting.
 			An 8-bit pixel image must be shifted into a 16-bit word for the desired bit-position on the screen.
@@ -134,7 +138,7 @@ namespace SpaceInvaders
 		uint8_t shiftAmount_{};
 		uint8_t shiftData_{};
 	public:
-		/** IController::Read virtual override
+		/** Read from controller.
 
 			Read the value from the input device (keyboard for example)
 			and set the relevant bit in the return value according to
@@ -183,7 +187,7 @@ namespace SpaceInvaders
 		*/
 		uint8_t Read(uint16_t port) override final;
 
-		/** IController::Write virtual override
+		/** Write to controller.
 
 			Write the data to the relevant output device
 			according to the following:
@@ -227,7 +231,7 @@ namespace SpaceInvaders
 		*/
 		void Write(uint16_t port, uint8_t data) override final;
 
-		/** IController::ServiceInterrupts virtual override.
+		/** Service io interrupts.
 
 			For demonstration purposes we will return ISR::Quit
 			after 10 seconds of run time.
