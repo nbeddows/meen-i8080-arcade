@@ -119,7 +119,7 @@ namespace SpaceInvaders
 
 		/** Last cpu time.
 
-			lastTime_ hold the previous cpu time that ServiceInterrupts was last called.
+			lastTime_ holds the previous cpu time that ServiceInterrupts was last called.
 
 			In order to emulate a 60hz display we need to fire ISR::One and ISR::Two
 			at 60hz intervals.
