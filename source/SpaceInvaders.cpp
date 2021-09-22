@@ -30,7 +30,7 @@ namespace SpaceInvaders
 		*/
 
 		//A bitmap header for a 256 * 224 image @ 1bpp
-		std::array<uint8_t, 62> bmpHeader
+		static constexpr std::array<uint8_t, 62> bmpHeader
 		{
 			0x42, 0x4D, 0x36, 0x1C, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x3E, 0x00, 0x00, 0x00, 0x28, 0x00,
 			0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0xE0, 0x00, 0x00, 0x00, 0x01, 0x00, 0x01, 0x00, 0x00, 0x00,
@@ -38,23 +38,15 @@ namespace SpaceInvaders
 			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0x00
 		};
 
-		//allocate the bitmap buffer
-		auto bmp = std::make_unique<uint8_t[]>(7230); //(256 * 224) / 8 - Video Memory + 62 - Bitmap header
-		auto bmpPtr = bmp.get();
-		//The start of video ram
-		auto memPtr = memory_.get() + 0x2400;
-		auto bmpHeaderSize = bmpHeader.size();
-
-		memcpy (bmpPtr, bmpHeader.data(), bmpHeaderSize);
-		memcpy (bmpPtr + bmpHeaderSize, memPtr, 7168);
-
 		printf ("Writing current video ram to ../roms/invaders.bmp\n");
 
 		std::ofstream fout("../roms/invaders.bmp", std::ofstream::binary);
 
 		if (fout.fail() == false)
 		{
-			fout.write (reinterpret_cast<char*>(bmpPtr), 7230);
+			fout.write(reinterpret_cast<char*>(const_cast<uint8_t*>(bmpHeader.data())), bmpHeader.size());
+			//The start of video ram is at 0x2400
+			fout.write(reinterpret_cast<char*>(memory_.get() + 0x2400), 7168); //7168 - (256 (width) * 224 (height)) / 8
 
 			if (fout.fail() == false)
 			{
@@ -64,6 +56,8 @@ namespace SpaceInvaders
 			{
 				printf ("Failed to write bitmap to ../roms/invaders.bmp.\n");
 			}
+
+			fout.close();
 		}
 		else
 		{
@@ -146,38 +140,6 @@ namespace SpaceInvaders
 
 	void IoController::Write(uint16_t port, uint8_t data)
 	{
-		/*
-			Write the data to the relevant output device
-			according to the following:
-
-			Port 2:
-				bit 0,1,2 Shift amount
-
-			Port 3: (discrete sounds)
-				bit 0=UFO (repeats)        SX0 0.raw
-				bit 1=Shot                 SX1 1.raw
-				bit 2=Flash (player die)   SX2 2.raw
-				bit 3=Invader die          SX3 3.raw
-				bit 4=Extended play        SX4
-				bit 5= AMP enable          SX5
-				bit 6= NC (not wired)
-				bit 7= NC (not wired)
-				Port 4: (discrete sounds)
-				bit 0-7 shift data (LSB on 1st write, MSB on 2nd)
-
-			Port 5:
-				bit 0=Fleet movement 1     SX6 4.raw
-				bit 1=Fleet movement 2     SX7 5.raw
-				bit 2=Fleet movement 3     SX8 6.raw
-				bit 3=Fleet movement 4     SX9 7.raw
-				bit 4=UFO Hit              SX10 8.raw
-				bit 5= NC (Cocktail mode control ... to flip screen)
-				bit 6= NC (not wired)
-				bit 7= NC (not wired)
-
-			Port 6:
-				Watchdog ... read or write to reset
-		*/
 		switch (port)
 		{
 			case 2:
