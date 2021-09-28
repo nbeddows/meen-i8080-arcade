@@ -168,7 +168,7 @@ namespace SpaceInvaders
 			A value of true indicates that the
 			references ascii key is pressed, otherwise it is released.
 		*/
-		std::array<bool, 256> keyTable_;
+		std::array<bool, 256> keyTable_{};
 
 		/** Exit control loop.
 
