@@ -1,6 +1,5 @@
-module;
-
-#include "SDL.h"
+//module;
+//#include "SDL.h"
 
 export module SpaceInvaders;
 
@@ -40,13 +39,13 @@ namespace SpaceInvaders
 			An 8bpp texture which is uncompressed from the
 			1bpp video ram.
 		*/
-		std::shared_ptr<SDL_Texture> videoRam_;
+		//std::shared_ptr<SDL_Texture> videoRam_;
 
 		/** SDL rendering state.
 
 			This will handle the video ram rendering via an SDL_Texture.
 		*/
-		std::shared_ptr<SDL_Renderer> renderer_;
+		//std::shared_ptr<SDL_Renderer> renderer_;
 	public:
 		/** Contructor.
 
@@ -58,7 +57,7 @@ namespace SpaceInvaders
 			@param		addressBusSize	The size of the address bus.
 										This will be 16.
 		*/
-		MemoryController(uint8_t addressBusSize, const std::shared_ptr<SDL_Renderer>& renderer);
+		MemoryController(uint8_t addressBusSize/*, const std::shared_ptr<SDL_Renderer>& renderer*/);
 
 		/** Destructor.
 
@@ -75,7 +74,46 @@ namespace SpaceInvaders
 			Decompress the video ram from 1bpp placing it an 8bpp SDL_Texture
 			delivering it to and SDL_Renderer for presentation.
 		*/
-		void WriteVRAM();
+		//void WriteVRAM();
+
+		/** Screen width.
+
+			Space Invaders has a width of 224 @ 1bpp.
+
+			NOTE: this differs from the vram width which is 256.
+				  (It is written to vram with a 90 degree rotation.)
+		*/
+		constexpr uint16_t GetScreenWidth() const { return 224; }
+		
+		/** Screen height.
+
+			Space Invaders has a height of 256 @ 1bpp.
+
+			NOTE: this differs from the vram height which is 224.
+				  (It is written to vram with a 90 degree rotation.)
+		*/
+		constexpr uint16_t GetScreenHeight() const { return 256; }
+
+		/** The size of the video ram.
+
+			Space Invaders has a constant size of 7168
+		*/
+		constexpr uint16_t GetVramLength() const { return 7168; }
+
+		/** Video ram.
+
+			This is a new allocation with a copy of the video ram.
+
+			@return		unique_ptr		The video ram.
+
+			NOTE: The length of the video ram returned is given by:
+
+				  GetVRAMLength()
+
+			NOTE: This isn't the best way to do this, one should use a resource pool
+				  to avoid the unnecessary allocations.
+		*/
+		std::unique_ptr<uint8_t[]> GetVram() const;
 
 		/** Load ROM file.
 
@@ -122,7 +160,7 @@ namespace SpaceInvaders
 
 			The function will always return ISR::NoInterrupt.
 		*/
-		ISR ServiceInterrupts(nanoseconds currTime) override final;
+		ISR ServiceInterrupts(nanoseconds currTime, uint64_t cycles) override final;
 	};
 
 	/** Custom io controller.
@@ -141,7 +179,14 @@ namespace SpaceInvaders
 			ISR::Two is issued when the 'CRT beam' is at the end of the screen (VBLANK start).
 		*/
 		ISR nextInterrupt_{ ISR::NoInterrupt };
+		
+		/** User defined vBlank interrupt event.
 
+			This value will be pushed as an SDL Event with the vram as the event
+			data when nextInterrupt_ == ISR::Two.
+		*/
+		int vBlankInterrupt_{};
+		
 		/** Last cpu time.
 
 			lastTime_ hold the previous cpu time that ServiceInterrupts was last called.
@@ -151,6 +196,13 @@ namespace SpaceInvaders
 		*/
 		nanoseconds lastTime_{};
 
+		/** Last cycle count.
+		
+			Last cycle count gets updated to the current running cycle count when we decide
+			to generate an interrupt, for Space Invaders this will be 16666 cpu cycles.
+		*/
+		uint64_t lastCycleCount_{};
+		
 		/** Dedicated Shift Hardware.
 
 			The 8080 instruction set does not include opcodes for shifting.
@@ -168,7 +220,7 @@ namespace SpaceInvaders
 			A value of true indicates that the
 			references ascii key is pressed, otherwise it is released.
 		*/
-		std::array<bool, 256> keyTable_{};
+		//std::array<bool, 256> keyTable_{};
 
 		/** Exit control loop.
 
@@ -191,8 +243,10 @@ namespace SpaceInvaders
 			video ram access.
 
 			@param		memoryController	The memory controller where the video ram resides.
+			@param		middleScreenIsr		The SDL event type to be triggered when ISR::One is received.
+			@param		vBlankIsr			The SDL event type to be triggered when ISR::Two is received.
 		*/
-		IoController(const std::shared_ptr<MemoryController>& memoryController);
+		IoController(const std::shared_ptr<MemoryController>& memoryController, int vBlankInterrupt);
 
 		/** Read from controller.
 
@@ -297,6 +351,6 @@ namespace SpaceInvaders
 								that it is safe to draw to the top and bottom of the
 								video ram.
 		*/
-		ISR ServiceInterrupts(nanoseconds currTime) override final;
+		ISR ServiceInterrupts(nanoseconds currTime, uint64_t cycles) override final;
 	};
 }
