@@ -10,9 +10,9 @@ Basic principles of operation:
 
 	See SpaceInvaders.ixx module documentation which documents the memory and io layout for Space Invaders.
 
-2. Write a memory and io controller which targets the desire application.
+2. Write a memory and io controller which targets the desired application.
 
-	See SpaceInvaders.cpp for a custom memory and io controller targetting Space Invaders.
+	See SpaceInvaders.cpp for a custom memory and io controller targeting Space Invaders.
 
 3. Register these controllers with an instance of Emulator::IMachine.
 

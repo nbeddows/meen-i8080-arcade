@@ -1,6 +1,11 @@
+module;
+
+#include "SDL.h"
+
 export module SpaceInvaders;
 
 import <chrono>;
+import <array>;
 import IController;
 import Base;
 
@@ -29,6 +34,19 @@ namespace SpaceInvaders
 			The memory bytes that the cpu will read from and write to.
 		*/
 		std::unique_ptr<uint8_t[]> memory_;
+
+		/** Uncompressed video ram.
+
+			An 8bpp texture which is uncompressed from the
+			1bpp video ram.
+		*/
+		std::shared_ptr<SDL_Texture> videoRam_;
+
+		/** SDL rendering state.
+
+			This will handle the video ram rendering via an SDL_Texture.
+		*/
+		std::shared_ptr<SDL_Renderer> renderer_;
 	public:
 		/** Contructor.
 
@@ -40,7 +58,7 @@ namespace SpaceInvaders
 			@param		addressBusSize	The size of the address bus.
 										This will be 16.
 		*/
-		MemoryController(uint8_t addressBusSize);
+		MemoryController(uint8_t addressBusSize, const std::shared_ptr<SDL_Renderer>& renderer);
 
 		/** Destructor.
 
@@ -51,6 +69,13 @@ namespace SpaceInvaders
 			video memory to disk as a bitmap located in roms/invaders.bmp.
 		*/
 		~MemoryController();
+
+		/* Render video RAM.
+
+			Decompress the video ram from 1bpp placing it an 8bpp SDL_Texture
+			delivering it to and SDL_Renderer for presentation.
+		*/
+		void WriteVRAM();
 
 		/** Load ROM file.
 
@@ -136,8 +161,39 @@ namespace SpaceInvaders
 		*/
 		uint8_t shiftIn_{};
 		uint8_t shiftAmount_{};
-		uint8_t shiftData_{};
+		uint16_t shiftData_{};
+
+		/** A table of ACSII keys.
+
+			A value of true indicates that the
+			references ascii key is pressed, otherwise it is released.
+		*/
+		std::array<bool, 256> keyTable_{};
+
+		/** Exit control loop.
+
+			A value of true will cause the Machine control loop to exit.
+			This can only be updated via the keyboard when the 'q' key is
+			pressed.
+		*/
+		bool quit_{};
+
+		/** Video RAM access.
+
+			When the video ram is ready to be blitted it sampled
+			from the memory controller at the vram address.
+		*/
+		std::shared_ptr<MemoryController> memoryController_;
 	public:
+		/** Initialisation contructor.
+
+			Creates an io controller which has access to the memory controller for
+			video ram access.
+
+			@param		memoryController	The memory controller where the video ram resides.
+		*/
+		IoController(const std::shared_ptr<MemoryController>& memoryController);
+
 		/** Read from controller.
 
 			Read the value from the input device (keyboard for example)
