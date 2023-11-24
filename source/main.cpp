@@ -1,4 +1,5 @@
 #include <exception>
+#include <future>
 #define SDL_MAIN_HANDLED
 #include "SDL.h"
 
@@ -24,10 +25,10 @@ int main(void)
 
 		if (SDL_Init(SDL_INIT_VIDEO) < 0)
 		{
-			throw; //std::runtime_error();
+			throw std::runtime_error("Failed to initialise SDL");
 		}
 
-		auto window = std::shared_ptr<SDL_Window>(SDL_CreateWindow("Space Invaders", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 256, 224, 0), [](SDL_Window* w) { SDL_DestroyWindow(w); });
+		auto window = std::shared_ptr<SDL_Window>(SDL_CreateWindow("Space Invaders", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 224, 256, 0/*SDL_WINDOW_FULLSCREEN*/), [](SDL_Window* w) { SDL_DestroyWindow(w); });
 
 		if (window == nullptr)
 		{
@@ -41,13 +42,31 @@ int main(void)
 			throw std::bad_alloc();
 		}
 
+		// Create a custom event for the vBlank interrupt.
+		// The vBlank interrupt will fire when the 'crt beam'
+		// is at end of the video display, ie; the start of
+		// the vBlank. This allows us to drive the render loop.
+		auto vBlankInterrupt = SDL_RegisterEvents (1);
+
+		if (vBlankInterrupt == 0xFFFFFFFF)
+		{
+			throw std::bad_alloc();
+		}
+
 		//The machine to run Space Invaders on.
 		auto machine = MakeMachine();
 		//Create our custom Space Invaders memory controller.
-		auto memoryController = std::make_shared<MemoryController>(16, renderer);
+		auto memoryController = std::make_shared<MemoryController>(16/* renderer*/);
 		//Create our custom Space Invaders I/O controller.
-		auto ioController = std::make_shared<IoController>(memoryController);
+		auto ioController = std::make_shared<IoController>(memoryController, vBlankInterrupt);
 
+		SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "linear");
+		auto texture = std::shared_ptr<SDL_Texture>(SDL_CreateTexture(renderer.get(),
+																	SDL_PIXELFORMAT_RGB332,
+																	SDL_TEXTUREACCESS_STREAMING,
+																	memoryController->GetScreenWidth(),
+																	memoryController->GetScreenHeight()),
+																	[]([[maybe_unused]] SDL_Texture* t) {});
 		/*
 			Load the ROM into memory, the layout
 			is as follows:
@@ -67,7 +86,69 @@ int main(void)
 		machine->SetIoController(ioController);
 
 		//Only returns when signalled by an I/O device, for our demonstration it will be when the 'q' key is pressed.
-		machine->Run(0x00);
+		auto future = std::async(std::launch::async, [&]
+		{
+			machine->Run(0x00);
+		});
+
+		SDL_Event event;
+		bool quit = false;
+
+		auto writeVramToTexture = [&](uint8_t* vram)
+		{
+			uint8_t* pix = nullptr;
+			int rowBytes = 0;
+
+			if (SDL_LockTexture(texture.get(), nullptr, reinterpret_cast<void**>(&pix), &rowBytes) == 0)
+			{
+				auto vramEnd = vram + memoryController->GetVramLength();
+				int8_t shift = 0;
+				//Since we are decompressing the video ram, we will also perform the
+				//required 270 degree rotation.
+				auto start = pix + rowBytes * (memoryController->GetScreenHeight() - 1);
+				auto ptr = pix;
+
+				while (vram < vramEnd)
+				{
+					//Decompress the vram from 1bpp to 8bpp.
+					*ptr = ((*vram >> shift) & 0x01) * 0xFF; //0xFF - The 8 bit colour to decompress to, in this case white, but it could be anything within the 8 bit range.
+					//Cycle the shift value between 0-7.
+					shift = ++shift & 0x07;
+					//Move to the next vram byte if we have done a full cycle.
+					vram += shift == 0;
+					//If we are not at the end, move to the next row, otherwise move to the next column.
+					ptr - rowBytes >= pix ? ptr -= rowBytes : ptr = ++start;
+				}
+
+				SDL_UnlockTexture(texture.get());
+			}
+		};
+
+		while (quit == false)
+		{
+			if (SDL_WaitEvent(&event))
+			{
+				if (event.type == SDL_KEYDOWN)
+				{
+					if (event.key.keysym.sym == SDLK_q)
+					{
+						quit = true;
+					}
+				}
+				else if (event.type == vBlankInterrupt)
+				{
+					auto vram = std::unique_ptr<uint8_t[]>(static_cast<uint8_t*>(event.user.data1));
+
+					writeVramToTexture(vram.get());
+
+					SDL_RenderCopy(renderer.get(), texture.get(), nullptr, nullptr);
+					SDL_RenderPresent(renderer.get());
+				}
+			}
+		}
+
+		//Wait for the machine to finish.
+		future.wait();
 
 		SDL_Quit();
 	}
