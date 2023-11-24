@@ -206,8 +206,7 @@ namespace SpaceInvaders
 			video ram access.
 
 			@param		memoryController	The memory controller where the video ram resides.
-			@param		middleScreenIsr		The SDL event type to be triggered when ISR::One is received.
-			@param		vBlankIsr			The SDL event type to be triggered when ISR::Two is received.
+			@param		vBlankInterrupt		An event id to signal when a vBlank interrupt occurs.
 		*/
 		IoController(const std::shared_ptr<MemoryController>& memoryController, int vBlankInterrupt);
 
