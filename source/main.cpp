@@ -17,34 +17,6 @@ import MachineFactory;
 using namespace SpaceInvaders;
 using namespace Emulator;
 
-/*
-static int display_in_use = 0; // Only using first display
-
-int i, display_mode_count;
-SDL_DisplayMode mode;
-Uint32 f;
-
-SDL_Log("SDL_GetNumVideoDisplays(): %i", SDL_GetNumVideoDisplays());
-
-display_mode_count = SDL_GetNumDisplayModes(display_in_use);
-if (display_mode_count < 1) {
-	SDL_Log("SDL_GetNumDisplayModes failed: %s", SDL_GetError());
-	return 1;
-}
-SDL_Log("SDL_GetNumDisplayModes: %i", display_mode_count);
-
-for (i = 0; i < display_mode_count; ++i) {
-	if (SDL_GetDisplayMode(display_in_use, i, &mode) != 0) {
-		SDL_Log("SDL_GetDisplayMode failed: %s", SDL_GetError());
-		return 1;
-	}
-	f = mode.format;
-
-	SDL_Log("Mode %i\tbpp %i\t%s\t%i x %i", i,
-		SDL_BITSPERPIXEL(f), SDL_GetPixelFormatName(f), mode.w, mode.h);
-}
-*/
-
 int main(void)
 {
 	try
@@ -53,7 +25,7 @@ int main(void)
 
 		if (SDL_Init(SDL_INIT_VIDEO) < 0)
 		{
-			throw; //std::runtime_error();
+			throw std::runtime_error("Failed to initialise SDL");
 		}
 
 		auto window = std::shared_ptr<SDL_Window>(SDL_CreateWindow("Space Invaders", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 224, 256, 0/*SDL_WINDOW_FULLSCREEN*/), [](SDL_Window* w) { SDL_DestroyWindow(w); });
@@ -108,11 +80,6 @@ int main(void)
 		memoryController->Load("../roms/invaders-g.bin", 0x0800);
 		memoryController->Load("../roms/invaders-f.bin", 0x1000);
 		memoryController->Load("../roms/invaders-e.bin", 0x1800);
-
-		//memoryController->Load("../roms/INVADERS.H", 0x0000);
-		//memoryController->Load("../roms/INVADERS.G", 0x0800);
-		//memoryController->Load("../roms/INVADERS.F", 0x1000);
-		//memoryController->Load("../roms/INVADERS.E", 0x1800);
 
 		//Load our controllers into the machine.
 		machine->SetMemoryController(memoryController);

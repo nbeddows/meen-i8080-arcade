@@ -1,6 +1,3 @@
-//module;
-//#include "SDL.h"
-
 export module SpaceInvaders;
 
 import <chrono>;
@@ -34,18 +31,6 @@ namespace SpaceInvaders
 		*/
 		std::unique_ptr<uint8_t[]> memory_;
 
-		/** Uncompressed video ram.
-
-			An 8bpp texture which is uncompressed from the
-			1bpp video ram.
-		*/
-		//std::shared_ptr<SDL_Texture> videoRam_;
-
-		/** SDL rendering state.
-
-			This will handle the video ram rendering via an SDL_Texture.
-		*/
-		//std::shared_ptr<SDL_Renderer> renderer_;
 	public:
 		/** Contructor.
 
@@ -57,24 +42,9 @@ namespace SpaceInvaders
 			@param		addressBusSize	The size of the address bus.
 										This will be 16.
 		*/
-		MemoryController(uint8_t addressBusSize/*, const std::shared_ptr<SDL_Renderer>& renderer*/);
+		MemoryController(uint8_t addressBusSize);
 
-		/** Destructor.
-
-			Performs operations that are required when the memory controller
-			will be destroyed.
-
-			For this demonstration, we are going to write out the state of the
-			video memory to disk as a bitmap located in roms/invaders.bmp.
-		*/
-		~MemoryController();
-
-		/* Render video RAM.
-
-			Decompress the video ram from 1bpp placing it an 8bpp SDL_Texture
-			delivering it to and SDL_Renderer for presentation.
-		*/
-		//void WriteVRAM();
+		~MemoryController() = default;
 
 		/** Screen width.
 
@@ -214,13 +184,6 @@ namespace SpaceInvaders
 		uint8_t shiftIn_{};
 		uint8_t shiftAmount_{};
 		uint16_t shiftData_{};
-
-		/** A table of ACSII keys.
-
-			A value of true indicates that the
-			references ascii key is pressed, otherwise it is released.
-		*/
-		//std::array<bool, 256> keyTable_{};
 
 		/** Exit control loop.
 
