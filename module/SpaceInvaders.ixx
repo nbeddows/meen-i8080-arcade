@@ -1,3 +1,7 @@
+module;
+
+#include "SDL.h"
+
 export module SpaceInvaders;
 
 import <chrono>;
@@ -137,7 +141,7 @@ namespace SpaceInvaders
 
 		A custom io controller targetting the Space Invaders arcade ROM.
 	*/
-	export class IoController final : public IController
+	class IoController : public IController
 	{
 	private:
 		/** The next interrupt to execute.
@@ -148,14 +152,7 @@ namespace SpaceInvaders
 			ISR::One is issued when the 'CRT beam' is near the center of the screen.
 			ISR::Two is issued when the 'CRT beam' is at the end of the screen (VBLANK start).
 		*/
-		ISR nextInterrupt_{ ISR::NoInterrupt };
-		
-		/** User defined vBlank interrupt event.
-
-			This value will be pushed as an SDL Event with the vram as the event
-			data when nextInterrupt_ == ISR::Two.
-		*/
-		int vBlankInterrupt_{};
+		ISR nextInterrupt_{ ISR::One };
 		
 		/** Last cpu time.
 
@@ -185,20 +182,21 @@ namespace SpaceInvaders
 		uint8_t shiftAmount_{};
 		uint16_t shiftData_{};
 
+	protected:
+		/** Video RAM access.
+
+				When the video ram is ready to be blitted it sampled
+				from the memory controller at the vram address.
+			*/
+		std::shared_ptr<MemoryController> memoryController_;
+		
 		/** Exit control loop.
 
 			A value of true will cause the Machine control loop to exit.
-			This can only be updated via the keyboard when the 'q' key is
-			pressed.
+			This can be set, for example, when the keyboard 'q' key is pressed.
 		*/
 		bool quit_{};
 
-		/** Video RAM access.
-
-			When the video ram is ready to be blitted it sampled
-			from the memory controller at the vram address.
-		*/
-		std::shared_ptr<MemoryController> memoryController_;
 	public:
 		/** Initialisation contructor.
 
@@ -206,9 +204,8 @@ namespace SpaceInvaders
 			video ram access.
 
 			@param		memoryController	The memory controller where the video ram resides.
-			@param		vBlankInterrupt		An event id to signal when a vBlank interrupt occurs.
 		*/
-		IoController(const std::shared_ptr<MemoryController>& memoryController, int vBlankInterrupt);
+		IoController(const std::shared_ptr<MemoryController>& memoryController);
 
 		/** Read from controller.
 
@@ -249,15 +246,13 @@ namespace SpaceInvaders
 			Port 3
 				bit 0-7 Shift register data
 
-			Currently, a message with the port number is printed out and zero will be returned.
-
 			@param		port		The input device to read from.
 
-			@return		uint8_t		Currently this always returns 0.
+			@return		uint8_t		non zero if the port was read from, zero otherwise.
 
 			@todo		Complete the port reading and data writing according to the above information.
 		*/
-		uint8_t Read(uint16_t port) override final;
+		uint8_t ReadFrom(uint16_t port);
 
 		/** Write to controller.
 
@@ -292,27 +287,44 @@ namespace SpaceInvaders
 			Port 6:
 				Watchdog ... read or write to reset
 
-			Currently we are just printing a message with port and
-			specified data.
-
 			@param	port	The output device to write to.
 			@param	data	The data to write to the output device.
 
+			@return	uint8_t	1 if the data on the port was handled, 0 otherwise.
+			
 			@todo			Write data to the specified output device according to
 							the above information.
 		*/
-		void Write(uint16_t port, uint8_t data) override final;
+		uint8_t WriteTo(uint16_t port, uint8_t data);
 
 		/** Service io interrupts.
 
-			For demonstration purposes we will return ISR::Quit
-			after 10 seconds of run time.
+			Return ISR::One and ISR::Two at 60hz intervals.
+			This informs the ROM that it is safe to draw to
+			the top and bottom of the video ram.
 
-			@return		ISR		During the 10 seconds of run time ISR::One and ISR::Two
-								will be returned at 60hz intervals. This informs the ROM
-								that it is safe to draw to the top and bottom of the
-								video ram.
+			@return		ISR		ISR::One when the 'beam' is near the centre of the screen,
+								ISR::Two when the 'beam' is at the end (vBlank). 
 		*/
-		ISR ServiceInterrupts(nanoseconds currTime, uint64_t cycles) override final;
+		ISR ServiceInterrupts(nanoseconds currTime, uint64_t cycles);
+	};
+
+	/** Custom SDL io controller.
+
+		A custom io controller targetting the Space Invaders arcade ROM.
+	*/
+	export class SdlIoController final : public IoController
+	{
+		private:
+			SDL_Renderer* renderer_{};
+			SDL_Texture* texture_{};
+			SDL_Window* window_{};
+		public:
+			SdlIoController(const std::shared_ptr<MemoryController>& memoryController);
+			~SdlIoController();
+
+			uint8_t Read(uint16_t port) final;
+			void Write(uint16_t port, uint8_t data) final;
+			ISR ServiceInterrupts(nanoseconds currTime, uint64_t cycles) final;
 	};
 }
