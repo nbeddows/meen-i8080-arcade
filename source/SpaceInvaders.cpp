@@ -155,6 +155,29 @@ namespace SpaceInvaders
 		return isr;
 	}
 
+	void IoController::Blit(uint8_t* texture, uint8_t rowBytes)
+	{
+		auto vram = memoryController_->GetVram().release();
+		auto vramEnd = vram + memoryController_->GetVramLength();
+		int8_t shift = 0;
+		//Since we are decompressing the video ram, we will also perform the
+		//required 270 degree rotation.
+		auto start = texture + rowBytes * (memoryController_->GetScreenHeight() - 1);
+		auto ptr = texture;
+
+		while (vram < vramEnd)
+		{
+			//Decompress the vram from 1bpp to 8bpp.
+			*ptr = ((*vram >> shift) & 0x01) * 0xFF; // 0xFF - The 8 bit colour to decompress to, in this case white, but it could be anything within the 8 bit range.
+			//Cycle the shift value between 0-7.
+			shift = ++shift & 0x07;
+			//Move to the next vram byte if we have done a full cycle.
+			vram += shift == 0;
+			//If we are not at the end, move to the next row, otherwise move to the next column.
+			ptr - rowBytes >= texture ? ptr -= rowBytes : ptr = ++start;
+		}
+	}
+
 	SdlIoController::SdlIoController(const std::shared_ptr<MemoryController>& memoryController)
 		: IoController(memoryController)
 	{
@@ -288,26 +311,7 @@ namespace SpaceInvaders
 
 			if (SDL_LockTexture(texture_, nullptr, reinterpret_cast<void**>(&pix), &rowBytes) == 0)
 			{
-				auto vram = memoryController_->GetVram().release();
-				auto vramEnd = vram + memoryController_->GetVramLength();
-				int8_t shift = 0;
-				//Since we are decompressing the video ram, we will also perform the
-				//required 270 degree rotation.
-				auto start = pix + rowBytes * (memoryController_->GetScreenHeight() - 1);
-				auto ptr = pix;
-
-				while (vram < vramEnd)
-				{
-					//Decompress the vram from 1bpp to 8bpp.
-					*ptr = ((*vram >> shift) & 0x01) * 0xFF; // 0xFF - The 8 bit colour to decompress to, in this case white, but it could be anything within the 8 bit range.
-					//Cycle the shift value between 0-7.
-					shift = ++shift & 0x07;
-					//Move to the next vram byte if we have done a full cycle.
-					vram += shift == 0;
-					//If we are not at the end, move to the next row, otherwise move to the next column.
-					ptr - rowBytes >= pix ? ptr -= rowBytes : ptr = ++start;
-				}
-
+				IoController::Blit(pix, rowBytes);
 				SDL_UnlockTexture(texture_);
 			}
 

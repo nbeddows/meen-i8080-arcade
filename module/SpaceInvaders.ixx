@@ -307,6 +307,18 @@ namespace SpaceInvaders
 								ISR::Two when the 'beam' is at the end (vBlank). 
 		*/
 		ISR ServiceInterrupts(nanoseconds currTime, uint64_t cycles);
+
+		/** Write space invaders vram to texture.
+		
+			The vram is written with a 90 degree rotation, therefore it needs to be
+			rotated a further 270 degrees so it can be rendered with the correct
+			orientation.
+
+			@param	texture		the video memory to write to.
+			@param	rowBytes	the width of each scanline in bytes.
+
+		*/
+		void Blit(uint8_t* texture, uint8_t rowBytes);
 	};
 
 	/** Custom SDL io controller.
