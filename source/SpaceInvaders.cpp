@@ -259,7 +259,7 @@ namespace SpaceInvaders
 					processKeyTable(SDL_SCANCODE_5, "5 Ships", 0x02);
 					processKeyTable(SDL_SCANCODE_6, "6 Ships", 0x03);
 					processKeyTable(SDL_SCANCODE_T, "Tilt", 0x04);
-					processKeyTable(SDL_SCANCODE_E, "Extra ship at", 0x04);
+					processKeyTable(SDL_SCANCODE_E, "Extra ship at", 0x08);
 					processKeyTable(SDL_SCANCODE_J, "2P Left", 0x20);
 					processKeyTable(SDL_SCANCODE_K, "2P Fire", 0x10);
 					processKeyTable(SDL_SCANCODE_L, "2P Right", 0x40);
