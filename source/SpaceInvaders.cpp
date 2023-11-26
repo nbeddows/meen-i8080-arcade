@@ -98,26 +98,84 @@ namespace SpaceInvaders
 		return 0;
 	}
 
-	uint8_t IoController::WriteTo(uint16_t port, uint8_t data)
+	uint16_t IoController::WriteTo(uint16_t port, uint8_t data)
 	{
+		uint8_t action = OutputAction::NoAction;
+
 		if (port == 2)
 		{
 			//Writing to port 2 (bits 0, 1, 2) sets the offset for the 8 bit result
 			shiftAmount_ = data & 0x07; //we are only interested in the first 3 bits
-			return 1;
+		}
+		else if (port == 3)
+		{
+			if ((data & 0x01) > (port3Byte_ & 0x01))
+			{
+				action |= OutputAction::Ufo;
+			}
+
+			if ((data & 0x02) > (port3Byte_ & 0x02))
+			{
+				action |= OutputAction::Shot;
+			}
+
+			if ((data & 0x04) > (port3Byte_ & 0x04))
+			{
+				action |= OutputAction::PlayerKilled;
+			}
+
+			if ((data & 0x08) > (port3Byte_ & 0x08))
+			{
+				action |= OutputAction::InvaderKilled;
+			}
+
+			port3Byte_ = data;
 		}
 		else if (port == 4)
 		{
 			shiftData_ = (shiftData_ >> 8) | (static_cast<uint16_t>(data) << 8);
-			return 1;
+		}
+		else if (port == 5)
+		{
+			if ((data & 0x01) > (port5Byte_ & 0x01))
+			{
+				action |= OutputAction::FleetMovement1;
+			}
+
+			if ((data & 0x02) > (port5Byte_ & 0x02))
+			{
+				action |= OutputAction::FleetMovement2;
+			}
+
+			if ((data & 0x04) > (port5Byte_ & 0x04))
+			{
+				action |= OutputAction::FleetMovement3;
+			}
+
+			if ((data & 0x08) > (port5Byte_ & 0x08))
+			{
+				action |= OutputAction::FleetMovement4;
+			}
+
+			if ((data & 0x10) > (port5Byte_ & 0x10))
+			{
+				action |= OutputAction::UfoHit;
+			}
+
+			port5Byte_ = data;
 		}
 		else if (port == 6)
 		{
 			//printf("Watch-dog: %d\n", data);
-			return 1;
+		}
+		else
+		{
+			// Force a failure
+			assert(port >= 2 && port <= 6);
+			//printf("Unknown device: %d\n", data);
 		}
 
-		return 0;
+		return action;
 	}
 
 	ISR IoController::ServiceInterrupts(nanoseconds currTime, uint64_t cycles)
@@ -203,7 +261,6 @@ namespace SpaceInvaders
 		}
 
 		SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "linear");
-
 		texture_ = SDL_CreateTexture(renderer_, SDL_PIXELFORMAT_RGB332, SDL_TEXTUREACCESS_STREAMING, memoryController_->GetScreenWidth(), memoryController_->GetScreenHeight());
 	}
 
@@ -279,24 +336,51 @@ namespace SpaceInvaders
 
 	void SdlIoController::Write(uint16_t port, uint8_t data)
 	{
-		auto ret = IoController::WriteTo(port, data);
+		auto action = IoController::WriteTo(port, data);
 
-		if (ret == 0)
+		if (action | OutputAction::Ufo)
 		{
-			if (port == 3)
-			{
-				//printf("Sound bits L: %d\n", data);
-			}
-			else if (port == 5)
-			{
-				//printf("Sound bits R: %d\n", data);
-			}
-			else
-			{
-				// Force a failure
-				assert (port == 3 || port == 5);
-				//printf("Unknown device: %d\n", data);
-			}
+
+		}
+
+		if (action & OutputAction::Shot)
+		{
+
+		}
+			
+		if (action & OutputAction::PlayerKilled)
+		{
+
+		}
+		
+		if (action & OutputAction::InvaderKilled)
+		{
+
+		}
+
+		if (action & OutputAction::FleetMovement1)
+		{
+
+		}
+		
+		if (action & OutputAction::FleetMovement2)
+		{
+
+		}
+		
+		if (action & OutputAction::FleetMovement3)
+		{
+
+		}
+			
+		if (action & OutputAction::FleetMovement4)
+		{
+
+		}
+			
+		if (action & OutputAction::UfoHit)
+		{
+
 		}
 	}
 

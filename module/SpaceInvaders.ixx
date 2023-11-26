@@ -182,12 +182,22 @@ namespace SpaceInvaders
 		uint8_t shiftAmount_{};
 		uint16_t shiftData_{};
 
+		/**	Backup port 3 and port 5 bytes.
+		
+			These ports are used for writing to an output audio device.
+			We only want to write the audio when the required port bit
+			changes from off to on, hence we need to backup these bytes
+			to make that comparison.
+		*/
+		uint8_t port3Byte_{};
+		uint8_t port5Byte_{};
+
 	protected:
 		/** Video RAM access.
 
-				When the video ram is ready to be blitted it sampled
-				from the memory controller at the vram address.
-			*/
+			When the video ram is ready to be blitted it is sampled
+			from the memory controller at the vram address.
+		*/
 		std::shared_ptr<MemoryController> memoryController_;
 		
 		/** Exit control loop.
@@ -196,6 +206,25 @@ namespace SpaceInvaders
 			This can be set, for example, when the keyboard 'q' key is pressed.
 		*/
 		bool quit_{};
+
+		/** Output device action.
+		
+			For Space Invaders we need to play audio when certain ports are
+			written to.
+		*/
+		enum OutputAction
+		{
+			NoAction,					//!	Do not write to an output device.
+			Ufo = 1 << 0,				//! Write ufo to the output audio device. This occurs when the uf appears.
+			Shot = 1 << 1,				//! Write shoot to the output audio device. This occurs when a player fires.
+			PlayerKilled = 1 << 2,		//!	Write explosion to the output audio device. This occurs when the player dies.
+			InvaderKilled = 1 << 3,		//! Write invader killed to the output audio device. This occurs when an invader dies.
+			FleetMovement1 = 1 << 4,	//!	Write fast invader 1 to the output audio device. This is for slow invader fleet movement.
+			FleetMovement2 = 1 << 5,	//!	Write fast invader 2 to the output audio device. This is for medium invader fleet movement.
+			FleetMovement3 = 1 << 6,	//!	Write fast invader 3 to the output audio device. This is for high invader fleet movement.
+			FleetMovement4 = 1 << 7,	//!	Write fast invader 4 to the output audio device. This is for ultra high invader fleet movement.
+			UfoHit = 1 << 8				//!	Write ufo hit to the output audio device. This occurs when the ufo is hit.
+		};
 
 	public:
 		/** Initialisation contructor.
@@ -287,15 +316,15 @@ namespace SpaceInvaders
 			Port 6:
 				Watchdog ... read or write to reset
 
-			@param	port	The output device to write to.
-			@param	data	The data to write to the output device.
+			@param	port		The output device to write to.
+			@param	data		The data to write to the output device.
 
-			@return	uint8_t	1 if the data on the port was handled, 0 otherwise.
+			@return	uint16_t	1 if the data on the port was handled, 0 otherwise.
 			
-			@todo			Write data to the specified output device according to
-							the above information.
+			@todo				Write data to the specified output device according to
+								the above information.
 		*/
-		uint8_t WriteTo(uint16_t port, uint8_t data);
+		uint16_t WriteTo(uint16_t port, uint8_t data);
 
 		/** Service io interrupts.
 
@@ -331,6 +360,7 @@ namespace SpaceInvaders
 			SDL_Renderer* renderer_{};
 			SDL_Texture* texture_{};
 			SDL_Window* window_{};
+
 		public:
 			SdlIoController(const std::shared_ptr<MemoryController>& memoryController);
 			~SdlIoController();
