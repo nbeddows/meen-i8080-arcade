@@ -1,11 +1,13 @@
 module;
 
 #include "SDL.h"
+#include "SDL_mixer.h"
 
 export module SpaceInvaders;
 
 import <chrono>;
 import <array>;
+import <bitset>;
 import IController;
 import Base;
 
@@ -193,6 +195,8 @@ namespace SpaceInvaders
 		uint8_t port5Byte_{};
 
 	protected:
+		static constexpr uint8_t totalWavFiles_ = 16; //! The total number of output audio sample files.
+
 		/** Video RAM access.
 
 			When the video ram is ready to be blitted it is sampled
@@ -207,23 +211,29 @@ namespace SpaceInvaders
 		*/
 		bool quit_{};
 
-		/** Output device action.
-		
-			For Space Invaders we need to play audio when certain ports are
-			written to.
+		/** The audio files to use for sound effects.
+
+			NOTE: DO NOT change the order of these files as they corrospond to the
+			correct port number bits of port 3 (low 8 bits) and 5 (high 8 bits)
 		*/
-		enum OutputAction
+		std::array<const char*, totalWavFiles_> wavFiles_ 
 		{
-			NoAction,					//!	Do not write to an output device.
-			Ufo = 1 << 0,				//! Write ufo to the output audio device. This occurs when the uf appears.
-			Shot = 1 << 1,				//! Write shoot to the output audio device. This occurs when a player fires.
-			PlayerKilled = 1 << 2,		//!	Write explosion to the output audio device. This occurs when the player dies.
-			InvaderKilled = 1 << 3,		//! Write invader killed to the output audio device. This occurs when an invader dies.
-			FleetMovement1 = 1 << 4,	//!	Write fast invader 1 to the output audio device. This is for slow invader fleet movement.
-			FleetMovement2 = 1 << 5,	//!	Write fast invader 2 to the output audio device. This is for medium invader fleet movement.
-			FleetMovement3 = 1 << 6,	//!	Write fast invader 3 to the output audio device. This is for high invader fleet movement.
-			FleetMovement4 = 1 << 7,	//!	Write fast invader 4 to the output audio device. This is for ultra high invader fleet movement.
-			UfoHit = 1 << 8				//!	Write ufo hit to the output audio device. This occurs when the ufo is hit.
+			"../roms/ufo_highpitch.wav",	//! UFO
+			"../roms/shoot.wav",			//! Player fire
+			"../roms/explosion.wav",		//! Player killed
+			"../roms/invaderkilled.wav",	//!	Invader killed
+			nullptr,						//! Extended Play
+			nullptr,						//! AMP Enable
+			nullptr,						//! Unused
+			nullptr,						//! Unused
+			"../roms/fastinvader1.wav",		//! Invader fleet movement 1
+			"../roms/fastinvader2.wav",		//! Invader fleet movement 1
+			"../roms/fastinvader3.wav",		//! Invader fleet movement 1
+			"../roms/fastinvader4.wav",		//! Invader fleet movement 1
+			"../roms/ufo_lowpitch.wav",		//! UFO hit
+			nullptr,						//! Unused
+			nullptr,						//! Unused
+			nullptr							//! Unused
 		};
 
 	public:
@@ -324,7 +334,7 @@ namespace SpaceInvaders
 			@todo				Write data to the specified output device according to
 								the above information.
 		*/
-		uint16_t WriteTo(uint16_t port, uint8_t data);
+		std::bitset<16> WriteTo(uint16_t port, uint8_t data);
 
 		/** Service io interrupts.
 
@@ -360,6 +370,7 @@ namespace SpaceInvaders
 			SDL_Renderer* renderer_{};
 			SDL_Texture* texture_{};
 			SDL_Window* window_{};
+			std::array<Mix_Chunk*, totalWavFiles_> mixChunk_;
 
 		public:
 			SdlIoController(const std::shared_ptr<MemoryController>& memoryController);

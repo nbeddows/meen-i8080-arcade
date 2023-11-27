@@ -4,6 +4,7 @@ module;
 #include <fstream>
 #define SDL_MAIN_HANDLED
 #include "SDL.h"
+#include "SDL_mixer.h"
 
 module SpaceInvaders;
 
@@ -98,9 +99,9 @@ namespace SpaceInvaders
 		return 0;
 	}
 
-	uint16_t IoController::WriteTo(uint16_t port, uint8_t data)
+	std::bitset<16> IoController::WriteTo(uint16_t port, uint8_t data)
 	{
-		uint8_t action = OutputAction::NoAction;
+		std::bitset<16> audio = 0;
 
 		if (port == 2)
 		{
@@ -109,24 +110,13 @@ namespace SpaceInvaders
 		}
 		else if (port == 3)
 		{
-			if ((data & 0x01) > (port3Byte_ & 0x01))
-			{
-				action |= OutputAction::Ufo;
-			}
+			// Ufo audio repeats, so we'll handle that as a separate case
+			audio[0] = (data & 1) | (port3Byte_ & 1);
 
-			if ((data & 0x02) > (port3Byte_ & 0x02))
+			for (int i = 1; i < 8; i++)
 			{
-				action |= OutputAction::Shot;
-			}
-
-			if ((data & 0x04) > (port3Byte_ & 0x04))
-			{
-				action |= OutputAction::PlayerKilled;
-			}
-
-			if ((data & 0x08) > (port3Byte_ & 0x08))
-			{
-				action |= OutputAction::InvaderKilled;
+				// Fill the low 8 bits
+				audio[i] = (data & (1 << i)) > (port3Byte_ & (1 << i));
 			}
 
 			port3Byte_ = data;
@@ -137,29 +127,10 @@ namespace SpaceInvaders
 		}
 		else if (port == 5)
 		{
-			if ((data & 0x01) > (port5Byte_ & 0x01))
+			for (int i = 0; i < 8; i++)
 			{
-				action |= OutputAction::FleetMovement1;
-			}
-
-			if ((data & 0x02) > (port5Byte_ & 0x02))
-			{
-				action |= OutputAction::FleetMovement2;
-			}
-
-			if ((data & 0x04) > (port5Byte_ & 0x04))
-			{
-				action |= OutputAction::FleetMovement3;
-			}
-
-			if ((data & 0x08) > (port5Byte_ & 0x08))
-			{
-				action |= OutputAction::FleetMovement4;
-			}
-
-			if ((data & 0x10) > (port5Byte_ & 0x10))
-			{
-				action |= OutputAction::UfoHit;
+				// Fill the high 8 bits
+				audio[i + 8] = (data & (1 << i)) > (port5Byte_ & (1 << i));
 			}
 
 			port5Byte_ = data;
@@ -175,7 +146,7 @@ namespace SpaceInvaders
 			//printf("Unknown device: %d\n", data);
 		}
 
-		return action;
+		return audio;
 	}
 
 	ISR IoController::ServiceInterrupts(nanoseconds currTime, uint64_t cycles)
@@ -241,7 +212,7 @@ namespace SpaceInvaders
 	{
 		SDL_SetMainReady();
 
-		if (SDL_Init(SDL_INIT_VIDEO) < 0)
+		if (SDL_Init(SDL_INIT_VIDEO|SDL_INIT_AUDIO) < 0)
 		{
 			throw std::runtime_error("Failed to initialise SDL");
 		}
@@ -262,6 +233,28 @@ namespace SpaceInvaders
 
 		SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "linear");
 		texture_ = SDL_CreateTexture(renderer_, SDL_PIXELFORMAT_RGB332, SDL_TEXTUREACCESS_STREAMING, memoryController_->GetScreenWidth(), memoryController_->GetScreenHeight());
+	
+		if (texture_ == nullptr)
+		{
+			throw std::bad_alloc();
+		}
+		
+		if (Mix_OpenAudio(11025 /* frequency */, 8 /* format (mono) */, 1 /* channels */, 4096 /* sample size */) < 0)
+		{
+			throw std::runtime_error("Failed to open SDL Mixer");
+		}
+		
+		// static_assert(wavFiles_.size() == mixChunk_.size());
+
+		for (int i = 0; i < totalWavFiles_; i++)
+		{
+			mixChunk_[i] = Mix_LoadWAV(wavFiles_[i]);
+
+			if (wavFiles_[i] && mixChunk_[i] == nullptr)
+			{
+				throw std::bad_alloc();
+			}
+		}
 	}
 
 	SdlIoController::~SdlIoController()
@@ -275,6 +268,13 @@ namespace SpaceInvaders
 		{
 			SDL_DestroyWindow(window_);
 		}
+
+		for (auto& chunk : mixChunk_)
+		{
+			Mix_FreeChunk(chunk);
+		}
+		
+		Mix_CloseAudio();
 
 		SDL_Quit();
 	}
@@ -336,51 +336,25 @@ namespace SpaceInvaders
 
 	void SdlIoController::Write(uint16_t port, uint8_t data)
 	{
-		auto action = IoController::WriteTo(port, data);
+		auto audio = IoController::WriteTo(port, data);
 
-		if (action | OutputAction::Ufo)
+		if (audio.any() == true)
 		{
+			// Trim the start and end offsets as only one port can be set ... could do without, just means we always loop 16 times instead of just 8.
+			uint8_t start = (port - 3) << 2; // 3 - the lowest possible port
+			uint8_t end = 16 - (8 - start);
 
-		}
+			for(int i = start; i < end; i++)
+			{
+				if (audio.test(i) == true)
+				{
+					[[maybe_unused]] auto busy = Mix_PlayChannel(-1 /* use the next available channel */, mixChunk_[i], 0 /* don't loop (play it once) */);
+					// We are playing 8 (default maximum) samples at the same time, this should not happen!
+					// We are trying to play a track which isn't loaded (an unknown data bit is set?!?!)
+					//assert(mixChunk_ != nullptr && busy != -1);
 
-		if (action & OutputAction::Shot)
-		{
-
-		}
-			
-		if (action & OutputAction::PlayerKilled)
-		{
-
-		}
-		
-		if (action & OutputAction::InvaderKilled)
-		{
-
-		}
-
-		if (action & OutputAction::FleetMovement1)
-		{
-
-		}
-		
-		if (action & OutputAction::FleetMovement2)
-		{
-
-		}
-		
-		if (action & OutputAction::FleetMovement3)
-		{
-
-		}
-			
-		if (action & OutputAction::FleetMovement4)
-		{
-
-		}
-			
-		if (action & OutputAction::UfoHit)
-		{
-
+				}
+			}
 		}
 	}
 
