@@ -66,7 +66,7 @@ int main(void)
 		// in the case of this example, when the 'q' key is pressed.
 		machine->Run(0x00);
 	}
-	catch (std::exception e)
+	catch (const std::exception& e)
 	{
 		printf ("%s\n", e.what());
 	}

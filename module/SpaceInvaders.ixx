@@ -27,9 +27,9 @@ module;
 
 export module SpaceInvaders;
 
-import <chrono>;
 import <array>;
 import <bitset>;
+import <chrono>;
 import IController;
 import Base;
 
@@ -51,6 +51,7 @@ namespace SpaceInvaders
 
 			The size in bytes of the memory.
 		*/
+		//cppcheck-suppress unusedStructMember
 		size_t memorySize_{};
 
 		/** Memory buffer.
@@ -70,7 +71,7 @@ namespace SpaceInvaders
 			@param		addressBusSize	The size of the address bus.
 										This will be 16.
 		*/
-		MemoryController(uint8_t addressBusSize);
+		explicit MemoryController(uint8_t addressBusSize);
 
 		~MemoryController() = default;
 
@@ -192,7 +193,7 @@ namespace SpaceInvaders
 			Last cycle count gets updated to the current running cycle count when we decide
 			to generate an interrupt, for Space Invaders this will be 16666 cpu cycles.
 		*/
-		uint64_t lastCycleCount_{};
+		//uint64_t lastCycleCount_{};
 		
 		/** Dedicated Shift Hardware.
 
@@ -202,8 +203,11 @@ namespace SpaceInvaders
 
 			shiftIn_, shiftAmount_ and shiftData_ help emulate this.
 		*/
+		//cppcheck-suppress unusedStructMember
 		uint8_t shiftIn_{};
+		//cppcheck-suppress unusedStructMember
 		uint8_t shiftAmount_{};
+		//cppcheck-suppress unusedStructMember
 		uint16_t shiftData_{};
 
 		/**	Backup port 3 and port 5 bytes.
@@ -213,7 +217,9 @@ namespace SpaceInvaders
 			changes from off to on, hence we need to backup these bytes
 			to make that comparison.
 		*/
+		//cppcheck-suppress unusedStructMember
 		uint8_t port3Byte_{};
+		//cppcheck-suppress unusedStructMember
 		uint8_t port5Byte_{};
 
 	protected:
@@ -272,7 +278,7 @@ namespace SpaceInvaders
 
 			@param		memoryController	The memory controller where the video ram resides.
 		*/
-		IoController(const std::shared_ptr<MemoryController>& memoryController);
+		explicit IoController(const std::shared_ptr<MemoryController>& memoryController);
 
 		/** Read from controller.
 
@@ -368,7 +374,7 @@ namespace SpaceInvaders
 			@return		ISR		ISR::One when the 'beam' is near the centre of the screen,
 								ISR::Two when the 'beam' is at the end (vBlank). 
 		*/
-		ISR ServiceInterrupts(nanoseconds currTime, uint64_t cycles);
+		ISR ServiceInterrupts(nanoseconds currTime, uint64_t cycles) override;
 
 		/** Write space invaders vram to texture.
 		
@@ -394,18 +400,21 @@ namespace SpaceInvaders
 
 				The window rendering context.
 			*/
+			//cppcheck-suppress unusedStructMember
 			SDL_Renderer* renderer_{};
 
 			/**	SDL_texture.
 				
 				The texture which will hold the video ram for rendering.
 			*/
+			//cppcheck-suppress unusedStructMember
 			SDL_Texture* texture_{};
 
 			/** SDL_Window.
 
 				The window to draw the video ram to.
 			*/
+			//cppcheck-suppress unusedStructMember
 			SDL_Window* window_{};
 			
 			/** Audio samples.
@@ -414,6 +423,7 @@ namespace SpaceInvaders
 
 				@See IoController::WavFiles_
 			*/
+			//cppcheck-suppress unusedStructMember
 			std::array<Mix_Chunk*, totalWavFiles_> mixChunk_;
 
 		public:
@@ -421,7 +431,7 @@ namespace SpaceInvaders
 			
 				Creates an SDL specific Space Invaders IO controller.
 			*/
-			SdlIoController(const std::shared_ptr<MemoryController>& memoryController);
+			explicit SdlIoController(const std::shared_ptr<MemoryController>& memoryController);
 			
 			/** Destructor.
 			
