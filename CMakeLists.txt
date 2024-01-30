@@ -42,7 +42,35 @@ else()
 endif()
 
 project(${projectName})
+
+if(CMAKE_COMPILER_IS_GNUCXX)
+    set(STD_MODULES array bitset memory)
+
+    set(STD_MODULES_BUILD_TIMESTAMP_FILE std_modules_build_timestamp)
+    # One time build only
+    add_custom_target(StdModules ALL
+        DEPENDS ${STD_MODULES_BUILD_TIMESTAMP_FILE}
+    )
+
+    set(STD_MODULES_OPTIONS -fmodules-ts -std=c++20 -c -x c++-system-header)
+
+    # compile the required std modules
+    add_custom_command(
+        OUTPUT ${STD_MODULES_BUILD_TIMESTAMP_FILE}
+        COMMAND ${CMAKE_COMMAND} -E echo "Building standard libraries modules"
+        COMMAND ${CMAKE_CXX_COMPILER} ${STD_MODULES_OPTIONS} ${STD_MODULES}
+        COMMAND ${CMAKE_COMMAND} -E touch ${STD_MODULES_BUILD_TIMESTAMP_FILE}
+        WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+        BYPRODUCTS
+    )
+endif()
+
 add_executable(${projectName} module/SpaceInvaders.ixx source/main.cpp source/SpaceInvaders.cpp)
+
+if(CMAKE_COMPILER_IS_GNUCXX)
+    target_compile_options(${projectName} PRIVATE -x c++ -fmodules-ts)
+endif()
+
 find_library(libMachEmu MachEmu)
 target_include_directories(${projectName} PRIVATE ${machEmuIncludePath})
 target_link_libraries(${projectName} PRIVATE ${libMachEmu})
