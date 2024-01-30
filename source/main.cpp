@@ -20,6 +20,8 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
+#include "Machine/MachineFactory.h"
+
 /*
 	Import the required modules
 
@@ -28,18 +30,17 @@ SOFTWARE.
 */
 import <memory>;
 import SpaceInvaders;
-import MachineFactory;
 
 //Just to make things simpler
 using namespace SpaceInvaders;
-using namespace Emulator;
+using namespace MachEmu;
 
 int main(void)
 {
 	try
 	{
 		//The machine to run Space Invaders on.
-		auto machine = MakeMachine();
+		auto machine = Make8080Machine();
 		//Create our custom Space Invaders memory controller.
 		auto memoryController = std::make_shared<MemoryController>(16);
 		//Create our custom Space Invaders I/O controller.
@@ -62,6 +63,8 @@ int main(void)
 		// Load our controllers into the machine.
 		machine->SetMemoryController(memoryController);
 		machine->SetIoController(ioController);
+		// Space Invaders runs at 60Hz with 2 interrupts per second, set the machine clock resolution accordingly
+		machine->SetClockResolution((1000000000 / 60) / 2); // this is not exact, neither is the clock, though we can compensate for this is in the ServiceInterrupts routine if required.
 		// Run the machine, the io controller will determine when to quit,
 		// in the case of this example, when the 'q' key is pressed.
 		machine->Run(0x00);

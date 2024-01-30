@@ -22,29 +22,26 @@ SOFTWARE.
 
 module;
 
-#include "SDL.h"
-#include "SDL_mixer.h"
+#include "SDL2/SDL.h"
+#include "SDL2/SDL_mixer.h"
+#include "Base/Base.h"
+#include "Controller/IController.h"
 
 export module SpaceInvaders;
 
 import <array>;
 import <bitset>;
-import <chrono>;
-import IController;
-import Base;
+import <memory>;
 
-using namespace std::chrono;
-using namespace Emulator;
+using namespace MachEmu;
 
 namespace SpaceInvaders
 {
 	/** Custom memory controller.
 
 		A custom memory controller targetting the Space Invaders arcade ROM.
-
-		This class uses the supplied IMemoryController interface which adds
 	*/
-	export class MemoryController final : public IMemoryController
+	export class MemoryController final : public IController
 	{
 	private:
 		/** Memory size.
@@ -118,8 +115,6 @@ namespace SpaceInvaders
 
 			Loads the specified rom file and the given memory address offset.
 
-			@see	IMemoryController::Load for parameter explanations and expected behaviours.
-
 			Space Invaders rom files have the following ROM layout:
 
 				invaders-h 0000-07FF
@@ -127,15 +122,13 @@ namespace SpaceInvaders
 				invaders-f 1000-17FF
 				invaders-e 1800-1FFF
 		*/
-		void Load(std::filesystem::path romFile, uint16_t offset) override final;
+		void Load(const std::string& romFile, uint16_t offset);
 
 		/** Memory size.
 
 			Returns the size of the memory, in our example it will be 64k (2^addressBusSize(16))
-
-			@see	IMemoryController::Size for further details.
 		*/
-		size_t Size() const override final;
+		size_t Size() const;
 
 		/** Read from controller.
 
@@ -159,7 +152,7 @@ namespace SpaceInvaders
 
 			The function will always return ISR::NoInterrupt.
 		*/
-		ISR ServiceInterrupts(nanoseconds currTime, uint64_t cycles) override final;
+		ISR ServiceInterrupts(uint64_t currTime, uint64_t cycles) override final;
 	};
 
 	/** Custom io controller.
@@ -186,7 +179,7 @@ namespace SpaceInvaders
 			In order to emulate a 60hz display we need to fire ISR::One and ISR::Two
 			at 60hz intervals.
 		*/
-		nanoseconds lastTime_{};
+		uint64_t lastTime_{};
 
 		/** Last cycle count.
 		
@@ -252,22 +245,22 @@ namespace SpaceInvaders
 		*/
 		std::array<const char*, totalWavFiles_> wavFiles_ 
 		{
-			"../roms/ufo_highpitch.wav",	//! UFO
-			"../roms/shoot.wav",			//! Player fire
-			"../roms/explosion.wav",		//! Player killed
-			"../roms/invaderkilled.wav",	//!	Invader killed
-			nullptr,						//! Extended Play
-			nullptr,						//! AMP Enable
-			nullptr,						//! Unused
-			nullptr,						//! Unused
-			"../roms/fastinvader1.wav",		//! Invader fleet movement 1
-			"../roms/fastinvader2.wav",		//! Invader fleet movement 1
-			"../roms/fastinvader3.wav",		//! Invader fleet movement 1
-			"../roms/fastinvader4.wav",		//! Invader fleet movement 1
-			"../roms/ufo_lowpitch.wav",		//! UFO hit
-			nullptr,						//! Unused
-			nullptr,						//! Unused
-			nullptr							//! Unused
+			"../roms/ufo_highpitch.wav",	/**< UFO */
+			"../roms/shoot.wav",			/**< Player fire */
+			"../roms/explosion.wav",		/**< Player killed */
+			"../roms/invaderkilled.wav",	/**<	Invader killed */
+			nullptr,						/**< Extended Play */
+			nullptr,						/**< AMP Enable */
+			nullptr,						/**< Unused */
+			nullptr,						/**< Unused */
+			"../roms/fastinvader1.wav",		/**< Invader fleet movement 1 */
+			"../roms/fastinvader2.wav",		/**< Invader fleet movement 1 */
+			"../roms/fastinvader3.wav",		/**< Invader fleet movement 1 */
+			"../roms/fastinvader4.wav",		/**< Invader fleet movement 1 */
+			"../roms/ufo_lowpitch.wav",		/**< UFO hit */
+			nullptr,						/**< Unused */
+			nullptr,						/**< Unused */
+			nullptr							/**< Unused */
 		};
 
 	public:
@@ -374,7 +367,7 @@ namespace SpaceInvaders
 			@return		ISR		ISR::One when the 'beam' is near the centre of the screen,
 								ISR::Two when the 'beam' is at the end (vBlank). 
 		*/
-		ISR ServiceInterrupts(nanoseconds currTime, uint64_t cycles) override;
+		ISR ServiceInterrupts(uint64_t currTime, uint64_t cycles) override;
 
 		/** Write space invaders vram to texture.
 		
@@ -471,6 +464,6 @@ namespace SpaceInvaders
 
 				@see IoController::ServiceInterrupts.
 			*/
-			ISR ServiceInterrupts(nanoseconds currTime, uint64_t cycles) final;
+			ISR ServiceInterrupts(uint64_t currTime, uint64_t cycles) final;
 	};
 }

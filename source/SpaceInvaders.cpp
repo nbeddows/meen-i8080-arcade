@@ -25,15 +25,12 @@ module;
 #include <assert.h>
 #include <fstream>
 #define SDL_MAIN_HANDLED
-#include "SDL.h"
-#include "SDL_mixer.h"
+#include "SDL2/SDL.h"
+#include "SDl2/SDL_mixer.h"
 
 module SpaceInvaders;
 
-import <chrono>;
-
-using namespace std::chrono;
-using namespace Emulator;
+using namespace MachEmu;
 
 namespace SpaceInvaders
 {
@@ -56,7 +53,7 @@ namespace SpaceInvaders
 		return memorySize_;
 	}
 
-	void MemoryController::Load(std::filesystem::path romFile, uint16_t offset)
+	void MemoryController::Load(const std::string& romFile, uint16_t offset)
 	{
 		std::ifstream fin(romFile, std::ios::binary | std::ios::ate);
 
@@ -95,7 +92,7 @@ namespace SpaceInvaders
 		memory_[addr] = data;
 	}
 
-	ISR MemoryController::ServiceInterrupts([[maybe_unused]] nanoseconds currTime, [[maybe_unused]] uint64_t cycles)
+	ISR MemoryController::ServiceInterrupts([[maybe_unused]] uint64_t currTime, [[maybe_unused]] uint64_t cycles)
 	{
 		return ISR::NoInterrupt;
 	}
@@ -171,14 +168,13 @@ namespace SpaceInvaders
 		return audio;
 	}
 
-	ISR IoController::ServiceInterrupts(nanoseconds currTime, uint64_t cycles)
+	ISR IoController::ServiceInterrupts(uint64_t currTime, uint64_t cycles)
 	{
 		auto isr = ISR::NoInterrupt;
 
 		if (quit_ == false)
 		{
-			//if (cycles - lastCycleCount_ >= 16666)
-			if (currTime - lastTime_ >= nanoseconds(16666666))
+			if (currTime != lastTime_)
 			{
 				isr = nextInterrupt_;
 
@@ -378,7 +374,7 @@ namespace SpaceInvaders
 		}
 	}
 
-	ISR SdlIoController::ServiceInterrupts(nanoseconds currTime, uint64_t cycles)
+	ISR SdlIoController::ServiceInterrupts(uint64_t currTime, uint64_t cycles)
 	{
 		auto isr = IoController::ServiceInterrupts(currTime, cycles);
 	
