@@ -24,9 +24,10 @@ module;
 
 #include <assert.h>
 #include <fstream>
+#include "Base/Base.h"
 #define SDL_MAIN_HANDLED
 #include "SDL2/SDL.h"
-#include "SDl2/SDL_mixer.h"
+#include "SDL2/SDL_mixer.h"
 
 module SpaceInvaders;
 
@@ -38,7 +39,7 @@ namespace SpaceInvaders
 		: memorySize_{ static_cast<size_t>(std::pow(2, addrSize)) },
 		memory_{ std::make_unique<uint8_t[]>(memorySize_) }
 	{
-		
+
 	}
 
 	std::unique_ptr<uint8_t[]> MemoryController::GetVram() const
@@ -104,7 +105,7 @@ namespace SpaceInvaders
 	}
 
 	uint8_t IoController::ReadFrom(uint16_t port)
-	{		
+	{
 		if (port == 3)
 		{
 			return (shiftData_ >> (8 - shiftAmount_)) & 0xFF;
@@ -114,7 +115,7 @@ namespace SpaceInvaders
 			//printf("INPUTS 0\n");
 			return 0;
 		}
-		
+
 		return 0;
 	}
 
@@ -251,17 +252,17 @@ namespace SpaceInvaders
 
 		SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "linear");
 		texture_ = SDL_CreateTexture(renderer_, SDL_PIXELFORMAT_RGB332, SDL_TEXTUREACCESS_STREAMING, memoryController_->GetScreenWidth(), memoryController_->GetScreenHeight());
-	
+
 		if (texture_ == nullptr)
 		{
 			throw std::bad_alloc();
 		}
-		
+
 		if (Mix_OpenAudio(11025 /* frequency */, 8 /* format (mono) */, 1 /* channels */, 4096 /* sample size */) < 0)
 		{
 			throw std::runtime_error("Failed to open SDL Mixer");
 		}
-		
+
 		// static_assert(wavFiles_.size() == mixChunk_.size());
 
 		for (int i = 0; i < totalWavFiles_; i++)
@@ -291,7 +292,7 @@ namespace SpaceInvaders
 		{
 			Mix_FreeChunk(chunk);
 		}
-		
+
 		Mix_CloseAudio();
 
 		SDL_Quit();
@@ -300,7 +301,7 @@ namespace SpaceInvaders
 	uint8_t SdlIoController::Read(uint16_t port)
 	{
 		auto ret = IoController::ReadFrom(port);
-	
+
 		if (ret == 0)
 		{
 			const auto state = SDL_GetKeyboardState(nullptr);
@@ -377,7 +378,7 @@ namespace SpaceInvaders
 	ISR SdlIoController::ServiceInterrupts(uint64_t currTime, uint64_t cycles)
 	{
 		auto isr = IoController::ServiceInterrupts(currTime, cycles);
-	
+
 		if (isr == ISR::Two)
 		{
 			uint8_t* pix = nullptr;
