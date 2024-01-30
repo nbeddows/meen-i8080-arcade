@@ -55,10 +55,10 @@ int main(void)
 				invaders-f 1000-17FF
 				invaders-e 1800-1FFF
 		*/
-		memoryController->Load("../roms/invaders-h.bin", 0x0000);
-		memoryController->Load("../roms/invaders-g.bin", 0x0800);
-		memoryController->Load("../roms/invaders-f.bin", 0x1000);
-		memoryController->Load("../roms/invaders-e.bin", 0x1800);
+		memoryController->Load(ROMS_DIR"invaders-h.bin", 0x0000);
+		memoryController->Load(ROMS_DIR"invaders-g.bin", 0x0800);
+		memoryController->Load(ROMS_DIR"invaders-f.bin", 0x1000);
+		memoryController->Load(ROMS_DIR"invaders-e.bin", 0x1800);
 
 		// Load our controllers into the machine.
 		machine->SetMemoryController(memoryController);

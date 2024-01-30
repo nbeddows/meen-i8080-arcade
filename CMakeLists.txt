@@ -66,6 +66,7 @@ if(CMAKE_COMPILER_IS_GNUCXX)
 endif()
 
 add_executable(${projectName} module/SpaceInvaders.ixx source/main.cpp source/SpaceInvaders.cpp)
+target_compile_definitions(${projectName} PRIVATE ROMS_DIR=\"${CMAKE_SOURCE_DIR}/roms/\")
 
 if(CMAKE_COMPILER_IS_GNUCXX)
     target_compile_options(${projectName} PRIVATE -x c++ -fmodules-ts)

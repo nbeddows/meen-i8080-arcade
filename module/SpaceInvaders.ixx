@@ -245,19 +245,19 @@ namespace SpaceInvaders
 		*/
 		std::array<const char*, totalWavFiles_> wavFiles_ 
 		{
-			"../roms/ufo_highpitch.wav",	/**< UFO */
-			"../roms/shoot.wav",			/**< Player fire */
-			"../roms/explosion.wav",		/**< Player killed */
-			"../roms/invaderkilled.wav",	/**<	Invader killed */
+			ROMS_DIR"ufo_highpitch.wav",	/**< UFO */
+			ROMS_DIR"shoot.wav",			/**< Player fire */
+			ROMS_DIR"explosion.wav",		/**< Player killed */
+			ROMS_DIR"invaderkilled.wav",	/**<	Invader killed */
 			nullptr,						/**< Extended Play */
 			nullptr,						/**< AMP Enable */
 			nullptr,						/**< Unused */
 			nullptr,						/**< Unused */
-			"../roms/fastinvader1.wav",		/**< Invader fleet movement 1 */
-			"../roms/fastinvader2.wav",		/**< Invader fleet movement 1 */
-			"../roms/fastinvader3.wav",		/**< Invader fleet movement 1 */
-			"../roms/fastinvader4.wav",		/**< Invader fleet movement 1 */
-			"../roms/ufo_lowpitch.wav",		/**< UFO hit */
+			ROMS_DIR"fastinvader1.wav",		/**< Invader fleet movement 1 */
+			ROMS_DIR"fastinvader2.wav",		/**< Invader fleet movement 1 */
+			ROMS_DIR"fastinvader3.wav",		/**< Invader fleet movement 1 */
+			ROMS_DIR"fastinvader4.wav",		/**< Invader fleet movement 1 */
+			ROMS_DIR"ufo_lowpitch.wav",		/**< UFO hit */
 			nullptr,						/**< Unused */
 			nullptr,						/**< Unused */
 			nullptr							/**< Unused */
