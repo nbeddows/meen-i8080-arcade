@@ -54,7 +54,7 @@ namespace SpaceInvaders
 		return memorySize_;
 	}
 
-	void MemoryController::Load(const std::string& romFile, uint16_t offset)
+	void MemoryController::Load(const char* romFile, uint16_t offset)
 	{
 		std::ifstream fin(romFile, std::ios::binary | std::ios::ate);
 

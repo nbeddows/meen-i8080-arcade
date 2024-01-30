@@ -122,7 +122,7 @@ namespace SpaceInvaders
 				invaders-f 1000-17FF
 				invaders-e 1800-1FFF
 		*/
-		void Load(const std::string& romFile, uint16_t offset);
+		void Load(const char* romFile, uint16_t offset);
 
 		/** Memory size.
 
