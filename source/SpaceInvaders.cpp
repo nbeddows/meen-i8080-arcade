@@ -205,22 +205,23 @@ namespace SpaceInvaders
 
 	void IoController::Blit(uint8_t* texture, uint8_t rowBytes)
 	{
-		auto vram = memoryController_->GetVram().release();
-		auto vramEnd = vram + memoryController_->GetVramLength();
+		auto vram = memoryController_->GetVram();
+		auto vramStart = vram.get();
+		auto vramEnd = vramStart + memoryController_->GetVramLength();
 		int8_t shift = 0;
 		//Since we are decompressing the video ram, we will also perform the
 		//required 270 degree rotation.
 		auto start = texture + rowBytes * (memoryController_->GetScreenHeight() - 1);
 		auto ptr = texture;
 
-		while (vram < vramEnd)
+		while (vramStart < vramEnd)
 		{
 			//Decompress the vram from 1bpp to 8bpp.
-			*ptr = ((*vram >> shift) & 0x01) * 0xFF; // 0xFF - The 8 bit colour to decompress to, in this case white, but it could be anything within the 8 bit range.
+			*ptr = ((*vramStart >> shift) & 0x01) * 0xFF; // 0xFF - The 8 bit colour to decompress to, in this case white, but it could be anything within the 8 bit range.
 			//Cycle the shift value between 0-7.
 			shift = ++shift & 0x07;
 			//Move to the next vram byte if we have done a full cycle.
-			vram += shift == 0;
+			vramStart += shift == 0;
 			//If we are not at the end, move to the next row, otherwise move to the next column.
 			ptr - rowBytes >= texture ? ptr -= rowBytes : ptr = ++start;
 		}
