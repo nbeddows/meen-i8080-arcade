@@ -396,7 +396,7 @@ namespace SpaceInvaders
 		else
 		{
 			// Check for events when we are not drawing
-			SDL_PollEvent(nullptr);
+			SDL_PumpEvents();
 		}
 
 		return isr;
