@@ -324,9 +324,9 @@ namespace SpaceInvaders
 		if (ret == 0)
 		{
 			const auto state = SDL_GetKeyboardState(nullptr);
-			quit_ = state[SDL_SCANCODE_Q];
+			auto quit = state[SDL_SCANCODE_Q];
 
-			if (quit_ == false)
+			if (quit == false)
 			{
 				auto processKeyTable = [&](int scanCode, const char* str, uint8_t bit)
 				{
@@ -365,6 +365,11 @@ namespace SpaceInvaders
 					assert(port == 0 || port == 3);
 					//printf("Unknown device\n");
 				}
+			}
+			else
+			{
+				SDL_Event e{ .type = SDL_QUIT };
+				SDL_PushEvent(&e);
 			}
 		}
 
