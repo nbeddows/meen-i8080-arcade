@@ -21,16 +21,9 @@ SOFTWARE.
 */
 
 #include <future>
+#include <memory>
 #include "Machine/MachineFactory.h"
-
-/*
-	Import the required modules
-
-	SpaceInvaders:		custom module specifically targetting the Space Invaders ROM.
-	MachineFactory:		module for running our custom Space Invaders machine.
-*/
-import <memory>;
-import SpaceInvaders;
+#include "SpaceInvaders/SpaceInvaders.h"
 
 //Just to make things simpler
 using namespace SpaceInvaders;

@@ -20,20 +20,17 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-module;
+#include <array>
+#include <atomic>
+#include <bitset>
+#include <memory>
+#include <mutex>
 
+#define SDL_MAIN_HANDLED
 #include "SDL2/SDL.h"
 #include "SDL2/SDL_mixer.h"
 #include "Base/Base.h"
 #include "Controller/IController.h"
-
-export module SpaceInvaders;
-
-import <array>;
-import <atomic>;
-import <bitset>;
-import <memory>;
-import <mutex>;
 
 using namespace MachEmu;
 
@@ -43,7 +40,7 @@ namespace SpaceInvaders
 
 		A custom memory controller targetting the Space Invaders arcade ROM.
 	*/
-	export class MemoryController final : public IController
+	class MemoryController final : public IController
 	{
 	private:
 		/** Memory size.
@@ -390,7 +387,7 @@ namespace SpaceInvaders
 
 		A custom io controller targetting the Space Invaders arcade ROM.
 	*/
-	export class SdlIoController final : public IoController
+	class SdlIoController final : public IoController
 	{
 		private:
 			/** SDL Renderer.
