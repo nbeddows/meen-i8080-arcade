@@ -30,8 +30,10 @@ module;
 export module SpaceInvaders;
 
 import <array>;
+import <atomic>;
 import <bitset>;
 import <memory>;
+import <mutex>;
 
 using namespace MachEmu;
 
@@ -94,7 +96,7 @@ namespace SpaceInvaders
 
 			Space Invaders has a constant size of 7168
 		*/
-		constexpr uint16_t GetVramLength() const { return 7168; }
+		static constexpr uint16_t GetVramLength() { return 7168; }
 
 		/** Video ram.
 
@@ -236,7 +238,7 @@ namespace SpaceInvaders
 			A value of true will cause the Machine control loop to exit.
 			This can be set, for example, when the keyboard 'q' key is pressed.
 		*/
-		bool quit_{};
+		std::atomic_bool quit_{};
 
 		/** The audio files to use for sound effects.
 
@@ -263,6 +265,8 @@ namespace SpaceInvaders
 			nullptr							/**< Unused */
 		};
 
+		std::mutex mutex_;
+		std::array<uint8_t, MemoryController::GetVramLength()> vram_;
 	public:
 		/** Initialisation contructor.
 
@@ -419,8 +423,23 @@ namespace SpaceInvaders
 			//cppcheck-suppress unusedStructMember
 			std::array<Mix_Chunk*, totalWavFiles_> mixChunk_;
 
+			/**
+				The custom Space Invaders SDL event type
+
+				Event codes are defined in the EventCode enumeration.
+
+				@see EventCode
+			*/
+			uint64_t siEvent_{};
+
+			enum EventCode
+			{
+				RenderVideo,	/**< The next video frame is ready to be rendered. This event drives the control loop */
+				RenderAudio,	/**< Audio is ready to be played. The siEvent data1 type is the index into the mixChunk_ to be played. */
+			};
+
 		public:
-			/** Initialisation contructor.
+			/** Initialisation constructor.
 			
 				Creates an SDL specific Space Invaders IO controller.
 			*/
@@ -465,5 +484,13 @@ namespace SpaceInvaders
 				@see IoController::ServiceInterrupts.
 			*/
 			ISR ServiceInterrupts(uint64_t currTime, uint64_t cycles) final;
+
+			/**	Main control loop
+
+				Process all incoming events.
+
+				Events include audio/video rendering, keyboard processing and window close.
+			*/
+			void EventLoop();
 	};
 }

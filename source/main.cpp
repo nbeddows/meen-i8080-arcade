@@ -20,6 +20,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
+#include <future>
 #include "Machine/MachineFactory.h"
 
 /*
@@ -65,9 +66,18 @@ int main(void)
 		machine->SetIoController(ioController);
 		// Space Invaders runs at 60Hz with 2 interrupts per second, set the machine clock resolution accordingly
 		machine->SetClockResolution((1000000000 / 60) / 2); // this is not exact, neither is the clock, though we can compensate for this is in the ServiceInterrupts routine if required.
-		// Run the machine, the io controller will determine when to quit,
-		// in the case of this example, when the 'q' key is pressed.
-		machine->Run(0x00);
+		// Run the machine on a separate thread, the io controller will determine when to quit,
+		// in the case of this example, when the 'q' key is pressed or the window is closed.
+		auto future = std::async(std::launch::async, [&]
+		{
+			machine->Run(0x00);
+		});
+
+		// Run the main event loop
+		ioController->EventLoop();
+
+		// Wait for the machine to finish.
+		future.wait();
 	}
 	catch (const std::exception& e)
 	{
