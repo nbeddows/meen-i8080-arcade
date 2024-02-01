@@ -377,20 +377,12 @@ namespace SpaceInvaders
 
 		if (audio.any() == true)
 		{
-			// Trim the start and end offsets as only one port can be set ... could do without, just means we always loop 16 times instead of just 8.
-			uint8_t start = (port - 3) << 2; // 3 - the lowest possible port
-			uint8_t end = 16 - (8 - start);
-
-			for(int i = start; i < end; i++)
-			{
-				if (audio.test(i) == true)
-				{
-					[[maybe_unused]] auto busy = Mix_PlayChannel(-1 /* use the next available channel */, mixChunk_[i], 0 /* don't loop (play it once) */);
-					// We are playing 8 (default maximum) samples at the same time, this should not happen!
-					// We are trying to play a track which isn't loaded (an unknown data bit is set?!?!)
-					//assert(mixChunk_[i] == nullptr || busy != -1);
-				}
-			}
+			SDL_Event e{};
+			e.type = siEvent_;
+			e.user.code = EventCode::RenderAudio;
+			e.user.data1 = reinterpret_cast<void*>(audio.to_ullong());
+			e.user.data2 = nullptr;
+			SDL_PushEvent(&e);
 		}
 	}
 
@@ -443,6 +435,23 @@ namespace SpaceInvaders
 
 								SDL_RenderCopy(renderer_, texture_, nullptr, nullptr);
 								SDL_RenderPresent(renderer_);
+								break;
+							}
+							case EventCode::RenderAudio:
+							{
+								std::bitset<16> audio = reinterpret_cast<uint16_t>(e.user.data1);
+
+								for (int i = 0; i < 16; i++)
+								{
+									if (audio.test(i) == true)
+									{
+										[[maybe_unused]] auto busy = Mix_PlayChannel(-1 /* use the next available channel */, mixChunk_[i], 0 /* don't loop (play it once) */);
+										// We are playing 8 (default maximum) samples at the same time, this should not happen!
+										// We are trying to play a track which isn't loaded (an unknown data bit is set?!?!)
+										//assert(mixChunk_[i] == nullptr || busy != -1);
+									}
+								}
+								break;
 							}
 							default:
 							{
