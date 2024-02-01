@@ -183,7 +183,7 @@ namespace SpaceInvaders
 				{
 					//Signal that the 'crt beam' is about half was down the screen.
 					nextInterrupt_ = ISR::One;
-				
+
 					std::lock_guard<std::mutex> lock(mutex_);
 					memcpy(vram_.data(), memoryController_->GetVram().get(), vram_.size());
 				}
@@ -439,7 +439,7 @@ namespace SpaceInvaders
 							}
 							case EventCode::RenderAudio:
 							{
-								std::bitset<16> audio = reinterpret_cast<uint16_t>(e.user.data1);
+								std::bitset<16> audio = reinterpret_cast<uint64_t>(e.user.data1);
 
 								for (int i = 0; i < 16; i++)
 								{
