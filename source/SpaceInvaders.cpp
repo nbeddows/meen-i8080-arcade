@@ -20,16 +20,10 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-module;
-
 #include <assert.h>
 #include <fstream>
 #include "Base/Base.h"
-#define SDL_MAIN_HANDLED
-#include "SDL2/SDL.h"
-#include "SDL2/SDL_mixer.h"
-
-module SpaceInvaders;
+#include "SpaceInvaders/SpaceInvaders.h"
 
 using namespace MachEmu;
 
@@ -189,6 +183,9 @@ namespace SpaceInvaders
 				{
 					//Signal that the 'crt beam' is about half was down the screen.
 					nextInterrupt_ = ISR::One;
+
+					std::lock_guard<std::mutex> lock(mutex_);
+					memcpy(vram_.data(), memoryController_->GetVram().get(), vram_.size());
 				}
 
 				//lastCycleCount_ = cycles;
@@ -205,8 +202,8 @@ namespace SpaceInvaders
 
 	void IoController::Blit(uint8_t* texture, uint8_t rowBytes)
 	{
-		auto vram = memoryController_->GetVram();
-		auto vramStart = vram.get();
+		std::lock_guard<std::mutex> lock(mutex_);
+		auto vramStart = vram_.data();
 		auto vramEnd = vramStart + memoryController_->GetVramLength();
 		int8_t shift = 0;
 		//Since we are decompressing the video ram, we will also perform the
@@ -275,6 +272,27 @@ namespace SpaceInvaders
 				throw std::bad_alloc();
 			}
 		}
+
+		siEvent_ = SDL_RegisterEvents(1);
+
+		if (siEvent_ == 0xFFFFFFFF)
+		{
+			throw std::runtime_error("Exhausted all user level events");
+		}
+
+		SDL_SetEventFilter([](void* eventType, SDL_Event* e)
+		{
+			// Ignore all events other than ours.
+			if (reinterpret_cast<uint64_t>(eventType) == e->type || e->type == SDL_QUIT)
+			{
+				return 1;
+			}
+			else
+			{
+				return 0;
+			}
+		},
+		reinterpret_cast<void*>(siEvent_));
 	}
 
 	SdlIoController::~SdlIoController()
@@ -306,9 +324,9 @@ namespace SpaceInvaders
 		if (ret == 0)
 		{
 			const auto state = SDL_GetKeyboardState(nullptr);
-			quit_ = state[SDL_SCANCODE_Q];
+			auto quit = state[SDL_SCANCODE_Q];
 
-			if (quit_ == false)
+			if (quit == false)
 			{
 				auto processKeyTable = [&](int scanCode, const char* str, uint8_t bit)
 				{
@@ -348,6 +366,11 @@ namespace SpaceInvaders
 					//printf("Unknown device\n");
 				}
 			}
+			else
+			{
+				SDL_Event e{ .type = SDL_QUIT };
+				SDL_PushEvent(&e);
+			}
 		}
 
 		return ret;
@@ -359,20 +382,12 @@ namespace SpaceInvaders
 
 		if (audio.any() == true)
 		{
-			// Trim the start and end offsets as only one port can be set ... could do without, just means we always loop 16 times instead of just 8.
-			uint8_t start = (port - 3) << 2; // 3 - the lowest possible port
-			uint8_t end = 16 - (8 - start);
-
-			for(int i = start; i < end; i++)
-			{
-				if (audio.test(i) == true)
-				{
-					[[maybe_unused]] auto busy = Mix_PlayChannel(-1 /* use the next available channel */, mixChunk_[i], 0 /* don't loop (play it once) */);
-					// We are playing 8 (default maximum) samples at the same time, this should not happen!
-					// We are trying to play a track which isn't loaded (an unknown data bit is set?!?!)
-					//assert(mixChunk_[i] == nullptr || busy != -1);
-				}
-			}
+			SDL_Event e{};
+			e.type = siEvent_;
+			e.user.code = EventCode::RenderAudio;
+			e.user.data1 = reinterpret_cast<void*>(audio.to_ullong());
+			e.user.data2 = nullptr;
+			SDL_PushEvent(&e);
 		}
 	}
 
@@ -382,24 +397,76 @@ namespace SpaceInvaders
 
 		if (isr == ISR::Two)
 		{
-			uint8_t* pix = nullptr;
-			int rowBytes = 0;
-
-			if (SDL_LockTexture(texture_, nullptr, reinterpret_cast<void**>(&pix), &rowBytes) == 0)
-			{
-				IoController::Blit(pix, rowBytes);
-				SDL_UnlockTexture(texture_);
-			}
-
-			SDL_RenderCopy(renderer_, texture_, nullptr, nullptr);
-			SDL_RenderPresent(renderer_);
-		}
-		else
-		{
-			// Check for events when we are not drawing
-			SDL_PumpEvents();
+			SDL_Event e{};
+			e.type = siEvent_;
+			e.user.code = EventCode::RenderVideo;
+			e.user.data1 = nullptr; // this needs to be the video frame to render to.
+			e.user.data2 = nullptr;
+			SDL_PushEvent(&e);
 		}
 
 		return isr;
+	}
+
+	void SdlIoController::EventLoop()
+	{
+		SDL_Event e;
+
+		while (quit_ == false && SDL_WaitEvent(&e))
+		{
+			switch (e.type)
+			{
+				case SDL_QUIT:
+				{
+					quit_ = true;
+					break;
+				}
+				default:
+				{
+					if(e.type == siEvent_)
+					{
+						switch (e.user.code)
+						{
+							case EventCode::RenderVideo:
+							{
+								uint8_t * pix = nullptr;
+								int rowBytes = 0;
+
+								if (SDL_LockTexture(texture_, nullptr, reinterpret_cast<void**>(&pix), &rowBytes) == 0)
+								{
+									IoController::Blit(pix, rowBytes);
+									SDL_UnlockTexture(texture_);
+								}
+
+								SDL_RenderCopy(renderer_, texture_, nullptr, nullptr);
+								SDL_RenderPresent(renderer_);
+								break;
+							}
+							case EventCode::RenderAudio:
+							{
+								std::bitset<16> audio = reinterpret_cast<uint64_t>(e.user.data1);
+
+								for (int i = 0; i < 16; i++)
+								{
+									if (audio.test(i) == true)
+									{
+										[[maybe_unused]] auto busy = Mix_PlayChannel(-1 /* use the next available channel */, mixChunk_[i], 0 /* don't loop (play it once) */);
+										// We are playing 8 (default maximum) samples at the same time, this should not happen!
+										// We are trying to play a track which isn't loaded (an unknown data bit is set?!?!)
+										//assert(mixChunk_[i] == nullptr || busy != -1);
+									}
+								}
+								break;
+							}
+							default:
+							{
+								break;
+							}
+						}
+					}
+					break;
+				}
+			}
+		}
 	}
 }
