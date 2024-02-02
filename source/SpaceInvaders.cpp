@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2021-2023 Nicolas Beddows <nicolas.beddows@gmail.com>
+Copyright (c) 2021-2024 Nicolas Beddows <nicolas.beddows@gmail.com>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -106,7 +106,6 @@ namespace SpaceInvaders
 		}
 		else if (port == 0)
 		{
-			//printf("INPUTS 0\n");
 			return 0;
 		}
 
@@ -188,7 +187,6 @@ namespace SpaceInvaders
 					memcpy(vram_.data(), memoryController_->GetVram().get(), vram_.size());
 				}
 
-				//lastCycleCount_ = cycles;
 				lastTime_ = currTime;
 			}
 		}
