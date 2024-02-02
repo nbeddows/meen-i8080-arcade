@@ -179,13 +179,6 @@ namespace SpaceInvaders
 			at 60hz intervals.
 		*/
 		uint64_t lastTime_{};
-
-		/** Last cycle count.
-		
-			Last cycle count gets updated to the current running cycle count when we decide
-			to generate an interrupt, for Space Invaders this will be 16666 cpu cycles.
-		*/
-		//uint64_t lastCycleCount_{};
 		
 		/** Dedicated Shift Hardware.
 
