@@ -43,7 +43,16 @@ endif()
 
 project(${projectName})
 
-add_executable(${projectName} include/SpaceInvaders/SpaceInvaders.h source/main.cpp source/SpaceInvaders.cpp)
+add_executable(${projectName}
+    include/SpaceInvaders/IoController.h 
+    include/SpaceInvaders/SdlIoController.h
+    include/SpaceInvaders/MemoryController.h
+    source/main.cpp
+    source/IoController.cpp
+    source/SdlIoController.cpp
+    source/MemoryController.cpp
+)
+
 target_compile_definitions(${projectName} PRIVATE ROMS_DIR=\"${CMAKE_SOURCE_DIR}/roms/\")
 
 find_library(libMachEmu MachEmu)
