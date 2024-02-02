@@ -61,27 +61,27 @@ Once CMake has finished change into the build directory and run make. The execut
 
 ### Keyboard Controls
 
-`q`: Quit
-`c`: Credit
-`1`, 1P
-`2`: 2P
-`a`: 1P Left
-`s`: 1P Fire
-`d`: 1P Right
-`3`: 3 Ships
-`4`: 4 Ships
-`5`: 5 Ships
-`6`: 6 Ships
-`t`: Tilt
-`e`: Extra ship at
-`j`: 2P Left
-`k`: 2P Fire
-`l`: 2P Right
-`i`: Show coin info
+`q`: Quit<br>
+`c`: Credit<br>
+`1`, 1P<br>
+`2`: 2P<br>
+`a`: 1P Left<br>
+`s`: 1P Fire<br>
+`d`: 1P Right<br>
+`3`: 3 Ships<br>
+`4`: 4 Ships<br>
+`5`: 5 Ships<br>
+`6`: 6 Ships<br>
+`t`: Tilt<br>
+`e`: Extra ship at<br>
+`j`: 2P Left<br>
+`k`: 2P Fire<br>
+`l`: 2P Right<br>
+`i`: Show coin info<br>
 
 ### Acknowledgements
 
 Special thanks to the following sites:
 
-http://www.brentradio.com/SpaceInvaders.htm
-https://computerarcheology.com/Arcade/SpaceInvaders/Hardware.html
+http://www.brentradio.com/SpaceInvaders.htm<br>
+https://computerarcheology.com/Arcade/SpaceInvaders/Hardware.html<br>
