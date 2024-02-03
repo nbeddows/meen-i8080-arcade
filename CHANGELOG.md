@@ -1,4 +1,4 @@
-0.1.0
+0.1.0 [03/02/24]
 * Added CMake support.
 * Supports Visual Studio 22 (Windows 10) and
   g++ 13.2 and Clang 16.06 (Ubuntu 23.10).
