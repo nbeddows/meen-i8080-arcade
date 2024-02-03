@@ -3,7 +3,7 @@
 
 This demo project shows how to make use of the mach-emu sdk to emulate an arcade machine, in this case, Space Invaders.
 
-The minimum required mach-emu sdk version is [1.3.0](https://github.com/nbeddows/mach-emu-dev/releases/tag/v1.3.0).
+The minimum required [mach-emu development package](https://github.com/nbeddows/mach-emu-dev/releases) is version 1.3.0.
 
 ##### Basic principles of operation
 
@@ -39,7 +39,7 @@ Open cmake-gui (feel free to use command line cmake, but the remainder of this r
 
 Click configure (if prompted to create the build directory, accept) and choose Visual Studio 17 for Windows or Unix Makefiles for Linux, then click generate.
 
-NOTE: if enableSdl is checked the SDL development package needs to be installed. 
+NOTE: if enableSdl is checked the [SDL development package](https://github.com/libsdl-org/SDL/releases) needs to be installed. 
 
 ##### Windows
 
