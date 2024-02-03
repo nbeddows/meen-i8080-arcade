@@ -3,6 +3,8 @@
 
 This demo project shows how to make use of the mach-emu sdk to emulate an arcade machine, in this case, Space Invaders.
 
+The minimum required mach-emu sdk version is [1.3.0](https://github.com/nbeddows/mach-emu-dev/releases/tag/v1.3.0).
+
 ##### Basic principles of operation
 
 1. Determine the memory and io layout of the target application.
@@ -31,7 +33,7 @@ This demo project shows how to make use of the mach-emu sdk to emulate an arcade
 
 ### Compilation
 
-Space Invaders has been compiled and tested on Visual Studio 22 (Windows 10) and g++-13.2 (Ubuntu 23.10) with GNU Make 4.3.
+Space Invaders has been compiled and tested on Visual Studio 22 (Windows 10) and g++-13.2 and Clang 16.06 (Ubuntu 23.10) with GNU Make 4.3.
 
 Open cmake-gui (feel free to use command line cmake, but the remainder of this readme will use cmake-gui). Set the source code text field to the space-invaders directory and binary text field to your desire build directory.
 
@@ -45,7 +47,7 @@ The following image gives a possible Windows CMake configuration.
 
 ![Example Windows configuration](docs/images/CMake(Windows).png)
 
-Make sure that all depdendent libraries are found (MachEmu.lib, SDl2.lib and SDL_mixer.lib), if not, make sure they are installed and their paths are
+Make sure that all depdendent libraries are found (MachEmu.lib, SDL2.lib and SDL_mixer.lib), if not, make sure they are installed and their paths are
 in your PATH environment variable. Update the machEmuIncludePath and the sdlIncludePath to the location of your MachEmu and SDL development includes.
 Open the Visual Studio solution in the build directory, select your desired build configuration, then run.
 
@@ -55,9 +57,8 @@ The following image gives a possible Linux CMake configuration.
 
 ![Example Linux configuration](docs/images/CMake(Linux).png)
 
-Note that the required CXX compiler needs to be g++ 13 (earlier versions may work, however this is untested) or greater (Clang is currently not supported/untested).
-If the gui output displays a different compiler you can open the root CMakeLists.txt and uncomment the following line `set(CMAKE_CXX_COMPILER g++-13)`.
-Once CMake has finished change into the build directory and run make. The executable will be located in bin/${configuration} in the project root directory.
+Make sure that all depdendent libraries are found (MachEmu.so, SDL2.so and SDL_mixer.so). Earlier versions of g++ and Clang may work, however these versions
+are untested. Update the machEmuIncludePath and the sdlIncludePath to the location of your MachEmu and SDL development includes. Once CMake has finished change into the build directory and run make. The executable will be located in bin/${configuration} in the project root directory.
 
 ### Keyboard Controls
 
@@ -83,5 +84,5 @@ Once CMake has finished change into the build directory and run make. The execut
 
 Special thanks to the following sites:
 
-http://www.brentradio.com/SpaceInvaders.htm<br>
-https://computerarcheology.com/Arcade/SpaceInvaders/Hardware.html<br>
+[brentradio](http://www.brentradio.com/SpaceInvaders.htm)<br>
+[computerarcheology](https://computerarcheology.com/Arcade/SpaceInvaders/Hardware.html)<br>
