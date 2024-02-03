@@ -20,6 +20,9 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
+#ifndef MEMORY_CONTROLLER_H
+#define MEMORY_CONTROLLER_H
+
 #include <memory>
 
 #include "Base/Base.h"
@@ -145,3 +148,5 @@ namespace SpaceInvaders
             MachEmu::ISR ServiceInterrupts(uint64_t currTime, uint64_t cycles) override final;
         };
 } // namespace SpaceInvaders
+
+#endif // MEMORY_CONTROLLER_H

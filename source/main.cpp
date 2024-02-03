@@ -23,7 +23,7 @@ SOFTWARE.
 #include <future>
 #include <memory>
 #include "Machine/MachineFactory.h"
-#include "SpaceInvaders/SpaceInvaders.h"
+#include "SpaceInvaders/SdlIoController.h"
 
 //Just to make things simpler
 using namespace SpaceInvaders;

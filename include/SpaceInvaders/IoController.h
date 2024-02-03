@@ -20,6 +20,9 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
+#ifndef IO_CONTROLLER_H
+#define IO_CONTROLLER_H
+
 #include <array>
 #include <atomic>
 #include <bitset>
@@ -253,3 +256,5 @@ namespace SpaceInvaders
 		void Blit(uint8_t* texture, uint8_t rowBytes);
 	};
 } // namespace SpaceInvaders
+
+#endif // IO_CONTROLLER_H

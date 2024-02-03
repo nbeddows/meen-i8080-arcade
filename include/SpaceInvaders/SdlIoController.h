@@ -20,6 +20,9 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
+#ifndef SDL_IO_CONTROLLER_H
+#define SDL_IO_CONTROLLER_H
+
 #define SDL_MAIN_HANDLED
 #include "SDL2/SDL.h"
 #include "SDL2/SDL_mixer.h"
@@ -135,3 +138,5 @@ namespace SpaceInvaders
 			void EventLoop();
 	};
 } // namespace SpaceInvaders
+
+#endif // SDL_IO_CONTROLLER_H
