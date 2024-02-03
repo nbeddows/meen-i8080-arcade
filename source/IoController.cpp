@@ -21,11 +21,12 @@ SOFTWARE.
 */
 
 #include <assert.h>
+#include <cstring>
 
 #include "SpaceInvaders/IoController.h"
 
 namespace SpaceInvaders
-{	
+{
     IoController::IoController(const std::shared_ptr<MemoryController>& memoryController)
 		: memoryController_{ memoryController }
 	{
