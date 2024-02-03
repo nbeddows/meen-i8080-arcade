@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2021-2023 Nicolas Beddows <nicolas.beddows@gmail.com>
+Copyright (c) 2021-2024 Nicolas Beddows <nicolas.beddows@gmail.com>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -20,26 +20,21 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-/*
-	Import the required modules
-
-	SpaceInvaders:		custom module specifically targetting the Space Invaders ROM.
-	MachineFactory:		module for running our custom Space Invaders machine.
-*/
-import <memory>;
-import SpaceInvaders;
-import MachineFactory;
+#include <future>
+#include <memory>
+#include "Machine/MachineFactory.h"
+#include "SpaceInvaders/SdlIoController.h"
 
 //Just to make things simpler
 using namespace SpaceInvaders;
-using namespace Emulator;
+using namespace MachEmu;
 
 int main(void)
 {
 	try
 	{
 		//The machine to run Space Invaders on.
-		auto machine = MakeMachine();
+		auto machine = Make8080Machine();
 		//Create our custom Space Invaders memory controller.
 		auto memoryController = std::make_shared<MemoryController>(16);
 		//Create our custom Space Invaders I/O controller.
@@ -54,17 +49,28 @@ int main(void)
 				invaders-f 1000-17FF
 				invaders-e 1800-1FFF
 		*/
-		memoryController->Load("../roms/invaders-h.bin", 0x0000);
-		memoryController->Load("../roms/invaders-g.bin", 0x0800);
-		memoryController->Load("../roms/invaders-f.bin", 0x1000);
-		memoryController->Load("../roms/invaders-e.bin", 0x1800);
+		memoryController->Load(ROMS_DIR"invaders-h.bin", 0x0000);
+		memoryController->Load(ROMS_DIR"invaders-g.bin", 0x0800);
+		memoryController->Load(ROMS_DIR"invaders-f.bin", 0x1000);
+		memoryController->Load(ROMS_DIR"invaders-e.bin", 0x1800);
 
 		// Load our controllers into the machine.
 		machine->SetMemoryController(memoryController);
 		machine->SetIoController(ioController);
-		// Run the machine, the io controller will determine when to quit,
-		// in the case of this example, when the 'q' key is pressed.
-		machine->Run(0x00);
+		// Space Invaders runs at 60Hz with 2 interrupts per second, set the machine clock resolution accordingly
+		machine->SetClockResolution((1000000000 / 60) / 2); // this is not exact, neither is the clock, though we can compensate for this is in the ServiceInterrupts routine if required.
+		// Run the machine on a separate thread, the io controller will determine when to quit,
+		// in the case of this example, when the 'q' key is pressed or the window is closed.
+		auto future = std::async(std::launch::async, [&]
+		{
+			machine->Run(0x00);
+		});
+
+		// Run the main event loop
+		ioController->EventLoop();
+
+		// Wait for the machine to finish.
+		future.wait();
 	}
 	catch (const std::exception& e)
 	{
