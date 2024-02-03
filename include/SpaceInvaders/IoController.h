@@ -20,145 +20,25 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
+#ifndef IO_CONTROLLER_H
+#define IO_CONTROLLER_H
+
 #include <array>
 #include <atomic>
 #include <bitset>
 #include <memory>
 #include <mutex>
 
-#define SDL_MAIN_HANDLED
-#include "SDL2/SDL.h"
-#include "SDL2/SDL_mixer.h"
 #include "Base/Base.h"
-#include "Controller/IController.h"
-
-using namespace MachEmu;
+#include "SpaceInvaders/MemoryController.h"
 
 namespace SpaceInvaders
 {
-	/** Custom memory controller.
-
-		A custom memory controller targetting the Space Invaders arcade ROM.
-	*/
-	class MemoryController final : public IController
-	{
-	private:
-		/** Memory size.
-
-			The size in bytes of the memory.
-		*/
-		//cppcheck-suppress unusedStructMember
-		size_t memorySize_{};
-
-		/** Memory buffer.
-
-			The memory bytes that the cpu will read from and write to.
-		*/
-		std::unique_ptr<uint8_t[]> memory_;
-
-	public:
-		/** Contructor.
-
-			Create a memory controller that can address memory of the
-			specified address bus size. For this demo Space Invaders
-			runs on an Intel8080 with 64k of memory, therefore the
-			address bus size will be 16.
-
-			@param		addressBusSize	The size of the address bus.
-										This will be 16.
-		*/
-		explicit MemoryController(uint8_t addressBusSize);
-
-		~MemoryController() = default;
-
-		/** Screen width.
-
-			Space Invaders has a width of 224 @ 1bpp.
-
-			NOTE: this differs from the vram width which is 256.
-				  (It is written to vram with a 90 degree rotation.)
-		*/
-		constexpr uint16_t GetScreenWidth() const { return 224; }
-		
-		/** Screen height.
-
-			Space Invaders has a height of 256 @ 1bpp.
-
-			NOTE: this differs from the vram height which is 224.
-				  (It is written to vram with a 90 degree rotation.)
-		*/
-		constexpr uint16_t GetScreenHeight() const { return 256; }
-
-		/** The size of the video ram.
-
-			Space Invaders has a constant size of 7168
-		*/
-		static constexpr uint16_t GetVramLength() { return 7168; }
-
-		/** Video ram.
-
-			This is a new allocation with a copy of the video ram.
-
-			@return		unique_ptr		The video ram.
-
-			NOTE: The length of the video ram returned is given by:
-
-				  GetVRAMLength()
-
-			NOTE: This isn't the best way to do this, one should use a resource pool
-				  to avoid the unnecessary allocations.
-		*/
-		std::unique_ptr<uint8_t[]> GetVram() const;
-
-		/** Load ROM file.
-
-			Loads the specified rom file and the given memory address offset.
-
-			Space Invaders rom files have the following ROM layout:
-
-				invaders-h 0000-07FF
-				invaders-g 0800-0FFF
-				invaders-f 1000-17FF
-				invaders-e 1800-1FFF
-		*/
-		void Load(const char* romFile, uint16_t offset);
-
-		/** Memory size.
-
-			Returns the size of the memory, in our example it will be 64k (2^addressBusSize(16))
-		*/
-		size_t Size() const;
-
-		/** Read from controller.
-
-			Reads 8 bits of data from the specifed 16 bit memory address.
-
-			@see IController::Read for further details.
-		*/
-		uint8_t Read(uint16_t address) override final;
-
-		/** Write to controller.
-
-			Write 8 bits of data to the specifed 16 bit memory address.
-
-			@see IController::Write for further details.
-		*/
-		void Write(uint16_t address, uint8_t value) override final;
-
-		/** Service memory interrupts.
-
-			Memory interrupts are never generated.
-
-			The function will always return ISR::NoInterrupt.
-		*/
-		ISR ServiceInterrupts(uint64_t currTime, uint64_t cycles) override final;
-	};
-
 	/** Custom io controller.
 
 		A custom io controller targetting the Space Invaders arcade ROM.
 	*/
-	class IoController : public IController
+	class IoController : public MachEmu::IController
 	{
 	private:
 		/** The next interrupt to execute.
@@ -169,7 +49,7 @@ namespace SpaceInvaders
 			ISR::One is issued when the 'CRT beam' is near the center of the screen.
 			ISR::Two is issued when the 'CRT beam' is at the end of the screen (VBLANK start).
 		*/
-		ISR nextInterrupt_{ ISR::One };
+		MachEmu::ISR nextInterrupt_{ MachEmu::ISR::One };
 		
 		/** Last cpu time.
 
@@ -361,7 +241,7 @@ namespace SpaceInvaders
 			@return		ISR		ISR::One when the 'beam' is near the centre of the screen,
 								ISR::Two when the 'beam' is at the end (vBlank). 
 		*/
-		ISR ServiceInterrupts(uint64_t currTime, uint64_t cycles) override;
+		MachEmu::ISR ServiceInterrupts(uint64_t currTime, uint64_t cycles) override;
 
 		/** Write space invaders vram to texture.
 		
@@ -375,112 +255,6 @@ namespace SpaceInvaders
 		*/
 		void Blit(uint8_t* texture, uint8_t rowBytes);
 	};
+} // namespace SpaceInvaders
 
-	/** Custom SDL io controller.
-
-		A custom io controller targetting the Space Invaders arcade ROM.
-	*/
-	class SdlIoController final : public IoController
-	{
-		private:
-			/** SDL Renderer.
-
-				The window rendering context.
-			*/
-			//cppcheck-suppress unusedStructMember
-			SDL_Renderer* renderer_{};
-
-			/**	SDL_texture.
-				
-				The texture which will hold the video ram for rendering.
-			*/
-			//cppcheck-suppress unusedStructMember
-			SDL_Texture* texture_{};
-
-			/** SDL_Window.
-
-				The window to draw the video ram to.
-			*/
-			//cppcheck-suppress unusedStructMember
-			SDL_Window* window_{};
-			
-			/** Audio samples.
-			
-				The various audio samples to be played.
-
-				@See IoController::WavFiles_
-			*/
-			//cppcheck-suppress unusedStructMember
-			std::array<Mix_Chunk*, totalWavFiles_> mixChunk_;
-
-			/**
-				The custom Space Invaders SDL event type
-
-				Event codes are defined in the EventCode enumeration.
-
-				@see EventCode
-			*/
-			uint64_t siEvent_{};
-
-			enum EventCode
-			{
-				RenderVideo,	/**< The next video frame is ready to be rendered. This event drives the control loop */
-				RenderAudio,	/**< Audio is ready to be played. The siEvent data1 type is the index into the mixChunk_ to be played. */
-			};
-
-		public:
-			/** Initialisation constructor.
-			
-				Creates an SDL specific Space Invaders IO controller.
-			*/
-			explicit SdlIoController(const std::shared_ptr<MemoryController>& memoryController);
-			
-			/** Destructor.
-			
-				Free the various required SDL objects.
-			*/
-			~SdlIoController();
-
-			/** IController Read override.
-			
-				Sample the keyboard so the CPU can take any required action.
-			
-				@param	port	The device to read from.
-
-				@return	int		A bitfield indicating the action to take.
-
-				@see IoController::ReadFrom.
-			*/
-			uint8_t Read(uint16_t port) final;
-
-			/** IController write override.
-			
-				Write the relevant audio sample to the output audio device.
-			
-				@param	port	The output device to write to.
-				@param	data	A bitfield indicating what data to write.
-
-				@see IoController::WriteTo.
-			*/
-			void Write(uint16_t port, uint8_t data) final;
-
-			/** IController::ServiceInterrupts override.
-			
-				Render the video ram texture to the window via the rendering context.
-
-				@param	currTime	The current CPU run time in nanoseconds.
-				@param	cycles		The number of CPU cycles completed.
-
-				@see IoController::ServiceInterrupts.
-			*/
-			ISR ServiceInterrupts(uint64_t currTime, uint64_t cycles) final;
-
-			/**	Main control loop
-
-				Process all incoming events.
-
-				Events include audio/video rendering, keyboard processing and window close.
-			*/
-			void EventLoop();
-	};
-}
+#endif // IO_CONTROLLER_H
