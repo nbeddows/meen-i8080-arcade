@@ -27,9 +27,8 @@ SOFTWARE.
 
 namespace SpaceInvaders
 {
-	MemoryController::MemoryController(uint8_t addrSize)
-		: memorySize_{ static_cast<size_t>(1 << addrSize) },
-		memory_{ std::make_unique<uint8_t[]>(memorySize_) }
+	MemoryController::MemoryController()
+		: memory_{ std::make_unique<uint8_t[]>(memorySize_) }
 	{
 
 	}

@@ -42,7 +42,7 @@ namespace SpaceInvaders
                 The size in bytes of the memory.
             */
             //cppcheck-suppress unusedStructMember
-            size_t memorySize_{};
+            size_t memorySize_{ 1 << 16 };
 
             /** Memory buffer.
 
@@ -51,17 +51,13 @@ namespace SpaceInvaders
             std::unique_ptr<uint8_t[]> memory_;
 
         public:
-            /** Contructor.
+            /** Constructor.
 
-                Create a memory controller that can address memory of the
-                specified address bus size. For this demo Space Invaders
-                runs on an Intel8080 with 64k of memory, therefore the
-                address bus size will be 16.
-
-                @param		addressBusSize	The size of the address bus.
-                                            This will be 16.
+                Create a memory controller that can handle the memory requirements
+                of Space Invaders. Space Invaders runs on an Intel8080 with 64k
+                of memory therefore the memory controller will be of this size.
             */
-            explicit MemoryController(uint8_t addressBusSize);
+            MemoryController();
 
             ~MemoryController() = default;
 
