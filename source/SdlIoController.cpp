@@ -21,6 +21,7 @@ SOFTWARE.
 */
 
 #include <assert.h>
+#include <bitset>
 
 #include "SpaceInvaders/SdlIoController.h"
 
@@ -182,13 +183,13 @@ namespace SpaceInvaders
 	{
 		auto audio = IoController::WriteTo(port, data);
 
-		if (audio.any() == true)
+		if (audio > 0)
 		{
 			SDL_Event e{};
 			e.type = siEvent_;
 			e.user.code = EventCode::RenderAudio;
-			e.user.data1 = reinterpret_cast<void*>(audio.to_ullong());
-			e.user.data2 = nullptr;
+			e.user.data1 = reinterpret_cast<void*>(port);
+			e.user.data2 = reinterpret_cast<void*>(audio);
 			SDL_PushEvent(&e);
 		}
 	}
@@ -246,13 +247,18 @@ namespace SpaceInvaders
 							}
 							case EventCode::RenderAudio:
 							{
-								std::bitset<16> audio = reinterpret_cast<uint64_t>(e.user.data1);
+								uint8_t port = reinterpret_cast<uint64_t>(e.user.data1);
+								std::bitset<8> audio = reinterpret_cast<uint64_t>(e.user.data2);
+								// port will either be 3 or 5
+								// when port is 3 index will be 0 and when it is 5 it will be 8
+								// which will give the correct offset into the mixChunk_ array
+								auto offset = (port - 3) << 2;
 
-								for (int i = 0; i < 16; i++)
+								for (int i = 0; i < 8; i++)
 								{
 									if (audio.test(i) == true)
 									{
-										[[maybe_unused]] auto busy = Mix_PlayChannel(-1 /* use the next available channel */, mixChunk_[i], 0 /* don't loop (play it once) */);
+										[[maybe_unused]] auto busy = Mix_PlayChannel(-1 /* use the next available channel */, mixChunk_[i + offset], 0 /* don't loop (play it once) */);
 										// We are playing 8 (default maximum) samples at the same time, this should not happen!
 										// We are trying to play a track which isn't loaded (an unknown data bit is set?!?!)
 										//assert(mixChunk_[i] == nullptr || busy != -1);

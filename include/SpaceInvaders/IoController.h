@@ -25,7 +25,6 @@ SOFTWARE.
 
 #include <array>
 #include <atomic>
-#include <bitset>
 #include <memory>
 #include <mutex>
 
@@ -228,9 +227,9 @@ namespace SpaceInvaders
 			@param	port		The output device to write to.
 			@param	data		The data to write to the output device.
 
-			@return	uint16_t	1 if the data on the port was handled, 0 otherwise.
+			@return				Audio that requires rendering as described above.
 		*/
-		std::bitset<16> WriteTo(uint16_t port, uint8_t data);
+		uint8_t WriteTo(uint16_t port, uint8_t data);
 
 		/** Service io interrupts.
 
