@@ -21,6 +21,7 @@ SOFTWARE.
 */
 
 #include <assert.h>
+#include <bitset>
 #include <cstring>
 
 #include "SpaceInvaders/IoController.h"
@@ -47,9 +48,9 @@ namespace SpaceInvaders
 		return 0;
 	}
 
-	std::bitset<16> IoController::WriteTo(uint16_t port, uint8_t data)
+	uint8_t IoController::WriteTo(uint16_t port, uint8_t data)
 	{
-		std::bitset<16> audio = 0;
+		std::bitset<8> audio = 0;
 
 		if (port == 2)
 		{
@@ -63,7 +64,6 @@ namespace SpaceInvaders
 
 			for (int i = 1; i < 8; i++)
 			{
-				// Fill the low 8 bits
 				audio[i] = (data & (1 << i)) > (port3Byte_ & (1 << i));
 			}
 
@@ -77,8 +77,7 @@ namespace SpaceInvaders
 		{
 			for (int i = 0; i < 8; i++)
 			{
-				// Fill the high 8 bits
-				audio[i + 8] = (data & (1 << i)) > (port5Byte_ & (1 << i));
+				audio[i] = (data & (1 << i)) > (port5Byte_ & (1 << i));
 			}
 
 			port5Byte_ = data;
@@ -94,7 +93,7 @@ namespace SpaceInvaders
 			//printf("Unknown device: %d\n", data);
 		}
 
-		return audio;
+		return audio.to_ulong();
 	}
 
 	MachEmu::ISR IoController::ServiceInterrupts(uint64_t currTime, uint64_t cycles)
