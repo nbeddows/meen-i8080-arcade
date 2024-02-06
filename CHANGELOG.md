@@ -1,4 +1,4 @@
-0.1.1 [07/07/24]
+0.1.1 [07/02/24]
 * Added a frame pool to prevent superfluous memory allocs.
 * Improved audio event handling.
 
