@@ -27,18 +27,53 @@ SOFTWARE.
 
 namespace SpaceInvaders
 {
-	MemoryController::MemoryController(uint8_t addrSize)
-		: memorySize_{ static_cast<size_t>(1 << addrSize) },
-		memory_{ std::make_unique<uint8_t[]>(memorySize_) }
+	MemoryController::MemoryController(int framePoolSize)
+		: memory_{ std::make_unique<uint8_t[]>(memorySize_) }
 	{
-
+		for (int i = 0; i < framePoolSize; i++)
+		{
+			framePool_.push_back({ std::make_unique<std::array<uint8_t, VideoFrame::size>>() });
+		}
 	}
 
-	std::unique_ptr<uint8_t[]> MemoryController::GetVram() const
+	MemoryController::VideoFrame MemoryController::GetVideoFrame() const
 	{
-		auto vram = std::make_unique<uint8_t[]>(7168);
-		memcpy(vram.get(), memory_.get() + 0x2400, 7168);
-		return vram;
+		VideoFrame frame;
+		// This method is called from ServiceInterrupts so we don't 
+		// want to block waiting for this mutex as we could stall the cpu,
+		// if we don't get it, this frame will be dropped (host is too
+		// slow, the machine clock resolution is too high or the function
+		// call spuriously failed).
+		auto locked = frameMutex_.try_lock();
+	
+		if (locked == true)
+		{
+			if (framePool_.empty() == false)
+			{
+				frame = std::move(framePool_.back());
+				framePool_.pop_back();
+			}
+
+			frameMutex_.unlock();
+
+			if (frame.vram != nullptr)
+			{
+				auto data = frame.vram.get()->data();
+				auto size = frame.vram.get()->size();
+				auto vram = memory_.get() + 0x2400;
+
+				memcpy(data, vram, size);
+			}
+		}
+
+		return frame;
+	}
+
+	void MemoryController::ReturnVideoFrame(VideoFrame&& frame)
+	{
+		// The resource has to be returned, otherwise the 'pipeline' will stall.
+		std::lock_guard<std::mutex> lock(frameMutex_);
+		framePool_.push_back(std::move(frame));
 	}
 
 	size_t MemoryController::Size() const
