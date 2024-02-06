@@ -144,7 +144,7 @@ namespace SpaceInvaders
             
                 @param      frame   the frame to be returned.
 
-                @remark     Not returning the frame (in at least real-time) will cause frmae drops.
+                @remark     Not returning the frame (in at least real-time) will cause frame drops.
             */
             void ReturnVideoFrame(VideoFrame&& frame);
 
