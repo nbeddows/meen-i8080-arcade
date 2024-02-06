@@ -116,9 +116,6 @@ namespace SpaceInvaders
 				{
 					//Signal that the 'crt beam' is about half was down the screen.
 					nextInterrupt_ = MachEmu::ISR::One;
-
-					std::lock_guard<std::mutex> lock(mutex_);
-					memcpy(vram_.data(), memoryController_->GetVram().get(), vram_.size());
 				}
 
 				lastTime_ = currTime;
@@ -132,16 +129,15 @@ namespace SpaceInvaders
 		return isr;
 	}
 
-	void IoController::Blit(uint8_t* texture, uint8_t rowBytes)
+	void IoController::Blit(uint8_t* dst, uint8_t* src, uint8_t rowBytes)
 	{
-		std::lock_guard<std::mutex> lock(mutex_);
-		auto vramStart = vram_.data();
-		auto vramEnd = vramStart + memoryController_->GetVramLength();
+		auto vramStart = src;
+		auto vramEnd = vramStart + MemoryController::VideoFrame::size;
 		int8_t shift = 0;
 		//Since we are decompressing the video ram, we will also perform the
 		//required 270 degree rotation.
-		auto start = texture + rowBytes * (memoryController_->GetScreenHeight() - 1);
-		auto ptr = texture;
+		auto start = dst + rowBytes * (memoryController_->GetScreenHeight() - 1);
+		auto ptr = dst;
 
 		while (vramStart < vramEnd)
 		{
@@ -152,7 +148,7 @@ namespace SpaceInvaders
 			//Move to the next vram byte if we have done a full cycle.
 			vramStart += shift == 0;
 			//If we are not at the end, move to the next row, otherwise move to the next column.
-			ptr - rowBytes >= texture ? ptr -= rowBytes : ptr = ++start;
+			ptr - rowBytes >= dst ? ptr -= rowBytes : ptr = ++start;
 		}
 	}
 } // namespace SpaceInvaders

@@ -26,7 +26,6 @@ SOFTWARE.
 #include <array>
 #include <atomic>
 #include <memory>
-#include <mutex>
 
 #include "Base/Base.h"
 #include "SpaceInvaders/MemoryController.h"
@@ -134,8 +133,6 @@ namespace SpaceInvaders
 			nullptr							/**< Unused */
 		};
 
-		std::mutex mutex_;
-		std::array<uint8_t, MemoryController::GetVramLength()> vram_;
 	public:
 		/** Initialisation contructor.
 
@@ -248,11 +245,12 @@ namespace SpaceInvaders
 			rotated a further 270 degrees so it can be rendered with the correct
 			orientation.
 
-			@param	texture		The video memory to write to.
+			@param	dst			The video memory to write to (texture memory).
+			@param	src			The video ram to copy.
 			@param	rowBytes	The width of each scanline in bytes.
 
 		*/
-		void Blit(uint8_t* texture, uint8_t rowBytes);
+		void Blit(uint8_t* dst, uint8_t* src, uint8_t rowBytes);
 	};
 } // namespace SpaceInvaders
 

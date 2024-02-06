@@ -200,10 +200,19 @@ namespace SpaceInvaders
 
 		if (isr == MachEmu::ISR::Two)
 		{
+			auto videoFrame = memoryController_->GetVideoFrame();
+
 			SDL_Event e{};
 			e.type = siEvent_;
 			e.user.code = EventCode::RenderVideo;
-			e.user.data1 = nullptr; // this needs to be the video frame to render to.
+
+			// Allow events where the vram is nullptr to be pushed so we can track
+			// dropped frames in the main thread.
+			if (videoFrame.vram != nullptr)
+			{
+				e.user.data1 = videoFrame.vram.release();
+			}
+
 			e.user.data2 = nullptr;
 			SDL_PushEvent(&e);
 		}
@@ -232,13 +241,24 @@ namespace SpaceInvaders
 						{
 							case EventCode::RenderVideo:
 							{
-								uint8_t * pix = nullptr;
+								auto* src = reinterpret_cast<std::array<uint8_t, MemoryController::VideoFrame::size>*>(e.user.data1);
+								uint8_t * dst = nullptr;
 								int rowBytes = 0;
 
-								if (SDL_LockTexture(texture_, nullptr, reinterpret_cast<void**>(&pix), &rowBytes) == 0)
+								// If src is nullptr then the frame that this interrupt refers to has been dropped.
+								if (src != nullptr)
 								{
-									IoController::Blit(pix, rowBytes);
-									SDL_UnlockTexture(texture_);
+									if (SDL_LockTexture(texture_, nullptr, reinterpret_cast<void**>(&dst), &rowBytes) == 0)
+									{
+										IoController::Blit(dst, src->data(), rowBytes);
+										SDL_UnlockTexture(texture_);
+									}
+
+									memoryController_->ReturnVideoFrame({ std::unique_ptr<std::array<uint8_t, MemoryController::VideoFrame::size>>(src) });
+								}
+								else
+								{
+									printf ("Dropped Video Frame\n");
 								}
 
 								SDL_RenderCopy(renderer_, texture_, nullptr, nullptr);
