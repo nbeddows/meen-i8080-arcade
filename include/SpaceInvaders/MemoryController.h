@@ -99,8 +99,14 @@ namespace SpaceInvaders
                 Create a memory controller that can handle the memory requirements
                 of Space Invaders. Space Invaders runs on an Intel8080 with 64k
                 of memory therefore the memory controller will be of this size.
+            
+                @param      framePoolSize       The amount frames to allocate, each frame is 7168 bytes in length.
+
+                @remark     default frame pool size is 1.
+
+                @see framePool_
             */
-            MemoryController();
+            MemoryController(int framePoolSize = 1);
 
             ~MemoryController() = default;
 

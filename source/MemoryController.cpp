@@ -27,10 +27,10 @@ SOFTWARE.
 
 namespace SpaceInvaders
 {
-	MemoryController::MemoryController()
+	MemoryController::MemoryController(int framePoolSize)
 		: memory_{ std::make_unique<uint8_t[]>(memorySize_) }
 	{
-		for (int i = 0; i < 1 /* frame pool size */; i++)
+		for (int i = 0; i < framePoolSize; i++)
 		{
 			framePool_.push_back({ std::make_unique<std::array<uint8_t, VideoFrame::size>>() });
 		}
