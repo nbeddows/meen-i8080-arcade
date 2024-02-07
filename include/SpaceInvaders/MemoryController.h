@@ -23,7 +23,10 @@ SOFTWARE.
 #ifndef MEMORY_CONTROLLER_H
 #define MEMORY_CONTROLLER_H
 
+#include <array>
 #include <memory>
+#include <mutex>
+#include <vector>
 
 #include "Base/Base.h"
 #include "Controller/IController.h"
@@ -36,75 +39,116 @@ namespace SpaceInvaders
 	*/
 	class MemoryController final : public MachEmu::IController
 	{
+        public:
+            /** Video ram wrapper
+            
+                Individual frame bytes that will be housed in a frame pool.
+
+                @remark     Wrap unique pointer so it is more compatible with C based API's.
+            */
+            struct VideoFrame
+            {
+                /** Video ram size
+                
+                    The size in bytes.
+                */
+                static constexpr int size = 7168;
+                
+                /** Video ram
+
+                    The bytes for each frame that will be copied out of memory
+                    when interrupt service routine ISR::Two is fired.
+                */
+                std::unique_ptr<std::array<uint8_t, size>> vram;
+            };
+
         private:
-            /** Memory size.
+            /** Memory size
 
                 The size in bytes of the memory.
             */
             //cppcheck-suppress unusedStructMember
-            size_t memorySize_{};
+            size_t memorySize_{ 1 << 16 };
 
-            /** Memory buffer.
+            /** Memory buffer
 
                 The memory bytes that the cpu will read from and write to.
             */
             std::unique_ptr<uint8_t[]> memory_;
+            
+            /** Frame pool mutex
+            
+                Mutual exclusion between the main thread and the machine thread for frame pool access.
+            
+                @remark     marked as mutable so GetVideoFrame can remain const
+            */
+
+            mutable std::mutex frameMutex_;
+
+            /** Frame pool
+            
+                A pool of video frames that can be used to copy the current vram into.
+
+                @remark     marked as mutable so GetVideoFrame can remain const
+            */
+            mutable std::vector<VideoFrame> framePool_;
 
         public:
-            /** Contructor.
+            /** Constructor
 
-                Create a memory controller that can address memory of the
-                specified address bus size. For this demo Space Invaders
-                runs on an Intel8080 with 64k of memory, therefore the
-                address bus size will be 16.
+                Create a memory controller that can handle the memory requirements
+                of Space Invaders. Space Invaders runs on an Intel8080 with 64k
+                of memory therefore the memory controller will be of this size.
+            
+                @param      framePoolSize       The amount frames to allocate, each frame is 7168 bytes in length.
 
-                @param		addressBusSize	The size of the address bus.
-                                            This will be 16.
+                @remark     default frame pool size is 1.
+
+                @see framePool_
             */
-            explicit MemoryController(uint8_t addressBusSize);
+            MemoryController(int framePoolSize = 1);
 
             ~MemoryController() = default;
 
-            /** Screen width.
+            /** Screen width
 
                 Space Invaders has a width of 224 @ 1bpp.
 
-                NOTE: this differs from the vram width which is 256.
-                    (It is written to vram with a 90 degree rotation.)
+                @remark     this differs from the vram width which is 256.
+                            (It is written to vram with a 90 degree rotation.)
             */
             constexpr uint16_t GetScreenWidth() const { return 224; }
             
-            /** Screen height.
+            /** Screen height
 
                 Space Invaders has a height of 256 @ 1bpp.
 
-                NOTE: this differs from the vram height which is 224.
-                    (It is written to vram with a 90 degree rotation.)
+                @remark     this differs from the vram height which is 224.
+                            (It is written to vram with a 90 degree rotation.)
             */
             constexpr uint16_t GetScreenHeight() const { return 256; }
 
-            /** The size of the video ram.
+            /** Get a copy of the current video ram
 
-                Space Invaders has a constant size of 7168
+                The VideoFrame containing the current video ram is taken from a finite frame pool.
+
+                @return         The current video ram as a unique_ptr wrapped in a VideoFrame.
+
+                @remark         The VideoFrame MUST be returned to the memory controller.
+
+                @see            ReturnVideoFrame.
             */
-            static constexpr uint16_t GetVramLength() { return 7168; }
+            VideoFrame GetVideoFrame() const;
 
-            /** Video ram.
+            /** Return the frame to the frame pool
+            
+                @param      frame   the frame to be returned.
 
-                This is a new allocation with a copy of the video ram.
-
-                @return		unique_ptr		The video ram.
-
-                NOTE: The length of the video ram returned is given by:
-
-                    GetVRAMLength()
-
-                NOTE: This isn't the best way to do this, one should use a resource pool
-                    to avoid the unnecessary allocations.
+                @remark     Not returning the frame (in at least real-time) will cause frame drops.
             */
-            std::unique_ptr<uint8_t[]> GetVram() const;
+            void ReturnVideoFrame(VideoFrame&& frame);
 
-            /** Load ROM file.
+            /** Load ROM file
 
                 Loads the specified rom file and the given memory address offset.
 
@@ -114,16 +158,20 @@ namespace SpaceInvaders
                     invaders-g 0800-0FFF
                     invaders-f 1000-17FF
                     invaders-e 1800-1FFF
+
+                @param      romFile     the path to the rom file (on local disk).
+
+                @param      offset      the memory offset at which to load the rom.
             */
             void Load(const char* romFile, uint16_t offset);
 
-            /** Memory size.
+            /** Memory size
 
-                Returns the size of the memory, in our example it will be 64k (2^addressBusSize(16))
+                @return     the size of the memory, in this case 64k.
             */
             size_t Size() const;
 
-            /** Read from controller.
+            /** Read from controller
 
                 Reads 8 bits of data from the specifed 16 bit memory address.
 
@@ -131,7 +179,7 @@ namespace SpaceInvaders
             */
             uint8_t Read(uint16_t address) override final;
 
-            /** Write to controller.
+            /** Write to controller
 
                 Write 8 bits of data to the specifed 16 bit memory address.
 
@@ -139,7 +187,7 @@ namespace SpaceInvaders
             */
             void Write(uint16_t address, uint8_t value) override final;
 
-            /** Service memory interrupts.
+            /** Service memory interrupts
 
                 Memory interrupts are never generated.
 

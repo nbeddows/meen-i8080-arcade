@@ -1,3 +1,7 @@
+0.1.1 [07/02/24]
+* Added a frame pool to prevent superfluous memory allocs.
+* Improved audio event handling.
+
 0.1.0 [03/02/24]
 * Added CMake support.
 * Supports Visual Studio 22 (Windows 10) and

@@ -21,6 +21,7 @@ SOFTWARE.
 */
 
 #include <assert.h>
+#include <bitset>
 #include <cstring>
 
 #include "SpaceInvaders/IoController.h"
@@ -47,9 +48,9 @@ namespace SpaceInvaders
 		return 0;
 	}
 
-	std::bitset<16> IoController::WriteTo(uint16_t port, uint8_t data)
+	uint8_t IoController::WriteTo(uint16_t port, uint8_t data)
 	{
-		std::bitset<16> audio = 0;
+		std::bitset<8> audio = 0;
 
 		if (port == 2)
 		{
@@ -63,7 +64,6 @@ namespace SpaceInvaders
 
 			for (int i = 1; i < 8; i++)
 			{
-				// Fill the low 8 bits
 				audio[i] = (data & (1 << i)) > (port3Byte_ & (1 << i));
 			}
 
@@ -77,8 +77,7 @@ namespace SpaceInvaders
 		{
 			for (int i = 0; i < 8; i++)
 			{
-				// Fill the high 8 bits
-				audio[i + 8] = (data & (1 << i)) > (port5Byte_ & (1 << i));
+				audio[i] = (data & (1 << i)) > (port5Byte_ & (1 << i));
 			}
 
 			port5Byte_ = data;
@@ -94,7 +93,7 @@ namespace SpaceInvaders
 			//printf("Unknown device: %d\n", data);
 		}
 
-		return audio;
+		return audio.to_ulong();
 	}
 
 	MachEmu::ISR IoController::ServiceInterrupts(uint64_t currTime, uint64_t cycles)
@@ -117,9 +116,6 @@ namespace SpaceInvaders
 				{
 					//Signal that the 'crt beam' is about half was down the screen.
 					nextInterrupt_ = MachEmu::ISR::One;
-
-					std::lock_guard<std::mutex> lock(mutex_);
-					memcpy(vram_.data(), memoryController_->GetVram().get(), vram_.size());
 				}
 
 				lastTime_ = currTime;
@@ -133,16 +129,15 @@ namespace SpaceInvaders
 		return isr;
 	}
 
-	void IoController::Blit(uint8_t* texture, uint8_t rowBytes)
+	void IoController::Blit(uint8_t* dst, uint8_t* src, uint8_t rowBytes)
 	{
-		std::lock_guard<std::mutex> lock(mutex_);
-		auto vramStart = vram_.data();
-		auto vramEnd = vramStart + memoryController_->GetVramLength();
+		auto vramStart = src;
+		auto vramEnd = vramStart + MemoryController::VideoFrame::size;
 		int8_t shift = 0;
 		//Since we are decompressing the video ram, we will also perform the
 		//required 270 degree rotation.
-		auto start = texture + rowBytes * (memoryController_->GetScreenHeight() - 1);
-		auto ptr = texture;
+		auto start = dst + rowBytes * (memoryController_->GetScreenHeight() - 1);
+		auto ptr = dst;
 
 		while (vramStart < vramEnd)
 		{
@@ -153,7 +148,7 @@ namespace SpaceInvaders
 			//Move to the next vram byte if we have done a full cycle.
 			vramStart += shift == 0;
 			//If we are not at the end, move to the next row, otherwise move to the next column.
-			ptr - rowBytes >= texture ? ptr -= rowBytes : ptr = ++start;
+			ptr - rowBytes >= dst ? ptr -= rowBytes : ptr = ++start;
 		}
 	}
 } // namespace SpaceInvaders
