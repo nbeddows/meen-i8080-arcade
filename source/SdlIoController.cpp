@@ -27,8 +27,8 @@ SOFTWARE.
 
 namespace SpaceInvaders
 {
-    SdlIoController::SdlIoController(const std::shared_ptr<MemoryController>& memoryController)
-		: IoController(memoryController)
+    SdlIoController::SdlIoController(const std::shared_ptr<MemoryController>& memoryController, const nlohmann::json& config)
+		: IoController(memoryController, config)
 	{
 		SDL_SetMainReady();
 

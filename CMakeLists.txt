@@ -41,6 +41,9 @@ else()
     endif()
 endif()
 
+set(configDir "${CMAKE_SOURCE_DIR}/conf" CACHE PATH "Path to the configuration file directory")
+set(romsDir "${CMAKE_SOURCE_DIR}/roms" CACHE PATH "Path to the roms directory")
+
 project(${projectName})
 
 add_executable(${projectName}
@@ -53,11 +56,13 @@ add_executable(${projectName}
     source/MemoryController.cpp
 )
 
-target_compile_definitions(${projectName} PRIVATE ROMS_DIR=\"${CMAKE_SOURCE_DIR}/roms/\")
+target_compile_definitions(${projectName} PRIVATE ROMS_DIR=\"${romsDir}\")
 
+find_package(nlohmann_json)
 find_library(libMachEmu MachEmu)
+target_compile_definitions(${projectName} PRIVATE CONFIG_DIR=\"${configDir}\")
 target_include_directories(${projectName} PRIVATE ${machEmuIncludePath} ${CMAKE_SOURCE_DIR}/include)
-target_link_libraries(${projectName} PRIVATE ${libMachEmu})
+target_link_libraries(${projectName} PRIVATE ${libMachEmu} nlohmann_json::nlohmann_json)
 
 if(enableSdl)
     find_library(libSDL2 SDL2)

@@ -21,24 +21,25 @@ SOFTWARE.
 */
 
 #include <future>
+#include <fstream>
 #include <memory>
 #include "Machine/MachineFactory.h"
+#include "nlohmann/json.hpp"
 #include "SpaceInvaders/SdlIoController.h"
-
-//Just to make things simpler
-using namespace SpaceInvaders;
-using namespace MachEmu;
 
 int main(void)
 {
 	try
 	{
+		std::ifstream fin(CONFIG_DIR"/config.json");
+		const nlohmann::json config = nlohmann::json::parse(fin);
+
 		//The machine to run Space Invaders on.
-		auto machine = Make8080Machine();
+		auto machine = MachEmu::Make8080Machine();
 		//Create our custom Space Invaders memory controller.
-		auto memoryController = std::make_shared<MemoryController>();
+		auto memoryController = std::make_shared<SpaceInvaders::MemoryController>();
 		//Create our custom Space Invaders I/O controller.
-		auto ioController = std::make_shared<SdlIoController>(memoryController);
+		auto ioController = std::make_shared<SpaceInvaders::SdlIoController>(memoryController, config);
 
 		/*
 			Load the ROM into memory, the layout
@@ -49,10 +50,10 @@ int main(void)
 				invaders-f 1000-17FF
 				invaders-e 1800-1FFF
 		*/
-		memoryController->Load(ROMS_DIR"invaders-h.bin", 0x0000);
-		memoryController->Load(ROMS_DIR"invaders-g.bin", 0x0800);
-		memoryController->Load(ROMS_DIR"invaders-f.bin", 0x1000);
-		memoryController->Load(ROMS_DIR"invaders-e.bin", 0x1800);
+		memoryController->Load(ROMS_DIR"/invaders-h.bin", 0x0000);
+		memoryController->Load(ROMS_DIR"/invaders-g.bin", 0x0800);
+		memoryController->Load(ROMS_DIR"/invaders-f.bin", 0x1000);
+		memoryController->Load(ROMS_DIR"/invaders-e.bin", 0x1800);
 
 		// Load our controllers into the machine.
 		machine->SetMemoryController(memoryController);
