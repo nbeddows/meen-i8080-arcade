@@ -227,12 +227,12 @@ namespace SpaceInvaders
 
 	void IoController::Blit(uint8_t* dst, uint8_t* src, uint8_t rowBytes)
 	{
-		auto decompressVram = [&src, colour = colour_](uint8_t** nextCol, const std::function<uint8_t* (uint8_t* dst, uint8_t** nextCol)>& assignByte)
+		auto decompressVram = [src, dst, rb = rowBytes, colour = colour_](uint8_t* nextCol, bool cocktail)
 		{
 			auto vramStart = src;
 			auto vramEnd = vramStart + MemoryController::VideoFrame::size;
 			int8_t shift = 0;
-			auto ptr = *nextCol;
+			auto ptr = nextCol;
 
 			while (vramStart < vramEnd)
 			{
@@ -243,29 +243,12 @@ namespace SpaceInvaders
 				//Move to the next vram byte if we have done a full cycle.
 				vramStart += shift == 0;
 				//If we are not at the end, move to the next row, otherwise move to the next column.
-				//ptr - rowBytes >= dst ? ptr -= rowBytes : ptr = ++start;
-				ptr = assignByte(ptr, nextCol);
+				cocktail == true || ptr - rb < dst ? ptr = ++nextCol : ptr -= rb;
 			}
 		};
 
 		switch (blitMode_)
 		{
-			case BlitFlags::Native:
-			{
-				memcpy(dst, src, MemoryController::VideoFrame::size);
-				break;
-			}
-			case BlitFlags::Rgb332:
-			{
-				auto start = dst;
-
-				decompressVram(&start, [dst, rowBytes](uint8_t* ptr, uint8_t** nextCol)
-				{
-					(*nextCol)++;
-					return *nextCol;
-				});
-				break;
-			}
 			case BlitFlags::Upright:
 			{
 				static constexpr int srcWidth = MemoryController::VideoFrame::width;
@@ -304,25 +287,19 @@ namespace SpaceInvaders
 				}
 				break;
 			}
+			case BlitFlags::Native:
+			{
+				memcpy(dst, src, MemoryController::VideoFrame::size);
+				break;
+			}
+			case BlitFlags::Rgb332:
+			{
+				decompressVram(dst, true);
+				break;
+			}
 			case BlitFlags::Upright8bpp:
 			{
-				auto start = dst + rowBytes * (height_ - 1);
-
-				decompressVram(&start, [dst, rowBytes](uint8_t* ptr, uint8_t** nextCol)
-				{
-					//If we are not on the first pixel row, move to the previous row, otherwise move to the next column.
-					if (ptr - rowBytes >= dst)
-					{
-						ptr -= rowBytes;
-					}
-					else
-					{
-						(*nextCol)++;
-						ptr = *nextCol;
-					}
-
-					return ptr;
-				});
+				decompressVram(dst + rowBytes * (height_ - 1), false);
 				break;
 			}
 			default:
