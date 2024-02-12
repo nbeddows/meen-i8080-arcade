@@ -48,11 +48,23 @@ namespace SpaceInvaders
             */
             struct VideoFrame
             {
+                /** Video ram width
+                
+                    The width of the compressed video ram in bytes.
+                */
+                static constexpr int width = 32;
+
+                /** Video ram width
+
+                    The width of the compressed video ram in bytes.
+                */
+                static constexpr int height = 224;
+
                 /** Video ram size
                 
                     The size in bytes.
                 */
-                static constexpr int size = 7168;
+                static constexpr int size = width * height;
                 
                 /** Video ram
 
@@ -110,23 +122,17 @@ namespace SpaceInvaders
 
             ~MemoryController() = default;
 
-            /** Screen width
+            /** Compressed video ram width
 
-                Space Invaders has a width of 224 @ 1bpp.
-
-                @remark     this differs from the vram width which is 256.
-                            (It is written to vram with a 90 degree rotation.)
+                Space Invaders has a width of 32 @ 1bpp, this gives an actual width of 256. 
             */
-            constexpr uint16_t GetScreenWidth() const { return 224; }
+            //static constexpr uint16_t GetVideoRamWidth() { return VideoFrame::width; }
             
             /** Screen height
 
-                Space Invaders has a height of 256 @ 1bpp.
-
-                @remark     this differs from the vram height which is 224.
-                            (It is written to vram with a 90 degree rotation.)
+                Space Invaders has a height of 224.
             */
-            constexpr uint16_t GetScreenHeight() const { return 256; }
+            //static constexpr uint16_t GetVideoRamHeight() { return VideoFrame::height; }
 
             /** Get a copy of the current video ram
 

@@ -37,7 +37,7 @@ namespace SpaceInvaders
 			throw std::runtime_error("Failed to initialise SDL");
 		}
 
-		window_ = SDL_CreateWindow("Space Invaders", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 224, 256, 0/*SDL_WINDOW_FULLSCREEN*/);
+		window_ = SDL_CreateWindow("Space Invaders", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, width_, height_, 0/*SDL_WINDOW_FULLSCREEN*/);
 
 		if (window_ == nullptr)
 		{
@@ -51,8 +51,9 @@ namespace SpaceInvaders
 			throw std::bad_alloc();
 		}
 
+		// Create the 8bpp texture
 		SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "linear");
-		texture_ = SDL_CreateTexture(renderer_, SDL_PIXELFORMAT_RGB332, SDL_TEXTUREACCESS_STREAMING, memoryController_->GetScreenWidth(), memoryController_->GetScreenHeight());
+		texture_ = SDL_CreateTexture(renderer_, SDL_PIXELFORMAT_RGB332, SDL_TEXTUREACCESS_STREAMING, width_, height_);
 
 		if (texture_ == nullptr)
 		{

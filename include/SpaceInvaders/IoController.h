@@ -40,6 +40,14 @@ namespace SpaceInvaders
 	class IoController : public MachEmu::IController
 	{
 	private:
+		enum BlitFlags
+		{
+			Native		= 0 << 0,
+			Rgb332		= 1 << 0,
+			Upright		= 1 << 1,
+			Upright8bpp = Upright | Rgb332
+		};
+
 		/** The next interrupt to execute.
 
 			nextInterrupt_ holds the next ISR that will be sent to the cpu.
@@ -86,8 +94,11 @@ namespace SpaceInvaders
 		//cppcheck-suppress unusedStructMember
 		uint8_t port5Byte_{};
 
-		// vram foregound colour
-		uint8_t colour_{ 0xFF };
+		// compression/orientation flags - default: cocktail at 1bpp
+		uint8_t blitMode_{ BlitFlags::Native };
+
+		// vram foregound colour - default is black (this is ignored when Rgb332 is off which it is by default)
+		uint8_t colour_{};
 
 	protected:
 		/** The maximum number of output audio sample files.
@@ -136,6 +147,10 @@ namespace SpaceInvaders
 			nullptr,						/**< Unused */
 			nullptr							/**< Unused */
 		};
+
+		// Default resolution - native (cocktail (horizontal), 1bpp)
+		int width_{ 32 };
+		int height_{ 224 };
 
 	public:
 		/** Initialisation contructor.
