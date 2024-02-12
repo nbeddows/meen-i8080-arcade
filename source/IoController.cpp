@@ -36,6 +36,25 @@ namespace SpaceInvaders
 		if (config.contains("bpp") == true)
 		{
 			auto bpp = config["bpp"].get<uint8_t>();
+
+			switch (bpp)
+			{
+				case 1:
+				{
+					// native bpp, don't set the 8bpp flag
+					break;
+				}
+				case 8:
+				{
+					blitMode_ |= BlitFlags::Rgb332;
+					width_ = 256;
+					break;
+				}
+				default:
+				{
+					throw std::invalid_argument("Invalid configuration: bpp");
+				}
+			}
 		}
 
 		if (config.contains("colour") == true)
@@ -68,19 +87,39 @@ namespace SpaceInvaders
 				}
 				else
 				{
-					throw std::invalid_argument("Invalid configuration colour");
+					throw std::invalid_argument("Invalid configuration: colour");
 				}
 			}
 			else if (*ptr != '\0')
 			{
 				// we parsed something but there is still left over text
-				throw std::invalid_argument("Invalid configuration colour");
+				throw std::invalid_argument("Invalid configuration: colour");
 			}
 		}
 
 		if (config.contains("orientation") == true)
 		{
 			auto orientation = config["orientation"].get<std::string>();
+
+			if (orientation == "upright")
+			{
+				blitMode_ |= BlitFlags::Upright;
+
+				if (blitMode_ & BlitFlags::Rgb332)
+				{
+					width_ = 224;
+				}
+				else
+				{
+					width_ = 28;
+				}
+
+				height_ = 256;
+			}
+			else if (orientation != "cocktail")
+			{
+				throw std::invalid_argument("Invalid configuration: orientation");
+			}
 		}
 	}
 
@@ -181,24 +220,85 @@ namespace SpaceInvaders
 
 	void IoController::Blit(uint8_t* dst, uint8_t* src, uint8_t rowBytes)
 	{
-		auto vramStart = src;
-		auto vramEnd = vramStart + MemoryController::VideoFrame::size;
-		int8_t shift = 0;
-		//Since we are decompressing the video ram, we will also perform the
-		//required 270 degree rotation.
-		auto start = dst + rowBytes * (memoryController_->GetScreenHeight() - 1);
-		auto ptr = dst;
-
-		while (vramStart < vramEnd)
+		auto decompressVram = [src, dst, rb = rowBytes, colour = colour_](uint8_t* nextCol, bool cocktail)
 		{
-			//Decompress the vram from 1bpp to 8bpp.
-			*ptr = ((*vramStart >> shift) & 0x01) * colour_;
-			//Cycle the shift value between 0-7.
-			shift = ++shift & 0x07;
-			//Move to the next vram byte if we have done a full cycle.
-			vramStart += shift == 0;
-			//If we are not at the end, move to the next row, otherwise move to the next column.
-			ptr - rowBytes >= dst ? ptr -= rowBytes : ptr = ++start;
+			auto vramStart = src;
+			auto vramEnd = vramStart + MemoryController::VideoFrame::size;
+			int8_t shift = 0;
+			auto ptr = nextCol;
+
+			while (vramStart < vramEnd)
+			{
+				//Decompress the vram from 1bpp to 8bpp.
+				*ptr = ((*vramStart >> shift) & 0x01) * colour;
+				//Cycle the shift value between 0-7.
+				shift = ++shift & 0x07;
+				//Move to the next vram byte if we have done a full cycle.
+				vramStart += shift == 0;
+				//If we are not at the end, move to the next row, otherwise move to the next column.
+				cocktail == true || ptr - rb < dst ? ptr = ++nextCol : ptr -= rb;
+			}
+		};
+
+		switch (blitMode_)
+		{
+			case BlitFlags::Upright:
+			{
+				static constexpr int srcWidth = MemoryController::VideoFrame::width;
+				static constexpr int srcWidthMinus1 = MemoryController::VideoFrame::width - 1;
+				// Need to skip an additional 7 rows once the vertical sampling is complete.
+				static constexpr int srcRowSkip = srcWidth * 7;
+
+				auto begin = src;
+				auto end = begin + MemoryController::VideoFrame::size;
+				auto start = dst + rowBytes * (height_ - 1);
+				auto ptr = start;
+
+				while (begin < end)
+				{
+					for (int i = 0; i < 8; i++)
+					{
+						uint8_t byte = 0;
+
+						// transpose the compressed pixels (sample from 8 pixels vertically)
+						for (int j = 0; j < 8; j++)
+						{
+							byte |= (((begin[j * srcWidth] >> i) & 0x01) << j);
+						}
+
+						*ptr = byte;
+
+						// Move to the previous row, else the next column
+						ptr - rowBytes >= dst ? ptr -= rowBytes : ptr = ++start;
+					}
+
+					begin++;
+
+					// Since we sample 8 vertical pixels we need to skip another 7 rows when we get to the end of the current row.
+					// TODO: mem pool frames need to be 32 bit aligned, then we don't have to subtract src, ie; just for (begin & (width_ - 1)) == 0
+					begin += (((begin - src & srcWidthMinus1) == 0) * srcRowSkip);
+				}
+				break;
+			}
+			case BlitFlags::Native:
+			{
+				memcpy(dst, src, MemoryController::VideoFrame::size);
+				break;
+			}
+			case BlitFlags::Rgb332:
+			{
+				decompressVram(dst, true);
+				break;
+			}
+			case BlitFlags::Upright8bpp:
+			{
+				decompressVram(dst + rowBytes * (height_ - 1), false);
+				break;
+			}
+			default:
+			{
+				throw std::runtime_error("Invalid blit mode");
+			}
 		}
 	}
 } // namespace SpaceInvaders
