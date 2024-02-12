@@ -48,6 +48,7 @@ namespace SpaceInvaders
 				case 8:
 				{
 					blitMode_ |= BlitFlags::Rgb332;
+					width_ = 256;
 					break;
 				}
 				default:
@@ -116,14 +117,7 @@ namespace SpaceInvaders
 
 				height_ = 256;
 			}
-			else if (orientation == "cocktail")
-			{
-				if (blitMode_ & BlitFlags::Rgb332)
-				{
-					width_ = 256;
-				}
-			}
-			else
+			else if (orientation != "cocktail")
 			{
 				throw std::invalid_argument("Invalid configuration: orientation");
 			}
