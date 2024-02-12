@@ -28,6 +28,7 @@ SOFTWARE.
 #include <memory>
 
 #include "Base/Base.h"
+#include "nlohmann/json_fwd.hpp"
 #include "SpaceInvaders/MemoryController.h"
 
 namespace SpaceInvaders
@@ -85,6 +86,9 @@ namespace SpaceInvaders
 		//cppcheck-suppress unusedStructMember
 		uint8_t port5Byte_{};
 
+		// vram foregound colour
+		uint8_t colour_{ 0xFF };
+
 	protected:
 		/** The maximum number of output audio sample files.
 
@@ -115,19 +119,19 @@ namespace SpaceInvaders
 		*/
 		std::array<const char*, totalWavFiles_> wavFiles_ 
 		{
-			ROMS_DIR"ufo_highpitch.wav",	/**< UFO */
-			ROMS_DIR"shoot.wav",			/**< Player fire */
-			ROMS_DIR"explosion.wav",		/**< Player killed */
-			ROMS_DIR"invaderkilled.wav",	/**<	Invader killed */
+			ROMS_DIR"/ufo_highpitch.wav",	/**< UFO */
+			ROMS_DIR"/shoot.wav",			/**< Player fire */
+			ROMS_DIR"/explosion.wav",		/**< Player killed */
+			ROMS_DIR"/invaderkilled.wav",	/**<	Invader killed */
 			nullptr,						/**< Extended Play */
 			nullptr,						/**< AMP Enable */
 			nullptr,						/**< Unused */
 			nullptr,						/**< Unused */
-			ROMS_DIR"fastinvader1.wav",		/**< Invader fleet movement 1 */
-			ROMS_DIR"fastinvader2.wav",		/**< Invader fleet movement 1 */
-			ROMS_DIR"fastinvader3.wav",		/**< Invader fleet movement 1 */
-			ROMS_DIR"fastinvader4.wav",		/**< Invader fleet movement 1 */
-			ROMS_DIR"ufo_lowpitch.wav",		/**< UFO hit */
+			ROMS_DIR"/fastinvader1.wav",		/**< Invader fleet movement 1 */
+			ROMS_DIR"/fastinvader2.wav",		/**< Invader fleet movement 1 */
+			ROMS_DIR"/fastinvader3.wav",		/**< Invader fleet movement 1 */
+			ROMS_DIR"/fastinvader4.wav",		/**< Invader fleet movement 1 */
+			ROMS_DIR"/ufo_lowpitch.wav",		/**< UFO hit */
 			nullptr,						/**< Unused */
 			nullptr,						/**< Unused */
 			nullptr							/**< Unused */
@@ -141,7 +145,7 @@ namespace SpaceInvaders
 
 			@param		memoryController	The memory controller where the video ram resides.
 		*/
-		explicit IoController(const std::shared_ptr<MemoryController>& memoryController);
+		IoController(const std::shared_ptr<MemoryController>& memoryController, const nlohmann::json& config);
 
 		/** Read from controller.
 

@@ -87,7 +87,7 @@ namespace SpaceInvaders
 			
 				Creates an SDL specific Space Invaders IO controller.
 			*/
-			explicit SdlIoController(const std::shared_ptr<MemoryController>& memoryController);
+			SdlIoController(const std::shared_ptr<MemoryController>& memoryController, const nlohmann::json& config);
 			
 			/** Destructor.
 			

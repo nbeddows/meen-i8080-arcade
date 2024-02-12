@@ -106,7 +106,7 @@ namespace SpaceInvaders
 
                 @see framePool_
             */
-            MemoryController(int framePoolSize = 1);
+            explicit MemoryController(int framePoolSize = 1);
 
             ~MemoryController() = default;
 

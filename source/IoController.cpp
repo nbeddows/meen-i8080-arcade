@@ -22,16 +22,66 @@ SOFTWARE.
 
 #include <assert.h>
 #include <bitset>
+#include <charconv>
 #include <cstring>
 
+#include "nlohmann/json.hpp"
 #include "SpaceInvaders/IoController.h"
 
 namespace SpaceInvaders
 {
-    IoController::IoController(const std::shared_ptr<MemoryController>& memoryController)
+    IoController::IoController(const std::shared_ptr<MemoryController>& memoryController, const nlohmann::json& config)
 		: memoryController_{ memoryController }
 	{
+		if (config.contains("bpp") == true)
+		{
+			auto bpp = config["bpp"].get<uint8_t>();
+		}
 
+		if (config.contains("colour") == true)
+		{
+			auto colour = config["colour"].get<std::string_view>();
+			auto [ptr, errc] = std::from_chars(colour.data(), colour.data() + colour.size(), colour_, 16);
+
+			if (errc != std::errc())
+			{
+				if (colour == "red")
+				{
+					colour_ = 0x80;
+				}
+				else if (colour == "green")
+				{
+					colour_ = 0x14;
+				}
+				else if (colour == "blue")
+				{
+					colour_ = 0x07;
+				}
+				else if (colour == "white")
+				{
+					colour_ = 0xFF;
+				}
+				else if (colour == "random")
+				{
+					srand(time(nullptr));
+					colour_ = rand() % 255;
+				}
+				else
+				{
+					throw std::invalid_argument("Invalid configuration colour");
+				}
+			}
+			else if (*ptr != '\0')
+			{
+				// we parsed something but there is still left over text
+				throw std::invalid_argument("Invalid configuration colour");
+			}
+		}
+
+		if (config.contains("orientation") == true)
+		{
+			auto orientation = config["orientation"].get<std::string>();
+		}
 	}
 
 	uint8_t IoController::ReadFrom(uint16_t port)
@@ -142,7 +192,7 @@ namespace SpaceInvaders
 		while (vramStart < vramEnd)
 		{
 			//Decompress the vram from 1bpp to 8bpp.
-			*ptr = ((*vramStart >> shift) & 0x01) * 0xFF; // 0xFF - The 8 bit colour to decompress to, in this case white, but it could be anything within the 8 bit range.
+			*ptr = ((*vramStart >> shift) & 0x01) * colour_;
 			//Cycle the shift value between 0-7.
 			shift = ++shift & 0x07;
 			//Move to the next vram byte if we have done a full cycle.
