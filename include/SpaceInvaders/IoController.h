@@ -98,7 +98,7 @@ namespace SpaceInvaders
 		uint8_t blitMode_{ BlitFlags::Native };
 
 		// vram foregound colour - default is black (this is ignored when Rgb332 is off which it is by default)
-		uint8_t colour_{};
+		uint8_t colour_{ 0xFF };
 
 	protected:
 		/** The maximum number of output audio sample files.
