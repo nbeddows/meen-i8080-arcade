@@ -24,7 +24,6 @@ SOFTWARE.
 #include <bitset>
 #include <charconv>
 #include <cstring>
-#include <functional>
 
 #include "nlohmann/json.hpp"
 #include "SpaceInvaders/IoController.h"

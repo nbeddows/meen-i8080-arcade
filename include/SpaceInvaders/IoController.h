@@ -97,7 +97,7 @@ namespace SpaceInvaders
 		// compression/orientation flags - default: cocktail at 1bpp
 		uint8_t blitMode_{ BlitFlags::Native };
 
-		// vram foregound colour - default is black (this is ignored when Rgb332 is off which it is by default)
+		// vram foregound colour - default is white (this is ignored when Rgb332 is off which it is by default)
 		uint8_t colour_{ 0xFF };
 
 	protected:

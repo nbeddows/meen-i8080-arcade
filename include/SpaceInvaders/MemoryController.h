@@ -122,18 +122,6 @@ namespace SpaceInvaders
 
             ~MemoryController() = default;
 
-            /** Compressed video ram width
-
-                Space Invaders has a width of 32 @ 1bpp, this gives an actual width of 256. 
-            */
-            //static constexpr uint16_t GetVideoRamWidth() { return VideoFrame::width; }
-            
-            /** Screen height
-
-                Space Invaders has a height of 224.
-            */
-            //static constexpr uint16_t GetVideoRamHeight() { return VideoFrame::height; }
-
             /** Get a copy of the current video ram
 
                 The VideoFrame containing the current video ram is taken from a finite frame pool.
