@@ -149,8 +149,8 @@ namespace SpaceInvaders
 		};
 
 		// Default resolution - native (cocktail (horizontal), 1bpp)
-		int width_{ 32 };
-		int height_{ 224 };
+		int width_{ MemoryController::VideoFrame::width };
+		int height_{ MemoryController::VideoFrame::height };
 
 	public:
 		/** Initialisation contructor.
