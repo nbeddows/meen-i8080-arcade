@@ -40,12 +40,16 @@ namespace SpaceInvaders
 	class IoController : public MachEmu::IController
 	{
 	private:
+		/** Render modes.
+
+			The different formats that the video ram can be presented for rendering.
+		*/
 		enum BlitFlags
 		{
-			Native		= 0 << 0,
-			Rgb332		= 1 << 0,
-			Upright		= 1 << 1,
-			Upright8bpp = Upright | Rgb332
+			Native		= 0 << 0,				/**< Native pixel format (1bpp) and resolution (256 x 224). */
+			Rgb332		= 1 << 0,				/**< 8 bits per pixel with native resolution. */
+			Upright		= 1 << 1,				/**< Native pixel format with a resolution of 224 x 256. */
+			Upright8bpp = Upright | Rgb332		/**< 8 bits per pixel with a resolution of 224 x 256. */
 		};
 
 		/** The next interrupt to execute.
@@ -94,10 +98,29 @@ namespace SpaceInvaders
 		//cppcheck-suppress unusedStructMember
 		uint8_t port5Byte_{};
 
-		// compression/orientation flags - default: cocktail at 1bpp
+		/** Render mode
+
+			A combination of flags that determine how the video ram
+			will be rendered. The blit mode can be set using the "bpp"
+			and "orientation" properties in the config.json.
+
+			@remark	The default mode is set to native.
+
+			@see BlitFlags
+		*/
 		uint8_t blitMode_{ BlitFlags::Native };
 
-		// vram foregound colour - default is white (this is ignored when Rgb332 is off which it is by default)
+		/** Foreground colour.
+		
+			The default colour is white. The value can be set using the "colour"
+			property in the config.json.
+
+			@remark	The background colour is always black.
+			@remark	This value is ignored when blitMode_ does not have BlitFlags::Rgb332 set.
+		
+			@see blitMode_
+			@see BlitFlags
+		*/
 		uint8_t colour_{ 0xFF };
 
 	protected:
@@ -138,18 +161,36 @@ namespace SpaceInvaders
 			nullptr,						/**< AMP Enable */
 			nullptr,						/**< Unused */
 			nullptr,						/**< Unused */
-			ROMS_DIR"/fastinvader1.wav",		/**< Invader fleet movement 1 */
-			ROMS_DIR"/fastinvader2.wav",		/**< Invader fleet movement 1 */
-			ROMS_DIR"/fastinvader3.wav",		/**< Invader fleet movement 1 */
-			ROMS_DIR"/fastinvader4.wav",		/**< Invader fleet movement 1 */
-			ROMS_DIR"/ufo_lowpitch.wav",		/**< UFO hit */
+			ROMS_DIR"/fastinvader1.wav",	/**< Invader fleet movement 1 */
+			ROMS_DIR"/fastinvader2.wav",	/**< Invader fleet movement 1 */
+			ROMS_DIR"/fastinvader3.wav",	/**< Invader fleet movement 1 */
+			ROMS_DIR"/fastinvader4.wav",	/**< Invader fleet movement 1 */
+			ROMS_DIR"/ufo_lowpitch.wav",	/**< UFO hit */
 			nullptr,						/**< Unused */
 			nullptr,						/**< Unused */
 			nullptr							/**< Unused */
 		};
 
-		// Default resolution - native (cocktail (horizontal), 1bpp)
+		/** Output video width
+		
+			The width of the video is dictated by the blitMode in use.
+
+			@remark The width is in bytes.
+
+			@see blitMode_
+			@see BlitFlags
+		*/
 		int width_{ MemoryController::VideoFrame::width };
+		
+		/** Output video height
+		
+			The height of the video is dictated by the blitMode in use.
+
+			@remark The height is in bytes.
+
+			@see blitMode_
+			@see BlitFlags
+		*/
 		int height_{ MemoryController::VideoFrame::height };
 
 	public:
@@ -159,6 +200,21 @@ namespace SpaceInvaders
 			video ram access.
 
 			@param		memoryController	The memory controller where the video ram resides.
+			@param		config				Configuration options are as follows:
+
+											bpp: 1 (1bpp), 8 (8bpp)
+											colour: "white", "red", "green", "blue", "random", hex
+											orientation: "cocktail" (horizontal), "upright" (vertical)
+
+			@throw							A std::invalid_argument exception when the config file can't
+											be parsed.
+
+			@remark							When config options are ommited from the config file, the
+											following defaults apply:
+
+											bpp: 1
+											colour: "white"
+											orientation: "cocktail"
 		*/
 		IoController(const std::shared_ptr<MemoryController>& memoryController, const nlohmann::json& config);
 
@@ -260,14 +316,14 @@ namespace SpaceInvaders
 
 		/** Write space invaders vram to texture.
 		
-			The vram is written with a 90 degree rotation, therefore it needs to be
-			rotated a further 270 degrees so it can be rendered with the correct
-			orientation.
+			How the vram is blitted is dictated by the blit mode.
 
 			@param	dst			The video memory to write to (texture memory).
 			@param	src			The video ram to copy.
-			@param	rowBytes	The width of each scanline in bytes.
+			@param	rowBytes	The width of each dst scanline in bytes.
 
+			@see blitMode_
+			@see BlitFlags
 		*/
 		void Blit(uint8_t* dst, uint8_t* src, uint8_t rowBytes);
 	};
