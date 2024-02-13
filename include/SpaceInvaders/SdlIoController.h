@@ -23,9 +23,8 @@ SOFTWARE.
 #ifndef SDL_IO_CONTROLLER_H
 #define SDL_IO_CONTROLLER_H
 
-#define SDL_MAIN_HANDLED
-#include "SDL2/SDL.h"
-#include "SDL2/SDL_mixer.h"
+#include "SDL.h"
+#include "SDL_mixer.h"
 #include "SpaceInvaders/IoController.h"
 
 namespace SpaceInvaders
