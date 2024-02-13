@@ -94,7 +94,6 @@ namespace SpaceInvaders
             
                 @remark     marked as mutable so GetVideoFrame can remain const
             */
-
             mutable std::mutex frameMutex_;
 
             /** Frame pool
@@ -120,6 +119,10 @@ namespace SpaceInvaders
             */
             explicit MemoryController(int framePoolSize = 1);
 
+            /** Destructor
+
+                Free the memory controller resources.
+            */
             ~MemoryController() = default;
 
             /** Get a copy of the current video ram
