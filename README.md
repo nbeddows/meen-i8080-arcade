@@ -7,12 +7,12 @@ This demo project shows how to make use of the mach-emu sdk to emulate an arcade
 
 The following development packages require installation before proceeding:
 
-[mach-emu](https://github.com/nbeddows/mach-emu-dev/releases)
+[mach-emu](https://github.com/nbeddows/mach-emu-dev/releases)<br>
 [nlohmann_json](https://github.com/nlohmann/json/releases)
 
 When enableSdl is checked the following development packages must also be installed:
 
-[SDL2](https://github.com/libsdl-org/SDL/releases)
+[SDL2](https://github.com/libsdl-org/SDL/releases)<br>
 [SDL2_mixer](https://github.com/libsdl-org/SDL_mixer/releases)
 
 ##### Basic principles of operation
@@ -72,8 +72,8 @@ are untested. Update the machEmuIncludePath to the location of your MachEmu deve
 
 A configuration file is provided in json format which supports the following options:
 
-`bpp`: bits per pixel, supported values are 1 (currently not supported via the SDL IO controller) and 8.
-`colour`: the forground colour (the background is always black), supported values are "white", "red", "green", "blue", "random" and an 8 bit custom hex value.
+`bpp`: bits per pixel, supported values are 1 (currently not supported via the SDL IO controller) and 8.<br>
+`colour`: the forground colour (the background is always black), supported values are "white", "red", "green", "blue", "random" and an 8 bit custom hex value.<br>
 `orientation`: the window layout, "cocktail" for horizontal and "upright" for vertical.
 
 ![Upright green 8bpp](docs/images/screenShot.png)
