@@ -29,17 +29,12 @@ option(enableSdl "Use the SDL IO controller" ON)
 
 if(WIN32)
     set(machEmuIncludePath "C://Program Files/mach-emu/include" CACHE PATH "Path to the mach-emu includes")
-
-    if(enableSdl)
-        set(sdlIncludePath "C://Program Files/SDL2/include" CACHE PATH "Path to the SDL includes")
-    endif()
 else()
     set(machEmuIncludePath "/usr/local/include/" CACHE PATH "Path to the mach-emu includes")
-
-    if(enableSdl)
-        set(sdlIncludePath "/usr/include" CACHE PATH "Path to the SDL includes")
-    endif()
 endif()
+
+set(configDir "${CMAKE_SOURCE_DIR}/conf" CACHE PATH "Path to the configuration file directory")
+set(romsDir "${CMAKE_SOURCE_DIR}/roms" CACHE PATH "Path to the roms directory")
 
 project(${projectName})
 
@@ -53,15 +48,15 @@ add_executable(${projectName}
     source/MemoryController.cpp
 )
 
-target_compile_definitions(${projectName} PRIVATE ROMS_DIR=\"${CMAKE_SOURCE_DIR}/roms/\")
-
+find_package(nlohmann_json REQUIRED)
 find_library(libMachEmu MachEmu)
+target_compile_definitions(${projectName} PRIVATE CONFIG_DIR=\"${configDir}\" ROMS_DIR=\"${romsDir}\")
 target_include_directories(${projectName} PRIVATE ${machEmuIncludePath} ${CMAKE_SOURCE_DIR}/include)
-target_link_libraries(${projectName} PRIVATE ${libMachEmu})
+target_link_libraries(${projectName} PRIVATE ${libMachEmu} nlohmann_json::nlohmann_json)
 
 if(enableSdl)
-    find_library(libSDL2 SDL2)
-    find_library(libSDL2_mixer SDL2_mixer)
-    target_include_directories(${projectName} PRIVATE ${sdlIncludePath})
-    target_link_libraries(${projectName} PRIVATE ${libSDL2} ${libSDL2_mixer})
+    target_compile_definitions(${projectName} PRIVATE SDL_MAIN_HANDLED)
+    find_package(SDL2 REQUIRED)
+    find_package(SDL2_mixer REQUIRED)
+    target_link_libraries(${projectName} PRIVATE SDL2::SDL2 SDL2_mixer::SDL2_mixer)
 endif()

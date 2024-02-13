@@ -23,9 +23,8 @@ SOFTWARE.
 #ifndef SDL_IO_CONTROLLER_H
 #define SDL_IO_CONTROLLER_H
 
-#define SDL_MAIN_HANDLED
-#include "SDL2/SDL.h"
-#include "SDL2/SDL_mixer.h"
+#include "SDL.h"
+#include "SDL_mixer.h"
 #include "SpaceInvaders/IoController.h"
 
 namespace SpaceInvaders
@@ -37,28 +36,28 @@ namespace SpaceInvaders
 	class SdlIoController final : public IoController
 	{
 		private:
-			/** SDL Renderer.
+			/** SDL Renderer
 
 				The window rendering context.
 			*/
 			//cppcheck-suppress unusedStructMember
 			SDL_Renderer* renderer_{};
 
-			/**	SDL_texture.
+			/**	SDL_texture
 				
 				The texture which will hold the video ram for rendering.
 			*/
 			//cppcheck-suppress unusedStructMember
 			SDL_Texture* texture_{};
 
-			/** SDL_Window.
+			/** SDL_Window
 
 				The window to draw the video ram to.
 			*/
 			//cppcheck-suppress unusedStructMember
 			SDL_Window* window_{};
 			
-			/** Audio samples.
+			/** Audio samples
 			
 				The various audio samples to be played.
 
@@ -67,8 +66,7 @@ namespace SpaceInvaders
 			//cppcheck-suppress unusedStructMember
 			std::array<Mix_Chunk*, totalWavFiles_> mixChunk_;
 
-			/**
-				The custom Space Invaders SDL event type
+			/** The custom Space Invaders SDL event type
 
 				Event codes are defined in the EventCode enumeration.
 
@@ -76,6 +74,12 @@ namespace SpaceInvaders
 			*/
 			uint64_t siEvent_{};
 
+			/** SDL Event codes
+			
+				Individual event codes that can be set on an SDL_Event of type 'Space Invaders Event'.
+
+				@see siEvent_
+			*/
 			enum EventCode
 			{
 				RenderVideo,	/**< The next video frame is ready to be rendered. This event drives the control loop */
@@ -83,19 +87,19 @@ namespace SpaceInvaders
 			};
 
 		public:
-			/** Initialisation constructor.
+			/** Initialisation constructor
 			
 				Creates an SDL specific Space Invaders IO controller.
 			*/
-			explicit SdlIoController(const std::shared_ptr<MemoryController>& memoryController);
+			SdlIoController(const std::shared_ptr<MemoryController>& memoryController, const nlohmann::json& config);
 			
-			/** Destructor.
+			/** Destructor
 			
 				Free the various required SDL objects.
 			*/
 			~SdlIoController();
 
-			/** IController Read override.
+			/** IController Read override
 			
 				Sample the keyboard so the CPU can take any required action.
 			
@@ -107,7 +111,7 @@ namespace SpaceInvaders
 			*/
 			uint8_t Read(uint16_t port) final;
 
-			/** IController write override.
+			/** IController write override
 			
 				Write the relevant audio sample to the output audio device.
 			
@@ -118,7 +122,7 @@ namespace SpaceInvaders
 			*/
 			void Write(uint16_t port, uint8_t data) final;
 
-			/** IController::ServiceInterrupts override.
+			/** IController::ServiceInterrupts override
 			
 				Render the video ram texture to the window via the rendering context.
 
