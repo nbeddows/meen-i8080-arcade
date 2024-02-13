@@ -9,7 +9,11 @@ The following development packages require installation before proceeding:
 
 [mach-emu](https://github.com/nbeddows/mach-emu-dev/releases)
 [nlohmann_json](https://github.com/nlohmann/json/releases)
-[SDL2](https://github.com/libsdl-org/SDL/releases/tag/releases)
+
+When enableSdl is checked the following development packages must also be installed:
+
+[SDL2](https://github.com/libsdl-org/SDL/releases)
+[SDL2_mixer](https://github.com/libsdl-org/SDL_mixer/releases)
 
 ##### Basic principles of operation
 
@@ -44,8 +48,6 @@ Space Invaders has been compiled and tested on Visual Studio 22 (Windows 10) and
 Open cmake-gui (feel free to use command line cmake, but the remainder of this readme will use cmake-gui). Set the source code text field to the space-invaders directory and binary text field to your desire build directory.
 
 Click configure (if prompted to create the build directory, accept) and choose Visual Studio 17 for Windows or Unix Makefiles for Linux, then click generate.
-
-NOTE: if enableSdl is checked the [SDL2 development package](https://github.com/libsdl-org/SDL/releases) needs to be installed. 
 
 ##### Windows
 
