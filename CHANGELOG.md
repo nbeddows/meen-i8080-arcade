@@ -1,5 +1,15 @@
+0.2.0
+* Added a json file for config options.
+* Added native 1bpp pixel format.
+* Added native horizontal video frame output.
+* Added colour support.
+* SDL2 and SDL2_mixer are now located from CMake
+  via find_package.
+* Updated documentation.
+
 0.1.1 [07/02/24]
-* Added a frame pool to prevent superfluous memory allocs.
+* Added a frame pool to prevent superfluous memory
+  allocations.
 * Improved audio event handling.
 
 0.1.0 [03/02/24]

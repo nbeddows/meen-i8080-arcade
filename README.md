@@ -3,7 +3,13 @@
 
 This demo project shows how to make use of the mach-emu sdk to emulate an arcade machine, in this case, Space Invaders.
 
-The minimum required [mach-emu development package](https://github.com/nbeddows/mach-emu-dev/releases) is version 1.3.0.
+##### Pre-requisites
+
+The following development packages require installation before proceeding:
+
+[mach-emu](https://github.com/nbeddows/mach-emu-dev/releases)
+[nlohmann_json](https://github.com/nlohmann/json/releases)
+[SDL2](https://github.com/libsdl-org/SDL/releases/tag/releases)
 
 ##### Basic principles of operation
 
@@ -39,7 +45,7 @@ Open cmake-gui (feel free to use command line cmake, but the remainder of this r
 
 Click configure (if prompted to create the build directory, accept) and choose Visual Studio 17 for Windows or Unix Makefiles for Linux, then click generate.
 
-NOTE: if enableSdl is checked the [SDL development package](https://github.com/libsdl-org/SDL/releases) needs to be installed. 
+NOTE: if enableSdl is checked the [SDL2 development package](https://github.com/libsdl-org/SDL/releases) needs to be installed. 
 
 ##### Windows
 
@@ -47,8 +53,8 @@ The following image gives a possible Windows CMake configuration.
 
 ![Example Windows configuration](docs/images/CMake(Windows).png)
 
-Make sure that all depdendent libraries are found (MachEmu.lib, SDL2.lib and SDL_mixer.lib), if not, make sure they are installed and their paths are
-in your PATH environment variable. Update the machEmuIncludePath and the sdlIncludePath to the location of your MachEmu and SDL development includes.
+Make sure that all depdendent packages are found (MachEmu, SDL2, SDL_mixer and nlohmann_json) and that their library paths are
+in your PATH environment variable. Update the machEmuIncludePath to the location of your MachEmu development includes.
 Open the Visual Studio solution in the build directory, select your desired build configuration, then run.
 
 ##### Linux
@@ -57,8 +63,18 @@ The following image gives a possible Linux CMake configuration.
 
 ![Example Linux configuration](docs/images/CMake(Linux).png)
 
-Make sure that all depdendent libraries are found (MachEmu.so, SDL2.so and SDL_mixer.so). Earlier versions of g++ and Clang may work, however these versions
-are untested. Update the machEmuIncludePath and the sdlIncludePath to the location of your MachEmu and SDL development includes. Once CMake has finished change into the build directory and run make. The executable will be located in bin/${configuration} in the project root directory.
+Make sure that all depdendent packages are found (MachEmu, SDL2 SDL_mixer amd nlohmann_json). Earlier versions of g++ and Clang may work, however these versions
+are untested. Update the machEmuIncludePath to the location of your MachEmu development includes. Once CMake has finished change into the build directory and run make. The executable will be located in bin/${configuration} in the project root directory.
+
+### Configuration
+
+A configuration file is provided in json format which supports the following options:
+
+`bpp`: bits per pixel, supported values are 1 (currently not supported via the SDL IO controller) and 8.
+`colour`: the forground colour (the background is always black), supported values are "white", "red", "green", "blue", "random" and an 8 bit custom hex value.
+`orientation`: the window layout, "cocktail" for horizontal and "upright" for vertical.
+
+![Upright green 8bpp](docs/images/screenShot.png)
 
 ### Keyboard Controls
 
