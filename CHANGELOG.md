@@ -1,4 +1,4 @@
-0.2.0
+0.2.0 [13/02/24]
 * Added a json file for config options.
 * Added native 1bpp pixel format.
 * Added native horizontal video frame output.
