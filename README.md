@@ -29,17 +29,21 @@ When enableSdl is checked the following development packages must also be instal
 
 	See main.cpp for IMachine instatiation and controller registration.
 
-4. Set the machine clock resolution for the target application.
+4. Set the machine options for the target application.
 
 	Space Invaders runs at 60Hz.
 
-5. Launch a thread to run the machine.
+5. Launch a thread to run the machine (if machine runAsync option not supported).
 
 	Once the previous prerequisites have been fulfilled, calling MachEmu::IMachine::Run() will start the machine cpu execution loop.
 
 6. Execute the control loop.
 
-	This handles all triggered events: audio/video rendering and quitting.
+	This handles all triggered events: audio/video rendering, user input and quitting.
+
+7. Wait for the machine to finish once the control loop is complete.
+
+	The machine should be allowed to cleanup before application exit.
 
 ### Compilation
 
