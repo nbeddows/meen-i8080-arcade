@@ -22,6 +22,7 @@ SOFTWARE.
 
 #include <assert.h>
 #include <bitset>
+#include <future>
 
 #include "SpaceInvaders/SdlIoController.h"
 
@@ -127,53 +128,19 @@ namespace SpaceInvaders
 
 		if (ret == 0)
 		{
-			const auto state = SDL_GetKeyboardState(nullptr);
-			auto quit = state[SDL_SCANCODE_Q];
-
-			if (quit == false)
+			if (port == 1 || port == 2)
 			{
-				auto processKeyTable = [&](int scanCode, const char* str, uint8_t bit)
-				{
-					if (state[scanCode] != 0)
-					{
-						ret |= bit;
-					}
-				};
-
-				if (port == 1)
-				{
-					ret = 0x08;
-					processKeyTable(SDL_SCANCODE_C, "Credit", 0x01);
-					processKeyTable(SDL_SCANCODE_1, "1P", 0x04);
-					processKeyTable(SDL_SCANCODE_2, "2P", 0x02);
-					processKeyTable(SDL_SCANCODE_A, "1P Left", 0x20);
-					processKeyTable(SDL_SCANCODE_S, "1P Fire", 0x10);
-					processKeyTable(SDL_SCANCODE_D, "1P Right", 0x40);
-				}
-				else if (port == 2)
-				{
-					processKeyTable(SDL_SCANCODE_3, "3 Ships", 0x00);
-					processKeyTable(SDL_SCANCODE_4, "4 Ships", 0x01);
-					processKeyTable(SDL_SCANCODE_5, "5 Ships", 0x02);
-					processKeyTable(SDL_SCANCODE_6, "6 Ships", 0x03);
-					processKeyTable(SDL_SCANCODE_T, "Tilt", 0x04);
-					processKeyTable(SDL_SCANCODE_E, "Extra ship at", 0x08);
-					processKeyTable(SDL_SCANCODE_J, "2P Left", 0x20);
-					processKeyTable(SDL_SCANCODE_K, "2P Fire", 0x10);
-					processKeyTable(SDL_SCANCODE_L, "2P Right", 0x40);
-					processKeyTable(SDL_SCANCODE_I, "Show coin info", 0x80);
-				}
-				else
-				{
-					// force a failure
-					assert(port == 0 || port == 3);
-					//printf("Unknown device\n");
-				}
-			}
-			else
-			{
-				SDL_Event e{ .type = SDL_QUIT };
+				std::promise<uint8_t> p;
+				SDL_Event e{};
+				e.type = siEvent_;
+				e.user.code = EventCode::ReadInput;
+				e.user.data1 = reinterpret_cast<void*>(port);
+				e.user.data2 = reinterpret_cast<void*>(&p);
 				SDL_PushEvent(&e);
+
+				auto f = p.get_future();
+				f.wait();
+				ret = f.get();
 			}
 		}
 
@@ -224,6 +191,8 @@ namespace SpaceInvaders
 	void SdlIoController::EventLoop()
 	{
 		SDL_Event e;
+
+		const auto state = SDL_GetKeyboardState(nullptr);
 
 		while (quit_ == false && SDL_WaitEvent(&e))
 		{
@@ -286,6 +255,43 @@ namespace SpaceInvaders
 									}
 								}
 								break;
+							}
+							case EventCode::ReadInput:
+							{
+								uint8_t port = reinterpret_cast<uint64_t>(e.user.data1);
+								auto p = static_cast<std::promise<uint8_t>*>(e.user.data2);
+								uint8_t value = 0;
+								quit_ = state[SDL_SCANCODE_Q];
+
+								if (port == 1)
+								{
+									value = 0x08;
+									value |= (state[SDL_SCANCODE_C] * 0x01); // Credit
+									value |= (state[SDL_SCANCODE_1] * 0x04); // 1P
+									value |= (state[SDL_SCANCODE_2] * 0x02); // 2P
+									value |= (state[SDL_SCANCODE_A] * 0x20); // 1P Left
+									value |= (state[SDL_SCANCODE_S] * 0x10); // 1P Fire
+									value |= (state[SDL_SCANCODE_D] * 0x40); // 1P Right
+								}
+								else if (port == 2)
+								{
+									value |= (state[SDL_SCANCODE_3] * 0x00); // 3 Ships
+									value |= (state[SDL_SCANCODE_4] * 0x01); // 4 Ships
+									value |= (state[SDL_SCANCODE_5] * 0x02); // 5 Ships
+									value |= (state[SDL_SCANCODE_6] * 0x03); // 6 Ships
+									value |= (state[SDL_SCANCODE_T] * 0x04); // Tilt
+									value |= (state[SDL_SCANCODE_E] * 0x08); // Extra Ship at
+									value |= (state[SDL_SCANCODE_J] * 0x20); // 2P Left
+									value |= (state[SDL_SCANCODE_K] * 0x10); // 2P Fire
+									value |= (state[SDL_SCANCODE_L] * 0x40); // 2P Right
+									value |= (state[SDL_SCANCODE_I] * 0x80); // Show coin info
+								}
+								else
+								{
+									printf("Invalid Read Port: %d\n", port);
+								}
+							
+								p->set_value(value);
 							}
 							default:
 							{
