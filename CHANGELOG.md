@@ -1,3 +1,8 @@
+0.3.0 [21/03/24]
+* Updated to mach-emu-1.4.0.
+* Process keyboard input on the main thread.
+* Minor documentation updates.
+
 0.2.0 [13/02/24]
 * Added a json file for config options.
 * Added native 1bpp pixel format.
