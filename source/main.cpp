@@ -20,6 +20,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
+#include <format>
 #include <future>
 #include <fstream>
 #include <memory>
@@ -34,8 +35,9 @@ int main(void)
 		std::ifstream fin(CONFIG_DIR"/config.json");
 		const nlohmann::json config = nlohmann::json::parse(fin);
 
-		//The machine to run Space Invaders on.
-		auto machine = MachEmu::Make8080Machine();
+		// The machine to run Space Invaders on.
+		// Space Invaders runs at 60Hz with 2 interrupts per second, set the machine clock resolution accordingly
+		auto machine = MachEmu::MakeMachine(std::format(R"({{"clockResolution":{}}})", (1000000000 / 60) / 2).c_str());
 		//Create our custom Space Invaders memory controller.
 		auto memoryController = std::make_shared<SpaceInvaders::MemoryController>();
 		//Create our custom Space Invaders I/O controller.
@@ -58,20 +60,29 @@ int main(void)
 		// Load our controllers into the machine.
 		machine->SetMemoryController(memoryController);
 		machine->SetIoController(ioController);
-		// Space Invaders runs at 60Hz with 2 interrupts per second, set the machine clock resolution accordingly
-		machine->SetClockResolution((1000000000 / 60) / 2); // this is not exact, neither is the clock, though we can compensate for this is in the ServiceInterrupts routine if required.
-		// Run the machine on a separate thread, the io controller will determine when to quit,
-		// in the case of this example, when the 'q' key is pressed or the window is closed.
-		auto future = std::async(std::launch::async, [&]
+		auto err = machine->SetOptions(R"({"runAsync":true})");
+		
+		if (err == MachEmu::ErrorCode::NoError)
 		{
 			machine->Run(0x00);
-		});
+			ioController->EventLoop();
+			machine->WaitForCompletion();
+		}
+		else
+		{
+			// Run the machine on a separate thread, the io controller will determine when to quit,
+			// in the case of this example, when the 'q' key is pressed or the window is closed.
+			auto future = std::async(std::launch::async, [&]
+			{
+				machine->Run(0x00);
+			});
 
-		// Run the main event loop
-		ioController->EventLoop();
+			// Run the main event loop
+			ioController->EventLoop();
 
-		// Wait for the machine to finish.
-		future.wait();
+			// Wait for the machine to finish.
+			future.wait();
+		}
 	}
 	catch (const std::exception& e)
 	{

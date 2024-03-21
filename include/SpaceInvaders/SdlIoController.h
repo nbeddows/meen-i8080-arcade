@@ -84,6 +84,7 @@ namespace SpaceInvaders
 			{
 				RenderVideo,	/**< The next video frame is ready to be rendered. This event drives the control loop */
 				RenderAudio,	/**< Audio is ready to be played. The siEvent data1 type is the index into the mixChunk_ to be played. */
+				ReadInput		/**< Check if there is any input from the user. The siEvent data1 type is the type of input to be checked. */
 			};
 
 		public:
