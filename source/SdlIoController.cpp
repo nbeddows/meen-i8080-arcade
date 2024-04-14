@@ -124,23 +124,25 @@ namespace SpaceInvaders
 
 	uint8_t SdlIoController::Read(uint16_t port)
 	{
-		auto ret = IoController::ReadFrom(port);
-
-		if (ret == 0)
+		uint8_t ret = 0;
+		
+		if (quit_ == false)
 		{
-			if (port == 1 || port == 2)
-			{
-				std::promise<uint8_t> p;
-				SDL_Event e{};
-				e.type = siEvent_;
-				e.user.code = EventCode::ReadInput;
-				e.user.data1 = reinterpret_cast<void*>(port);
-				e.user.data2 = reinterpret_cast<void*>(&p);
-				SDL_PushEvent(&e);
+			ret = IoController::ReadFrom(port);
 
-				auto f = p.get_future();
-				f.wait();
-				ret = f.get();
+			if (ret == 0)
+			{
+				if (port == 1 || port == 2)
+				{
+					std::promise<uint8_t> p;
+					SDL_Event e{};
+					e.type = siEvent_;
+					e.user.code = EventCode::ReadInput;
+					e.user.data1 = reinterpret_cast<void*>(port);
+					e.user.data2 = reinterpret_cast<void*>(&p);
+					SDL_PushEvent(&e);
+					ret = p.get_future().get();
+				}
 			}
 		}
 
@@ -149,16 +151,19 @@ namespace SpaceInvaders
 
 	void SdlIoController::Write(uint16_t port, uint8_t data)
 	{
-		auto audio = IoController::WriteTo(port, data);
-
-		if (audio > 0)
+		if (quit_ == false)
 		{
-			SDL_Event e{};
-			e.type = siEvent_;
-			e.user.code = EventCode::RenderAudio;
-			e.user.data1 = reinterpret_cast<void*>(port);
-			e.user.data2 = reinterpret_cast<void*>(audio);
-			SDL_PushEvent(&e);
+			auto audio = IoController::WriteTo(port, data);
+
+			if (audio > 0)
+			{
+				SDL_Event e{};
+				e.type = siEvent_;
+				e.user.code = EventCode::RenderAudio;
+				e.user.data1 = reinterpret_cast<void*>(port);
+				e.user.data2 = reinterpret_cast<void*>(audio);
+				SDL_PushEvent(&e);
+			}
 		}
 	}
 
