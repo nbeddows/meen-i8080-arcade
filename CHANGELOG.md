@@ -1,3 +1,7 @@
+0.3.1 [15/04/24]
+* Fixed a deadlock on quit when the interrupt service routine
+  frequency is greater than 0.
+
 0.3.0 [21/03/24]
 * Updated to mach-emu-1.4.0.
 * Process keyboard input on the main thread.
