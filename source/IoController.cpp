@@ -209,6 +209,10 @@ namespace SpaceInvaders
 
 				lastTime_ = currTime;
 			}
+			else
+			{
+				isr = loadSaveInterrupt_.exchange(MachEmu::ISR::NoInterrupt);
+			}
 		}
 		else
 		{

@@ -143,9 +143,24 @@ namespace SpaceInvaders
 
 			A value of true will cause the Machine control loop to exit.
 			This can be set, for example, when the keyboard 'q' key is pressed.
+
+			@remark		This value can be set from a different thread, hence it is atomic.
 		*/
 		std::atomic_bool quit_{};
 
+		/**	Load or save
+
+			A machine level interrupt which indicates whether or not the machine
+			should attempt to load a new state or save its current state.
+
+			MachEmu::ISR::NoInterrupt: don't load or save the state.
+			MachEmu::ISR::Load: attempt to load a new machine state.
+			MachEmu::ISR::Save: attempt to save the current machine state.
+
+			@remark		This value can be set from a different thread, hence it is atomic.
+		*/
+		std::atomic<MachEmu::ISR> loadSaveInterrupt_{ MachEmu::ISR::NoInterrupt };
+		
 		/** The audio files to use for sound effects.
 
 			NOTE: DO NOT change the order of these files as they corrospond to the

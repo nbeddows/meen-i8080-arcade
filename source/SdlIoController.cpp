@@ -125,7 +125,7 @@ namespace SpaceInvaders
 	uint8_t SdlIoController::Read(uint16_t port)
 	{
 		uint8_t ret = 0;
-		
+
 		if (quit_ == false)
 		{
 			ret = IoController::ReadFrom(port);
@@ -193,10 +193,16 @@ namespace SpaceInvaders
 		return isr;
 	}
 
+	std::array<uint8_t, 16> SdlIoController::Uuid() const
+	{
+		return{ 0x22, 0x61, 0xC9, 0x53, 0x9A, 0x36, 0x4B, 0xD3, 0xB9, 0x68, 0x47, 0x67, 0x6F, 0x52, 0x6D, 0x48 };
+	}
+
 	void SdlIoController::EventLoop()
 	{
 		SDL_Event e;
-
+		Uint8 lastR = 0;
+		Uint8 lastY = 0;
 		const auto state = SDL_GetKeyboardState(nullptr);
 
 		while (quit_ == false && SDL_WaitEvent(&e))
@@ -238,6 +244,21 @@ namespace SpaceInvaders
 
 								SDL_RenderCopy(renderer_, texture_, nullptr, nullptr);
 								SDL_RenderPresent(renderer_);
+
+								// Scan the keyboard for load and save requests, we'll lock this to
+								// the renderer, ie; check for these requests 60 times per second
+								auto setInterrupt = [this](Uint8 key, Uint8 lastKey, MachEmu::ISR isr)
+								{
+									if (key ^ lastKey && key)
+									{
+										loadSaveInterrupt_ = isr;
+									}
+
+									return key;
+								};
+
+								lastR = setInterrupt(state[SDL_SCANCODE_R], lastR, MachEmu::ISR::Load);
+								lastY = setInterrupt(state[SDL_SCANCODE_Y], lastY, MachEmu::ISR::Save);
 								break;
 							}
 							case EventCode::RenderAudio:
@@ -295,8 +316,9 @@ namespace SpaceInvaders
 								{
 									printf("Invalid Read Port: %d\n", port);
 								}
-							
+
 								p->set_value(value);
+								break;
 							}
 							default:
 							{
