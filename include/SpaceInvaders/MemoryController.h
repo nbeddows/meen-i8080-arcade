@@ -174,7 +174,7 @@ namespace SpaceInvaders
 
                 @see IController::Read for further details.
             */
-            uint8_t Read(uint16_t address) override final;
+            uint8_t Read(uint16_t address) final;
 
             /** Write to controller
 
@@ -182,7 +182,7 @@ namespace SpaceInvaders
 
                 @see IController::Write for further details.
             */
-            void Write(uint16_t address, uint8_t value) override final;
+            void Write(uint16_t address, uint8_t value) final;
 
             /** Service memory interrupts
 
@@ -190,7 +190,15 @@ namespace SpaceInvaders
 
                 The function will always return ISR::NoInterrupt.
             */
-            MachEmu::ISR ServiceInterrupts(uint64_t currTime, uint64_t cycles) override final;
+            MachEmu::ISR ServiceInterrupts(uint64_t currTime, uint64_t cycles) final;
+
+            /**	Uuid
+
+                Unique universal identifier for this controller.
+
+                @return					The uuid as a 16 byte array.
+            */
+            std::array<uint8_t, 16> Uuid() const final;
         };
 } // namespace SpaceInvaders
 

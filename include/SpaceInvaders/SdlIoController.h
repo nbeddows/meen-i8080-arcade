@@ -134,6 +134,14 @@ namespace SpaceInvaders
 			*/
 			MachEmu::ISR ServiceInterrupts(uint64_t currTime, uint64_t cycles) final;
 
+			/**	Uuid
+
+				Unique universal identifier for this controller.
+
+				@return					The uuid as a 16 byte array.
+			*/
+			std::array<uint8_t, 16> Uuid() const final;
+
 			/**	Main control loop
 
 				Process all incoming events.
