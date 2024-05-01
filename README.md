@@ -76,6 +76,29 @@ are untested. Update the machEmuIncludePath to the location of your MachEmu deve
 
 A configuration file is provided in json format which supports the following options:
 
+##### mach-emu
+
+The current settings for these options should be sufficient, changing them may have a negative impact on performance.
+
+`clockResolution:1000000000 / 60 / 2` - Space Invaders runs at 60Hz with 2 interrupts per frame, set the machine clock resolution accordingly.<br>
+`isrFreq:0.9` - We require 4 interrupts, 2 for Space Invaders and 2 machine level interrupts for loading and saving. Ideally we would lock the interrupt service routine frequency to the clock resolution ("isrFreq":1), however, we need to spare some time for checking for load and save requests, so we bump the isrFreq down by ten percent ("isrFreq":0.9). One could lower it further, this would make it more responsive (0.9 should be good enough). Increasing it above 1 would make it slower and not respond to load/save requests.<br>
+`loadAsync:true` - Get the machine state to load asynchronously.<br> 
+`runAsync:true` - Run the machine asynchronously from the io.<br>
+`saveAsync:true` - Save the state asynchronously.<br>
+
+##### space-invaders-memory
+
+These settings are fixed to the specified rom and should not be changed.
+
+`romOffset:0` - The offset from the start of memory to the rom in bytes.
+`romSize:8192` - The size of the rom in bytes.
+`ramOffset:8192` - The offset from the start of memory to the ram in bytes.
+`ramSize:57343` - The size of the ram in bytes.
+
+##### space-invaders-io
+
+These settings affect visual output.
+
 `bpp`: bits per pixel, supported values are 1 (currently not supported via the SDL IO controller) and 8.<br>
 `colour`: the forground colour (the background is always black), supported values are "white", "red", "green", "blue", "random" and an 8 bit custom hex value.<br>
 `orientation`: the window layout, "cocktail" for horizontal and "upright" for vertical.

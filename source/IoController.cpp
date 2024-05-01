@@ -131,7 +131,8 @@ namespace SpaceInvaders
 		}
 		else if (port == 0)
 		{
-			return 0;
+			// https://www.reddit.com/r/EmuDev/comments/mvpt4w/space_invaders_part_ii_deluxe_emulator/
+			return 0x40;
 		}
 
 		return 0;

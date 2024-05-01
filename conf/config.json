@@ -1,5 +1,26 @@
 {
-    "bpp": 8,
-    "colour": "white",
-    "orientation": "upright"
+    "mach-emu":
+    {
+        "clockResolution":8333333.3,
+        "isrFreq": 0.9,
+        "loadAsync":true,
+        "runAsync":true,
+        "saveAsync":true
+    },
+    "space-invaders":
+    {
+        "memory":
+        {
+            "romOffset":0,
+            "romSize":8192,
+            "ramOffset":8192,
+            "ramSize":57343
+        },
+        "io":
+        {
+            "bpp":8,
+            "colour":"white",
+            "orientation":"upright"
+        }
+    }
 }
