@@ -1,3 +1,7 @@
+0.5.0
+* Updated to mach-emu-1.6.0.
+* Using Conan package manager.
+
 0.4.0 [1/05/24]
 * Updated to mach-emu-1.5.1.
 * Added `IMachine::Load` support.

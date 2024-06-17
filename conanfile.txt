@@ -1,0 +1,13 @@
+[requires]
+mach_emu/1.6.0
+nlohmann_json/3.11.3
+sdl/2.28.5
+sdl_mixer/2.8.0
+[generators]
+CMakeDeps
+CMakeToolchain
+[layout]
+cmake_layout
+[options]
+sdl*:shared=True
+sdl_mixer*:shared=True
