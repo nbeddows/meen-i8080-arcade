@@ -18,25 +18,25 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-cmake_minimum_required (VERSION 3.28)
-#set(CMAKE_CXX_COMPILER g++-13)
-set(CMAKE_CXX_STANDARD 20)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_EXTENSIONS OFF)
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin/$<CONFIG>)
+cmake_minimum_required (VERSION 3.25)
 set(projectName space-invaders)
-option(enableSdl "Use the SDL IO controller" ON)
 
-if(WIN32)
-    set(machEmuIncludePath "C://Program Files/mach-emu/include" CACHE PATH "Path to the mach-emu includes")
+project(${projectName} VERSION 0.5.0)
+
+if(DEFINED MSVC)
+  set(buildType $<CONFIG>)
 else()
-    set(machEmuIncludePath "/usr/local/include/" CACHE PATH "Path to the mach-emu includes")
+  set(buildType ${CMAKE_BUILD_TYPE})
 endif()
 
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY $<1:${CMAKE_SOURCE_DIR}/artifacts/${buildType}/${CMAKE_SYSTEM_PROCESSOR}/bin>)
 set(configDir "${CMAKE_SOURCE_DIR}/conf" CACHE PATH "Path to the configuration file directory")
 set(romsDir "${CMAKE_SOURCE_DIR}/roms" CACHE PATH "Path to the roms directory")
 
-project(${projectName})
+find_package(mach_emu REQUIRED)
+find_package(nlohmann_json REQUIRED)
+find_package(SDL2 REQUIRED)
+find_package(SDL2_mixer REQUIRED)
 
 add_executable(${projectName}
     include/SpaceInvaders/IoController.h 
@@ -48,15 +48,13 @@ add_executable(${projectName}
     source/MemoryController.cpp
 )
 
-find_package(nlohmann_json REQUIRED)
-find_library(libMachEmu MachEmu)
+target_include_directories(${projectName} PRIVATE ${CMAKE_SOURCE_DIR}/include)
 target_compile_definitions(${projectName} PRIVATE CONFIG_DIR=\"${configDir}\" ROMS_DIR=\"${romsDir}\")
-target_include_directories(${projectName} PRIVATE ${machEmuIncludePath} ${CMAKE_SOURCE_DIR}/include)
-target_link_libraries(${projectName} PRIVATE ${libMachEmu} nlohmann_json::nlohmann_json)
+target_link_libraries(${projectName} PRIVATE
+    mach_emu::mach_emu
+    nlohmann_json::nlohmann_json
+    SDL2::SDL2
+    SDL2_mixer::SDL2_mixer
+)
 
-if(enableSdl)
-    target_compile_definitions(${projectName} PRIVATE SDL_MAIN_HANDLED)
-    find_package(SDL2 REQUIRED)
-    find_package(SDL2_mixer REQUIRED)
-    target_link_libraries(${projectName} PRIVATE SDL2::SDL2 SDL2_mixer::SDL2_mixer)
-endif()
+target_compile_definitions(${projectName} PRIVATE SDL_MAIN_HANDLED)
