@@ -64,6 +64,23 @@ When running a cross compiled build the binaries need to be uploaded to the host
 5. Change directory to space-invaders `cd space-invaders`.
 6. Run Space Invaders: `./run-space-invaders.sh`.<br>
 
+#### Building a binary package
+
+A standalone binary package can be built via CPack that can be distributed and installed.
+
+- `cpack --config build\CPackConfig.cmake`
+
+This will build a package using the default generator.
+The underlying package generator used to build the package must be installed otherwise this command will fail.
+
+NOTE: the `-G` option can be specifed to overwrite the default cpack generator.
+
+- `cpack --config build\CPackConfig.cmake -G ZIP`
+
+This will build a binary package using the zip utility.
+
+Run `cpack --help` for a list available generators.
+
 ### Configuration
 
 A configuration file is provided in json format which supports the following options:

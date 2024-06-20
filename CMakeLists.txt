@@ -29,7 +29,13 @@ else()
   set(buildType ${CMAKE_BUILD_TYPE})
 endif()
 
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY $<1:${CMAKE_SOURCE_DIR}/artifacts/${buildType}/${CMAKE_SYSTEM_PROCESSOR}/bin>)
+if(DEFINED WIN32)
+  set(ext .exe)
+endif()
+
+set(artifactsDir $<1:${CMAKE_SOURCE_DIR}/artifacts/${buildType}/${CMAKE_SYSTEM_PROCESSOR}>)
+
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${artifactsDir}/bin>)
 set(configDir "${CMAKE_SOURCE_DIR}/conf" CACHE PATH "Path to the configuration file directory")
 set(romsDir "${CMAKE_SOURCE_DIR}/roms" CACHE PATH "Path to the roms directory")
 
@@ -58,3 +64,25 @@ target_link_libraries(${projectName} PRIVATE
 )
 
 target_compile_definitions(${projectName} PRIVATE SDL_MAIN_HANDLED)
+
+install(FILES ${artifactsDir}/bin/${projectName}${ext} DESTINATION /)
+install(FILES LICENSE.md DESTINATION ./ RENAME LICENSE)
+install(FILES README.md DESTINATION ./)
+
+if(DEFINED machEmuBinDir)
+    install(DIRECTORY ${machEmuBinDir}/ DESTINATION ./ FILES_MATCHING PATTERN "*")
+endif()
+
+if(DEFINED sdlBinDir)
+    install(DIRECTORY ${sdlBinDir}/ DESTINATION ./ FILES_MATCHING PATTERN "*")
+endif()
+
+if(DEFINED sdlMixerBinDir)
+    install(DIRECTORY ${sdlMixerBinDir}/ DESTINATION ./ FILES_MATCHING PATTERN "*")
+endif()
+
+if(DEFINED zlibBinDir)
+    install(DIRECTORY ${zlibBinDir}/ DESTINATION ./ FILES_MATCHING PATTERN "*")
+endif()
+
+include(CPack)
