@@ -35,7 +35,7 @@ endif()
 
 set(artifactsDir $<1:${CMAKE_SOURCE_DIR}/artifacts/${buildType}/${CMAKE_SYSTEM_PROCESSOR}>)
 
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${artifactsDir}/bin>)
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${artifactsDir}/bin)
 set(configDir "${CMAKE_SOURCE_DIR}/conf" CACHE PATH "Path to the configuration file directory")
 set(romsDir "${CMAKE_SOURCE_DIR}/roms" CACHE PATH "Path to the roms directory")
 
@@ -45,7 +45,7 @@ find_package(SDL2 REQUIRED)
 find_package(SDL2_mixer REQUIRED)
 
 add_executable(${projectName}
-    include/SpaceInvaders/IoController.h 
+    include/SpaceInvaders/IoController.h
     include/SpaceInvaders/SdlIoController.h
     include/SpaceInvaders/MemoryController.h
     source/main.cpp
