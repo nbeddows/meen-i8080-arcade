@@ -1,4 +1,5 @@
 artifacts/
 build/
 CMakeUserPresets.json
+_CPack_Packages
 
