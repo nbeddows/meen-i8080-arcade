@@ -15,8 +15,8 @@ class MachuEmuPackageTest(ConanFile):
     def configure(self):
         self.options["sdl/*"].shared = True
         self.options["sdl/*"].alsa = False
-        self.options["sdl/*"].pulse = False
-        self.options["sdl/*"].x11 = False
+        self.options["sdl/*"].pulse = True
+        self.options["sdl/*"].x11 = True
         self.options["sdl/*"].xcursor = False
         self.options["sdl/*"].xinerama = False
         self.options["sdl/*"].xinput = False
@@ -29,10 +29,6 @@ class MachuEmuPackageTest(ConanFile):
         self.options["sdl/*"].opengl = False
         self.options["sdl/*"].opengles = False
         self.options["sdl/*"].vulkan = False
-
-        self.options["pulse/*"].openssl = False
-        self.options["pulse/*"].x11 = False
-
         self.options["sdl_mixer/*"].shared = True
         self.options["sdl_mixer/*"].flac = False
         self.options["sdl_mixer/*"].mpg123 = False
@@ -54,16 +50,28 @@ class MachuEmuPackageTest(ConanFile):
         deps.generate()
         tc = CMakeToolchain(self)
 
-        tc.cache_variables["machEmuBinDir"] = self.dependencies["mach_emu"].cpp_info.bindirs[0].replace("\\", "/")
+        if self.settings.os == "Windows":            
+            tc.cache_variables["machEmuBinDir"] = self.dependencies["mach_emu"].cpp_info.bindirs[0].replace("\\", "/")
 
-        if self.dependencies["sdl"].options.shared:
-            tc.cache_variables["sdlBinDir"] = self.dependencies["sdl"].cpp_info.bindirs[0].replace("\\", "/")
+            if self.dependencies["sdl"].options.shared:
+                tc.cache_variables["sdlBinDir"] = self.dependencies["sdl"].cpp_info.bindirs[0].replace("\\", "/")
 
-        if self.dependencies["sdl_mixer"].options.shared:
-            tc.cache_variables["sdlMixerBinDir"] = self.dependencies["sdl_mixer"].cpp_info.bindirs[0].replace("\\", "/")
+            if self.dependencies["sdl_mixer"].options.shared:
+                tc.cache_variables["sdlMixerBinDir"] = self.dependencies["sdl_mixer"].cpp_info.bindirs[0].replace("\\", "/")
 
-        if self.settings.os == "Windows" and self.dependencies["mach_emu"].options.with_zlib and self.dependencies["zlib"].options.shared:
-            tc.cache_variables["zlibBinDir"] = self.dependencies["zlib"].cpp_info.bindirs[0].replace("\\", "/")
+            if self.dependencies["mach_emu"].options.with_zlib and self.dependencies["zlib"].options.shared:
+                tc.cache_variables["zlibBinDir"] = self.dependencies["zlib"].cpp_info.bindirs[0].replace("\\", "/")
+        else:
+            tc.cache_variables["machEmuBinDir"] = self.dependencies["mach_emu"].cpp_info.libdirs[0].replace("\\", "/")
+
+            if self.dependencies["sdl"].options.shared:
+                tc.cache_variables["sdlBinDir"] = self.dependencies["sdl"].cpp_info.libdirs[0].replace("\\", "/")
+
+            if self.dependencies["sdl_mixer"].options.shared:
+                tc.cache_variables["sdlMixerBinDir"] = self.dependencies["sdl_mixer"].cpp_info.libdirs[0].replace("\\", "/")
+
+            if self.dependencies["mach_emu"].options.with_zlib and self.dependencies["zlib"].options.shared:
+                tc.cache_variables["zlibBinDir"] = self.dependencies["zlib"].cpp_info.libdirs[0].replace("\\", "/")
 
         tc.generate()
 
