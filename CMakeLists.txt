@@ -85,4 +85,8 @@ if(DEFINED zlibBinDir)
     install(DIRECTORY ${zlibBinDir}/ DESTINATION ./ FILES_MATCHING PATTERN "*")
 endif()
 
+if(NOT DEFINED WIN32)
+    set(CPACK_SET_DESTDIR ON)
+endif()
+
 include(CPack)
