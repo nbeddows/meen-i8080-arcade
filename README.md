@@ -33,6 +33,20 @@ This project uses [CMake (minimum version 3.23)](https://cmake.org/) for its bui
 
 **NOTE**: when performing a cross compile using a host profile you must install the requisite toolchain of the target architecture, [see pre-requisites](#pre-requisites).
 
+**NOTE**: under Linux errors similar to the following, `ERROR: xorg/system: Error in system_requirements() method` require additional package installations as denoted by the above console messages: "`dpkg-query: no packages found matching ${pkg0}`": `sudo apt install ${pkg0} ${pkg1} ${pkgn}`.
+When cross compiling for arm you may need to add the arm development repositories to your apt sources if the packages previously installed could not be found, for example:
+- `sudo nano /etc/apt/source.list`
+- Append the following:
+    - deb [arch=arm64] http://ports.ubuntu.com/ lunar main multiverse universe
+    - deb [arch=arm64] http://ports.ubuntu.com/ lunar-security main multiverse universe
+    - deb [arch=arm64] http://ports.ubuntu.com/ lunar-backports main multiverse universe
+    - deb [arch=arm64] http://ports.ubuntu.com/ lunar-updates main multiverse universe
+- Save and exit
+- `sudo dpkg --add-architecture arm64`
+- `sudo dpkg --print-foreign-architectures`
+- `sudo apt-get update`
+- Reinstall the missing packages.
+
 The following dependent packages will be (compiled if required and) installed:
 
 - mach_emu
@@ -63,6 +77,23 @@ When running a cross compiled build the binaries need to be uploaded to the host
 4. Extract the space-invaders archive copied over via scp: `tar -xzf space-invaders-v0.5.0.tar.gz`.
 5. Change directory to space-invaders `cd space-invaders`.
 6. Run Space Invaders: `./run-space-invaders.sh`.<br>
+
+#### Building a binary package
+
+A standalone binary package can be built via CPack that can be distributed and installed.
+
+- `cpack --config build\CPackConfig.cmake`
+
+This will build a package using the default generator.
+The underlying package generator used to build the package must be installed otherwise this command will fail.
+
+NOTE: the `-G` option can be specifed to overwrite the default cpack generator.
+
+- `cpack --config build\CPackConfig.cmake -G ZIP`
+
+This will build a binary package using the zip utility.
+
+Run `cpack --help` for a list available generators.
 
 ### Configuration
 
