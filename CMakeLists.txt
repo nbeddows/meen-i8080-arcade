@@ -34,13 +34,11 @@ if(DEFINED WIN32)
 endif()
 
 set(artifactsDir $<1:${CMAKE_SOURCE_DIR}/artifacts/${buildType}/${CMAKE_SYSTEM_PROCESSOR}>)
-
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${artifactsDir}/bin)
-set(configDir "${CMAKE_SOURCE_DIR}/conf" CACHE PATH "Path to the configuration file directory")
-set(romsDir "${CMAKE_SOURCE_DIR}/roms" CACHE PATH "Path to the roms directory")
 
 find_package(mach_emu REQUIRED)
 find_package(nlohmann_json REQUIRED)
+find_package(popl REQUIRED)
 find_package(SDL2 REQUIRED)
 find_package(SDL2_mixer REQUIRED)
 
@@ -54,11 +52,15 @@ add_executable(${projectName}
     source/MemoryController.cpp
 )
 
+if(DEFINED MSVC)
+    set_target_properties(${projectName} PROPERTIES VS_DEBUGGER_COMMAND_ARGUMENTS "\"--config-file=${CMAKE_SOURCE_DIR}/conf/config.json\" \"--rom-file-path=${CMAKE_SOURCE_DIR}/rom-files\" \"--audio-file-path=${CMAKE_SOURCE_DIR}/audio-files\" \"--save-file-path=${CMAKE_SOURCE_DIR}/save-files\"")
+endif()
+
 target_include_directories(${projectName} PRIVATE ${CMAKE_SOURCE_DIR}/include)
-target_compile_definitions(${projectName} PRIVATE CONFIG_DIR=\"${configDir}\" ROMS_DIR=\"${romsDir}\")
 target_link_libraries(${projectName} PRIVATE
     mach_emu::mach_emu
     nlohmann_json::nlohmann_json
+    popl::popl
     SDL2::SDL2
     SDL2_mixer::SDL2_mixer
 )
