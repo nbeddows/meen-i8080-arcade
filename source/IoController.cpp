@@ -30,97 +30,10 @@ SOFTWARE.
 
 namespace SpaceInvaders
 {
-    IoController::IoController(const std::shared_ptr<MemoryController>& memoryController, const nlohmann::json& config)
+    IoController::IoController(const std::shared_ptr<MemoryController>& memoryController)
 		: memoryController_{ memoryController }
 	{
-		if (config.contains("bpp") == true)
-		{
-			auto bpp = config["bpp"].get<uint8_t>();
 
-			switch (bpp)
-			{
-				case 1:
-				{
-					// native bpp, don't set the 8bpp flag
-					break;
-				}
-				case 8:
-				{
-					blitMode_ |= BlitFlags::Rgb332;
-					width_ = 256;
-					break;
-				}
-				default:
-				{
-					throw std::invalid_argument("Invalid configuration: bpp");
-				}
-			}
-		}
-
-		if (config.contains("colour") == true)
-		{
-			auto colour = config["colour"].get<std::string_view>();
-			auto [ptr, errc] = std::from_chars(colour.data(), colour.data() + colour.size(), colour_, 16);
-
-			if (errc != std::errc())
-			{
-				if (colour == "red")
-				{
-					colour_ = 0x80;
-				}
-				else if (colour == "green")
-				{
-					colour_ = 0x14;
-				}
-				else if (colour == "blue")
-				{
-					colour_ = 0x07;
-				}
-				else if (colour == "white")
-				{
-					colour_ = 0xFF;
-				}
-				else if (colour == "random")
-				{
-					srand(time(nullptr));
-					colour_ = rand() % 255;
-				}
-				else
-				{
-					throw std::invalid_argument("Invalid configuration: colour");
-				}
-			}
-			else if (*ptr != '\0')
-			{
-				// we parsed something but there is still left over text
-				throw std::invalid_argument("Invalid configuration: colour");
-			}
-		}
-
-		if (config.contains("orientation") == true)
-		{
-			auto orientation = config["orientation"].get<std::string>();
-
-			if (orientation == "upright")
-			{
-				blitMode_ |= BlitFlags::Upright;
-
-				if (blitMode_ & BlitFlags::Rgb332)
-				{
-					width_ = 224;
-				}
-				else
-				{
-					width_ = 28;
-				}
-
-				height_ = 256;
-			}
-			else if (orientation != "cocktail")
-			{
-				throw std::invalid_argument("Invalid configuration: orientation");
-			}
-		}
 	}
 
 	uint8_t IoController::ReadFrom(uint16_t port)
@@ -303,6 +216,99 @@ namespace SpaceInvaders
 			default:
 			{
 				throw std::runtime_error("Invalid blit mode");
+			}
+		}
+	}
+
+	void IoController::SetVideoTextureProperties(const nlohmann::json& videoTextureProperties)
+	{
+		if (videoTextureProperties.contains("bpp") == true)
+		{
+			auto bpp = videoTextureProperties["bpp"].get<uint8_t>();
+
+			switch (bpp)
+			{
+				case 1:
+				{
+					// native bpp, don't set the 8bpp flag
+					// TODO: need to turn off BlitFlags::Rgb332
+					break;
+				}
+				case 8:
+				{
+					blitMode_ |= BlitFlags::Rgb332;
+					width_ = 256;
+					break;
+				}
+				default:
+				{
+					throw std::invalid_argument("Invalid configuration: bpp");
+				}
+			}
+		}
+
+		if (videoTextureProperties.contains("colour") == true)
+		{
+			auto colour = videoTextureProperties["colour"].get<std::string_view>();
+			auto [ptr, errc] = std::from_chars(colour.data(), colour.data() + colour.size(), colour_, 16);
+
+			if (errc != std::errc())
+			{
+				if (colour == "red")
+				{
+					colour_ = 0x80;
+				}
+				else if (colour == "green")
+				{
+					colour_ = 0x14;
+				}
+				else if (colour == "blue")
+				{
+					colour_ = 0x07;
+				}
+				else if (colour == "white")
+				{
+					colour_ = 0xFF;
+				}
+				else if (colour == "random")
+				{
+					srand(time(nullptr));
+					colour_ = rand() % 255;
+				}
+				else
+				{
+					throw std::invalid_argument("Invalid configuration: colour");
+				}
+			}
+			else if (*ptr != '\0')
+			{
+				// we parsed something but there is still left over text
+				throw std::invalid_argument("Invalid configuration: colour");
+			}
+		}
+
+		if (videoTextureProperties.contains("orientation") == true)
+		{
+			auto orientation = videoTextureProperties["orientation"].get<std::string>();
+
+			if (orientation == "upright")
+			{
+				blitMode_ |= BlitFlags::Upright;
+
+				if (blitMode_ & BlitFlags::Rgb332)
+				{
+					width_ = 224;
+				}
+				else
+				{
+					width_ = 28;
+				}
+
+				height_ = 256;
+			}
+			else if (orientation != "cocktail")
+			{
+				throw std::invalid_argument("Invalid configuration: orientation");
 			}
 		}
 	}
