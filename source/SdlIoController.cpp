@@ -28,8 +28,8 @@ SOFTWARE.
 
 namespace SpaceInvaders
 {
-    SdlIoController::SdlIoController(const std::shared_ptr<MemoryController>& memoryController, const nlohmann::json& config)
-		: IoController(memoryController, config)
+    SdlIoController::SdlIoController(const std::shared_ptr<MemoryController>& memoryController, const nlohmann::json& audioHardware, const nlohmann::json& videoHardware)
+		: IoController(memoryController)
 	{
 		SDL_SetMainReady();
 
@@ -38,7 +38,7 @@ namespace SpaceInvaders
 			throw std::runtime_error("Failed to initialise SDL");
 		}
 
-		window_ = SDL_CreateWindow("Space Invaders", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, width_, height_, 0/*SDL_WINDOW_FULLSCREEN*/);
+		window_ = SDL_CreateWindow("Space Invaders", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, videoHardware["width"].get<int>(), videoHardware["height"].get<int>(), 0/*SDL_WINDOW_FULLSCREEN*/);
 
 		if (window_ == nullptr)
 		{
@@ -52,30 +52,9 @@ namespace SpaceInvaders
 			throw std::bad_alloc();
 		}
 
-		// Create the 8bpp texture
-		SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "linear");
-		texture_ = SDL_CreateTexture(renderer_, SDL_PIXELFORMAT_RGB332, SDL_TEXTUREACCESS_STREAMING, width_, height_);
-
-		if (texture_ == nullptr)
-		{
-			throw std::bad_alloc();
-		}
-
-		if (Mix_OpenAudio(11025 /* frequency */, 8 /* format (mono) */, 1 /* channels */, 4096 /* sample size */) < 0)
+		if (Mix_OpenAudio(audioHardware["sample-rate"].get<int>(), 8 /* format (mono) */, audioHardware["channels"].get<int>(), audioHardware["sample-size"].get<int>()) < 0)
 		{
 			throw std::runtime_error("Failed to open SDL Mixer");
-		}
-
-		// static_assert(wavFiles_.size() == mixChunk_.size());
-
-		for (int i = 0; i < totalWavFiles_; i++)
-		{
-			mixChunk_[i] = Mix_LoadWAV(wavFiles_[i]);
-
-			if (wavFiles_[i] && mixChunk_[i] == nullptr)
-			{
-				throw std::bad_alloc();
-			}
 		}
 
 		siEvent_ = SDL_RegisterEvents(1);
@@ -120,6 +99,34 @@ namespace SpaceInvaders
 		Mix_CloseAudio();
 
 		SDL_Quit();
+	}
+
+	void SdlIoController::LoadAudioSamples(const std::filesystem::path& audioFilePath, const nlohmann::json& audio)
+	{
+		for(const auto& file : audio["file"])
+		{
+			auto name = file.get<std::string>();
+			auto mixChunk = Mix_LoadWAV((audioFilePath/name).string().c_str());
+
+			if(name.empty() == false && mixChunk == nullptr)
+			{
+				throw std::runtime_error("Failed to load audio sample");
+			}
+
+			mixChunk_.emplace_back(mixChunk);
+		}
+	}
+
+	void SdlIoController::LoadVideoTextures(const nlohmann::json& videoTextures)
+	{
+		IoController::SetVideoTextureProperties(videoTextures);
+		SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "linear");
+		texture_ = SDL_CreateTexture(renderer_, SDL_PIXELFORMAT_RGB332, SDL_TEXTUREACCESS_STREAMING, width_, height_);
+
+		if (texture_ == nullptr)
+		{
+			throw std::bad_alloc();
+		}
 	}
 
 	uint8_t SdlIoController::Read(uint16_t port)
