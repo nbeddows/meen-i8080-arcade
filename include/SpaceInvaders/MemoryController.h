@@ -24,6 +24,7 @@ SOFTWARE.
 #define MEMORY_CONTROLLER_H
 
 #include <array>
+#include <filesystem>
 #include <memory>
 #include <mutex>
 #include <vector>
@@ -160,7 +161,7 @@ namespace SpaceInvaders
 
                 @param      offset      the memory offset at which to load the rom.
             */
-            void Load(const char* romFile, uint16_t offset);
+            void Load(const std::filesystem::path& romFile, uint16_t offset);
 
             /** Memory size
 
