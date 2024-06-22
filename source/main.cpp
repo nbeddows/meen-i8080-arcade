@@ -21,32 +21,97 @@ SOFTWARE.
 */
 
 #include <fstream>
+#include <filesystem>
 #include <memory>
+#include <popl.hpp>
+
 #include "Machine/MachineFactory.h"
-#include "nlohmann/json.hpp"
 #include "SpaceInvaders/SdlIoController.h"
 
-int main(void)
+using namespace popl;
+
+std::filesystem::path configFile;
+std::filesystem::path romFilePath;
+std::filesystem::path audioFilePath;
+std::filesystem::path saveFilePath; 
+
+int ParseCmdLine(int argc, char** argv)
+{
+	OptionParser op("Allowed options");
+	auto helpOpt = op.add<Switch>("h", "help", "produce this help message");
+	auto configFileOpt = op.add<Value<std::string>>("c", "config-file", "Space Invaders configuration file", "config.json");
+	auto romFilePathOpt = op.add<Value<std::string>>("r", "rom-file-path", "Path to the Space Invaders rom files directory", "rom-files");
+	auto audioFilePathOpt = op.add<Value<std::string>>("a", "audio-file-path", "Path to the Space Invaders audio files directory", "audio-files");
+	auto saveFilePathOpt = op.add<Value<std::string>>("s", "save-file-path", "Path to the Space Invaders save files directory", "save-files");
+	op.parse(argc, argv);
+	auto helpCount = helpOpt->count();
+
+	if (helpCount > 0)
+	{
+		switch(helpCount)
+		{
+			case 1:
+			{
+				std::cout << op << std::endl;
+				break;
+			}
+			case 2:
+			{
+				std::cout << op.help(Attribute::advanced) << std::endl;
+				break;
+			}
+			default:
+			{
+				std::cout << op.help(Attribute::expert) << std::endl;
+				break;
+			}
+		}
+
+		// print help then exit
+		return -1;
+	}
+
+	configFile = configFileOpt->value();
+	romFilePath = romFilePathOpt->value();
+	audioFilePath = audioFilePathOpt->value();
+	saveFilePath = saveFilePathOpt->value();
+	return 0;
+}
+
+int main(int argc, char** argv)
 {
 	try
 	{
+		if (ParseCmdLine(argc, argv) < 0)
+		{
+			// We return < 0 when we print the help, exit.
+			return 0;
+		}
+
 		// Open the configuration file, see the README for an explanation of each configuration option
-		std::ifstream fin(CONFIG_DIR"/config.json");
-		const nlohmann::json config = nlohmann::json::parse(fin);
+		std::ifstream fin(configFile);
+		const auto config = nlohmann::json::parse(fin);
+		auto hardware = config["i8080-arcade"]["hardware"];
 		// Create our custom Space Invaders machine
-		auto machine = MachEmu::MakeMachine(config["mach-emu"].dump().c_str());
+		auto machine = MachEmu::MakeMachine(hardware["mach-emu"].dump().c_str());
 		// Create our custom Space Invaders memory controller.
 		auto memoryController = std::make_shared<SpaceInvaders::MemoryController>();
 		// Create our custom Space Invaders I/O controller based on a specific configuration.
-		auto ioController = std::make_shared<SpaceInvaders::SdlIoController>(memoryController, config["space-invaders"]["io"]);
-		
+		auto ioController = std::make_shared<SpaceInvaders::SdlIoController>(memoryController, hardware["audio"], hardware["video"]);
+		auto spaceInvaders = config["i8080-arcade"]["space-invaders"];
+
 		// Load the ROM into memory with the following layout
-		memoryController->Load(ROMS_DIR"/invaders-h.bin", 0x0000); // invaders-h 0000-07FF
-		memoryController->Load(ROMS_DIR"/invaders-g.bin", 0x0800); // invaders-g 0800-0FFF
-		memoryController->Load(ROMS_DIR"/invaders-f.bin", 0x1000); // invaders-f 1000-17FF
-		memoryController->Load(ROMS_DIR"/invaders-e.bin", 0x1800); // invaders-e 1800-1FFF
+		for(const auto& file : spaceInvaders["memory"]["rom"]["file"])
+		{
+			memoryController->Load(romFilePath/file["name"].get<std::string>(), file["offset"].get<uint16_t>());
+		}
+
+		//memoryController->Load(romFilePath, spaceInvaders["memory"]);
+		ioController->LoadAudioSamples(audioFilePath, spaceInvaders["audio"]);
+		ioController->LoadVideoTextures(spaceInvaders["video"]);
+
 		// Load the memory layout into the machine
-		machine->SetOptions(config["space-invaders"]["memory"].dump().c_str());
+		machine->SetOptions(spaceInvaders["memory"].dump().c_str());
 		// Load our controllers into the machine.
 		machine->SetMemoryController(memoryController);
 		machine->SetIoController(ioController);
@@ -54,16 +119,18 @@ int main(void)
 		machine->OnSave([](const char* json)
 		{
 			// Need to make a copy of the json if you want to hold the json string longer than the scope of this function
-			std::ofstream fout(ROMS_DIR"/spaceInvaders.json", std::ios::trunc);
+			std::filesystem::create_directory(saveFilePath);
+			std::ofstream fout(saveFilePath/"spaceInvaders.json", std::ios::trunc);
 			fout.exceptions(fout.failbit);
 			fout.write(json, strlen(json));
 		});
+
 		// Will be accessed from a different thread
 		std::string loadJson;
 		// Will be called from a different thread
 		machine->OnLoad([&loadJson]
 		{
-			std::ifstream fin(ROMS_DIR"/spaceInvaders.json", std::ios::ate);
+			std::ifstream fin(saveFilePath/"spaceInvaders.json", std::ios::ate);
 			fin.exceptions(fin.failbit);
 			auto len = fin.tellg();
 			fin.seekg(0, std::ios::beg);
