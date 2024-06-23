@@ -49,7 +49,7 @@ namespace SpaceInvaders
 
 		if (renderer_ == nullptr)
 		{
-			printf("Failed to allocate an accelerated renderer, falling back to software");
+			printf("Failed to allocate an accelerated renderer, falling back to software\n");
 			renderer_ = SDL_CreateRenderer(window_, -1, SDL_RENDERER_SOFTWARE);
 
 			if (renderer_ == nullptr)
