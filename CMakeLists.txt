@@ -29,10 +29,6 @@ else()
   set(buildType ${CMAKE_BUILD_TYPE})
 endif()
 
-if(DEFINED WIN32)
-  set(ext .exe)
-endif()
-
 set(artifactsDir $<1:${CMAKE_SOURCE_DIR}/artifacts/${buildType}/${CMAKE_SYSTEM_PROCESSOR}>)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${artifactsDir}/bin)
 
@@ -67,27 +63,53 @@ target_link_libraries(${projectName} PRIVATE
 
 target_compile_definitions(${projectName} PRIVATE SDL_MAIN_HANDLED)
 
-install(FILES ${artifactsDir}/bin/${projectName}${ext} DESTINATION /)
-install(FILES LICENSE.md DESTINATION ./ RENAME LICENSE)
-install(FILES README.md DESTINATION ./)
-install(DIRECTORY "conf" DESTINATION ./)
-install(DIRECTORY "audio-files" DESTINATION ./)
-install(DIRECTORY "rom-files" DESTINATION ./)
+# CPACK INSTALL
+set(CMAKE_INSTALL_PREFIX ./)
+
+if(DEFINED WIN32)
+  set(soExt .dll)
+  set(scriptExt .bat)
+
+  file(WRITE ${CMAKE_BINARY_DIR}/run-${projectName}${scriptExt}
+  "@echo off\n\
+set PATH=%cd%\\lib;%PATH%\n\
+bin\\${projectName}\n\
+pause\n\
+exit"
+)
+else()
+  set(soExt .so)
+  set(scriptExt .sh)
+
+  file(WRITE ${CMAKE_BINARY_DIR}/run-${projectName}${scriptExt}
+  "#!/bin/bash\n\
+export LD_LIBRARY_PATH=`pwd`/lib:\${LD_LIBRARY_PATH}\n\
+bin/${projectName}"
+)  
+endif()
+
+install(TARGETS ${projectName} RUNTIME)
+install(PROGRAMS ${CMAKE_BINARY_DIR}/run-${projectName}${scriptExt} DESTINATION .)
+install(FILES LICENSE.md DESTINATION . RENAME LICENSE)
+install(FILES README.md DESTINATION .)
+install(DIRECTORY "conf" DESTINATION .)
+install(DIRECTORY "audio-files" DESTINATION .)
+install(DIRECTORY "rom-files" DESTINATION .)
 
 if(DEFINED machEmuBinDir)
-    install(DIRECTORY ${machEmuBinDir}/ DESTINATION ./ FILES_MATCHING PATTERN "*")
+    install(DIRECTORY ${machEmuBinDir}/ DESTINATION lib FILES_MATCHING PATTERN "*${soExt}*")
 endif()
 
 if(DEFINED sdlBinDir)
-    install(DIRECTORY ${sdlBinDir}/ DESTINATION ./ FILES_MATCHING PATTERN "*")
+    install(DIRECTORY ${sdlBinDir}/ DESTINATION lib FILES_MATCHING PATTERN "*${soExt}*")
 endif()
 
 if(DEFINED sdlMixerBinDir)
-    install(DIRECTORY ${sdlMixerBinDir}/ DESTINATION ./ FILES_MATCHING PATTERN "*")
+    install(DIRECTORY ${sdlMixerBinDir}/ DESTINATION lib FILES_MATCHING PATTERN "*${soExt}*")
 endif()
 
 if(DEFINED zlibBinDir)
-    install(DIRECTORY ${zlibBinDir}/ DESTINATION ./ FILES_MATCHING PATTERN "*")
+    install(DIRECTORY ${zlibBinDir}/ DESTINATION lib FILES_MATCHING PATTERN "*${soExt}*")
 endif()
 
 if(NOT DEFINED WIN32)
