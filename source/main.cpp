@@ -39,7 +39,7 @@ int ParseCmdLine(int argc, char** argv)
 {
 	OptionParser op("Allowed options");
 	auto helpOpt = op.add<Switch>("h", "help", "produce this help message");
-	auto configFileOpt = op.add<Value<std::string>>("c", "config-file", "Space Invaders configuration file", "config.json");
+	auto configFileOpt = op.add<Value<std::string>>("c", "config-file", "Space Invaders configuration file", "conf/config.json");
 	auto romFilePathOpt = op.add<Value<std::string>>("r", "rom-file-path", "Path to the Space Invaders rom files directory", "rom-files");
 	auto audioFilePathOpt = op.add<Value<std::string>>("a", "audio-file-path", "Path to the Space Invaders audio files directory", "audio-files");
 	auto saveFilePathOpt = op.add<Value<std::string>>("s", "save-file-path", "Path to the Space Invaders save files directory", "save-files");
