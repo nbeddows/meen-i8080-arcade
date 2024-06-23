@@ -49,7 +49,13 @@ namespace SpaceInvaders
 
 		if (renderer_ == nullptr)
 		{
-			throw std::bad_alloc();
+			printf("Failed to allocate an accelerated renderer, falling back to software");
+			renderer_ = SDL_CreateRenderer(window_, -1, SDL_RENDERER_SOFTWARE);
+
+			if (renderer_ == nullptr)
+			{
+				throw std::runtime_error("Failed to allocate an SDL renderer");
+			}
 		}
 
 		if (Mix_OpenAudio(audioHardware["sample-rate"].get<int>(), 8 /* format (mono) */, audioHardware["channels"].get<int>(), audioHardware["sample-size"].get<int>()) < 0)
