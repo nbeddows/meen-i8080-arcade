@@ -150,7 +150,21 @@ namespace SpaceInvaders
 			*/
 			void EventLoop();
 
+			/** Load Audio Samples
+			
+				Use SDL Mixer to load the audio samples.
+
+				@param	audioFilePath	The audio samples root directory
+				@param	audioSamples	JSON object representing the audio sample files. 
+			*/
 			void LoadAudioSamples(const std::filesystem::path& audioFilePath, const nlohmann::json& audioSamples);
+			
+			/** Load Video Textures
+			
+				Create the video texture that will be rendered to the screen.
+
+				@param	videoTextures	JSON object describing the video texture.
+			*/
 			void LoadVideoTextures(const nlohmann::json& videoTextures);
 	};
 } // namespace SpaceInvaders
