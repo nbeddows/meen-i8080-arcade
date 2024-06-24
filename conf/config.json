@@ -15,7 +15,8 @@
             "video":
             {
                 "width":224,
-                "height":256
+                "height":256,
+                "full-screen":false
             },
             "audio":
             {

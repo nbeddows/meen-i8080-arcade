@@ -38,7 +38,12 @@ namespace SpaceInvaders
 			throw std::runtime_error("Failed to initialise SDL");
 		}
 
-		window_ = SDL_CreateWindow("Space Invaders", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, videoHardware["width"].get<int>(), videoHardware["height"].get<int>(), 0/*SDL_WINDOW_FULLSCREEN*/);
+		window_ = SDL_CreateWindow("Space Invaders",
+								SDL_WINDOWPOS_UNDEFINED,
+								SDL_WINDOWPOS_UNDEFINED,
+								videoHardware["width"].get<int>(),
+								videoHardware["height"].get<int>(),
+								videoHardware["full-screen"].get<bool>() ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0);
 
 		if (window_ == nullptr)
 		{
