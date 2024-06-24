@@ -7,7 +7,7 @@ class MachuEmuPackageTest(ConanFile):
     settings = "os", "compiler", "build_type", "arch"
 
     def requirements(self):
-        self.requires("mach_emu/1.6.0")
+        self.requires("mach_emu/1.6.1")
         self.requires("nlohmann_json/3.11.3")
         self.requires("popl/1.3.0")
         self.requires("sdl/2.28.5")

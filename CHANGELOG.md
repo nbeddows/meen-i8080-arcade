@@ -1,5 +1,5 @@
 0.5.0 [24/06/24]
-* Updated to mach-emu-1.6.0.
+* Updated to mach-emu-1.6.1.
 * Using Conan package manager.
 * Added CPack support for binary distributions.
 * Updated the JSON config file for improved flexibility.
