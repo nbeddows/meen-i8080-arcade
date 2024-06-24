@@ -1,109 +1,173 @@
 
 ### Introduction
 
-This demo project shows how to make use of the mach-emu sdk to emulate an arcade machine, in this case, Space Invaders.
-
-##### Pre-requisites
-
-The following development packages require installation before proceeding:
-
-[mach-emu](https://github.com/nbeddows/mach-emu-dev/releases)<br>
-[nlohmann_json](https://github.com/nlohmann/json/releases)
-
-When enableSdl is checked the following development packages must also be installed:
-
-[SDL2](https://github.com/libsdl-org/SDL/releases)<br>
-[SDL2_mixer](https://github.com/libsdl-org/SDL_mixer/releases)
-
-##### Basic principles of operation
-
-1. Determine the memory and io layout of the target application.
-
-	See SpaceInvaders.h documentation which documents the memory and io layout for Space Invaders.
-
-2. Write a memory and io controller which targets the desired application.
-
-	See SpaceInvaders.cpp for a custom memory and io controller targeting Space Invaders.
-
-3. Register these controllers with an instance of MachEmu::IMachine.
-
-	See main.cpp for IMachine instatiation and controller registration.
-
-4. Set the machine options for the target application.
-
-	Space Invaders runs at 60Hz.
-
-5. Launch a thread to run the machine (if machine runAsync option not supported).
-
-	Once the previous prerequisites have been fulfilled, calling MachEmu::IMachine::Run() will start the machine cpu execution loop.
-
-6. Execute the control loop.
-
-	This handles all triggered events: audio/video rendering, user input and quitting.
-
-7. Wait for the machine to finish once the control loop is complete.
-
-	The machine should be allowed to cleanup before application exit.
+This demo project shows how to make use of the [mach-emu sdk](http://github.com/nbeddows/mach-emu/) to emulate an arcade machine, in this case, Space Invaders.
 
 ### Compilation
 
-Space Invaders has been compiled and tested on Visual Studio 22 (Windows 10) and g++-13.2 and Clang 16.06 (Ubuntu 23.10) with GNU Make 4.3.
+This project uses [CMake (minimum version 3.23)](https://cmake.org/) for its build system and [Conan (minimum version 2.0)](https://conan.io/) for it's dependency package management. Supported compilers are GCC (minimum version 12), MSVC(minimum version 16) and Clang (minimum version 16).
 
-Open cmake-gui (feel free to use command line cmake, but the remainder of this readme will use cmake-gui). Set the source code text field to the space-invaders directory and binary text field to your desire build directory.
-
-Click configure (if prompted to create the build directory, accept) and choose Visual Studio 17 for Windows or Unix Makefiles for Linux, then click generate.
-
-##### Windows
-
-The following image gives a possible Windows CMake configuration.
-
-![Example Windows configuration](docs/images/CMake(Windows).png)
-
-Make sure that all depdendent packages are found (MachEmu, SDL2, SDL_mixer and nlohmann_json) and that their library paths are
-in your PATH environment variable. Update the machEmuIncludePath to the location of your MachEmu development includes.
-Open the Visual Studio solution in the build directory, select your desired build configuration, then run.
+#### Pre-requisites
 
 ##### Linux
 
-The following image gives a possible Linux CMake configuration.
+- [Install Conan](https://conan.io/downloads/).
+- `sudo apt install cmake`.
+- `sudo apt install gcc-arm-linux-gnueabihf` (if cross compiling for armv7hf).
+- `sudo apt install gcc-aarch64-linux-gnu` (if cross compiling for aarch64).
+- `sudo apt install g++-aarch64-linux-gnu` (if cross compiling for aarch64).
 
-![Example Linux configuration](docs/images/CMake(Linux).png)
+##### Windows
 
-Make sure that all depdendent packages are found (MachEmu, SDL2 SDL_mixer amd nlohmann_json). Earlier versions of g++ and Clang may work, however these versions
-are untested. Update the machEmuIncludePath to the location of your MachEmu development includes. Once CMake has finished change into the build directory and run make. The executable will be located in bin/${configuration} in the project root directory.
+- [Install Conan](https://conan.io/downloads).
+- [Install CMake](https://cmake.org/download/).
+
+**1.** Create a default profile (if you have no profiles): `conan profile detect`. This will detect the operating system, build architecture, compiler settings and set the build configuration as Release by default. The profile will be named `default` and will reside in $HOME/.conan2/profiles. 
+
+**2.** Install dependencies:
+- Using the default build and host profiles: `conan install . --build=missing`.
+- Using the default build profile targeting 32 bit Raspberry Pi OS: `conan install . --build=missing -pr:h=profiles/raspberry-32`.<br>
+- Using the default build profile targeting 64 bit Raspberry Pi OS: `conan install . --build=missing -pr:h=profiles/raspberry-64`.<br>
+
+**NOTE**: raspberry host profiles can be obtained from the [mach-emu project](https://github.com/nbeddows/mach-emu/tree/main/profiles).
+
+**NOTE**: when performing a cross compile using a host profile you must install the requisite toolchain of the target architecture, [see pre-requisites](#pre-requisites).
+
+**NOTE**: under Linux errors similar to the following, `ERROR: xorg/system: Error in system_requirements() method` require additional package installations as denoted by the above console messages: "`dpkg-query: no packages found matching ${pkg0}`": `sudo apt install ${pkg0} ${pkg1} ${pkgn}`.
+When cross compiling for arm you may need to add the arm development repositories to your apt sources if the packages previously installed could not be found, for example:
+- `sudo nano /etc/apt/source.list`
+- Append the following:
+    - deb [arch=arm64] http://ports.ubuntu.com/ lunar main multiverse universe
+    - deb [arch=arm64] http://ports.ubuntu.com/ lunar-security main multiverse universe
+    - deb [arch=arm64] http://ports.ubuntu.com/ lunar-backports main multiverse universe
+    - deb [arch=arm64] http://ports.ubuntu.com/ lunar-updates main multiverse universe
+- Save and exit
+- `sudo dpkg --add-architecture arm64`
+- `sudo dpkg --print-foreign-architectures`
+- `sudo apt-get update`
+- Reinstall the missing packages.
+
+The following dependent packages will be (compiled if required and) installed:
+
+- mach_emu
+- nlohmann_json
+- popl
+- sdl
+- sdl_mixer
+
+**3.** Run cmake to configure and generate the build system.
+
+- Multi configuration generators (MSVC for example): `cmake --preset conan-default [-Wno-dev]`.
+- Single configuration generators (make for example): `cmake --preset conan-release [-Wno-dev]`.
+
+**4.** Run cmake to compile Space Invaders: `cmake --build --preset conan-release`.
+
+**5.** Run Space Invaders:
+
+**Linux/Windows (x86_64)**:
+- `build\generators\conanrun.bat/sh`: export the dependent shared library paths.
+- `artifacts/Release/x86_64/bin/space-invaders`.
+- `build\generators\deactivate_conanrun.bat/sh`: restore the environment.
+
+**Linux (armv7hf, armv8)**:
+
+When running a cross compiled build the binaries need to be uploaded to the host machine before they can be executed.
+1. Create an Arm Linux binary distribution: See building a binary package. 
+2. Copy the distribution to the arm machine: `scp build/Release/Sdk/space-invaders-v0.5.0-Linux-armv7hf-bin.tar.gz ${user}@raspberrypi:space-invaders-v0.5.0.tar.gz`.
+3. Ssh into the arm machine: `ssh ${user}@raspberrypi`.
+4. Extract the space-invaders archive copied over via scp: `tar -xzf space-invaders-v0.5.0.tar.gz`.
+5. Change directory to space-invaders `cd space-invaders`.
+6. Run Space Invaders: `./run-space-invaders.sh`.<br>
+
+#### Building a binary package
+
+A standalone binary package can be built via CPack that can be distributed and installed.
+
+- `cpack --config build\CPackConfig.cmake`
+
+This will build a package using the default generator.
+The underlying package generator used to build the package must be installed otherwise this command will fail.
+
+NOTE: the `-G` option can be specifed to overwrite the default cpack generator.
+
+- `cpack --config build\CPackConfig.cmake -G ZIP`
+
+This will build a binary package using the zip utility.
+
+Run `cpack --help` for a list available generators.
 
 ### Configuration
 
-A configuration file is provided in json format which supports the following options:
+A configuration file targeting the i8080 arcade hardware is provided, it is divided into two main sections:
 
-##### mach-emu
+#### Hardware
+
+These options should be fixed to the specfied values unless stated otherwise.
+
+##### MachEmu
 
 The current settings for these options should be sufficient, changing them may have a negative impact on performance.
 
-`clockResolution:1000000000 / 60 / 2` - Space Invaders runs at 60Hz with 2 interrupts per frame, set the machine clock resolution accordingly.<br>
+`clockResolution:1000000000 / 60 / 2` - i8080 arcade hardware runs at 60Hz with 2 interrupts per frame, set the machine clock resolution accordingly.<br>
 `isrFreq:0.9` - We require 4 interrupts, 2 for Space Invaders and 2 machine level interrupts for loading and saving. Ideally we would lock the interrupt service routine frequency to the clock resolution ("isrFreq":1), however, we need to spare some time for checking for load and save requests, so we bump the isrFreq down by ten percent ("isrFreq":0.9). One could lower it further, this would make it more responsive (0.9 should be good enough). Increasing it above 1 would make it slower and not respond to load/save requests.<br>
-`loadAsync:true` - Get the machine state to load asynchronously.<br> 
+`loadAsync:true` - Load the machine state asynchronously.<br> 
 `runAsync:true` - Run the machine asynchronously from the io.<br>
-`saveAsync:true` - Save the state asynchronously.<br>
+`saveAsync:true` - Save the machine state asynchronously.<br>
 
-##### space-invaders-memory
+##### Video
 
-These settings are fixed to the specified rom and should not be changed.
+Video hardware options. These options can be changed for the desired output.
 
-`romOffset:0` - The offset from the start of memory to the rom in bytes.
-`romSize:8192` - The size of the rom in bytes.
-`ramOffset:8192` - The offset from the start of memory to the ram in bytes.
-`ramSize:57343` - The size of the ram in bytes.
+`width:224` - The width of the screen.<br>
+`height:256` - The height of the screen.<br>
+`full-screen:false` - Window or full screen display.<br>
 
-##### space-invaders-io
+##### Audio
 
-These settings affect visual output.
+Audio hardware options. The current settings for these options should be sufficient.
 
-`bpp`: bits per pixel, supported values are 1 (currently not supported via the SDL IO controller) and 8.<br>
-`colour`: the forground colour (the background is always black), supported values are "white", "red", "green", "blue", "random" and an 8 bit custom hex value.<br>
-`orientation`: the window layout, "cocktail" for horizontal and "upright" for vertical.
+`channels:1` - The number of audio output channels.<br>
+`sample-rate:11025` - The audio output sample rate.<br>
+`sample-size:512` - The audio output sample size.<br>
 
-![Upright green 8bpp](docs/images/screenShot.png)
+**NOTE**: these options can be changed if using custom audio samples.
+
+#### Space Invaders
+
+These settings are fixed to the specified rom and should not be changed. 
+
+##### Memory
+
+`memory:rom:file:name` - The Space Invaders rom file.<br>
+`memory:rom:file:offset` - Currently unused.<br>
+`memory:rom:file:size` - Currently unused.<br>
+`memory:rom:size` - Currently unused.<br>
+`memory:ram:block:offset` - Currently unused.<br>
+`memory:ram:block:size` - Currently unused.<br>
+`memory:ram:size` - Currently unused.<br>
+`memory:romOffset:0` - The offset from the start of memory to the rom in bytes.<br>
+`memory:romSize:8192` - The size of the rom in bytes.<br>
+`memory:ramOffset:8192` - The offset from the start of memory to the ram in bytes.<br>
+`memory:ramSize:57343` - The size of the ram in bytes.<br>
+
+##### Video
+
+These settings affect visual output and can be changed for the desired output.
+
+`bpp:8` - Bits per pixel, supported values are 1 (currently not supported via the SDL IO controller) and 8.<br>
+`colour:white`: the forground colour (the background is always black), supported values are "white", "red", "green", "blue", "random" and an 8 bit custom hex value.<br>
+`orientation:upright` - The window layout, "cocktail" for horizontal and "upright" for vertical.<br>
+`x:0` - The horizontal position of the video output on the screen (currently unused).<br>
+`y:0` - The vertical position of the video output on the screen (currently unused).<br>
+
+##### Audio
+
+These settings affect audio output. They can be changed if different audio samples are desired.
+
+`audio:file` - The name of the audio sample to load (empty entries are ignored and **must** not be removed).<br>
+
+**NOTE**: the position of the audio files in the array **must** not be changed.<br>
+**NOTE**: if changing the audio files, the audio hardware properties may need to be updated (untested).
 
 ### Keyboard Controls
 
@@ -124,6 +188,8 @@ These settings affect visual output.
 `k`: 2P Fire<br>
 `l`: 2P Right<br>
 `i`: Show coin info<br>
+
+![Upright green 8bpp](docs/images/screenShot.png)
 
 ### Acknowledgements
 

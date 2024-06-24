@@ -64,7 +64,7 @@ namespace SpaceInvaders
 				@See IoController::WavFiles_
 			*/
 			//cppcheck-suppress unusedStructMember
-			std::array<Mix_Chunk*, totalWavFiles_> mixChunk_;
+			std::vector<Mix_Chunk*> mixChunk_;
 
 			/** The custom Space Invaders SDL event type
 
@@ -92,7 +92,7 @@ namespace SpaceInvaders
 			
 				Creates an SDL specific Space Invaders IO controller.
 			*/
-			SdlIoController(const std::shared_ptr<MemoryController>& memoryController, const nlohmann::json& config);
+			SdlIoController(const std::shared_ptr<MemoryController>& memoryController, const nlohmann::json& audioHardware, const nlohmann::json& videoHardware);
 			
 			/** Destructor
 			
@@ -149,6 +149,23 @@ namespace SpaceInvaders
 				Events include audio/video rendering, keyboard processing and window close.
 			*/
 			void EventLoop();
+
+			/** Load Audio Samples
+			
+				Use SDL Mixer to load the audio samples.
+
+				@param	audioFilePath	The audio samples root directory
+				@param	audioSamples	JSON object representing the audio sample files. 
+			*/
+			void LoadAudioSamples(const std::filesystem::path& audioFilePath, const nlohmann::json& audioSamples);
+			
+			/** Load Video Textures
+			
+				Create the video texture that will be rendered to the screen.
+
+				@param	videoTextures	JSON object describing the video texture.
+			*/
+			void LoadVideoTextures(const nlohmann::json& videoTextures);
 	};
 } // namespace SpaceInvaders
 

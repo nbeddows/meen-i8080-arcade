@@ -28,7 +28,7 @@ SOFTWARE.
 #include <memory>
 
 #include "Base/Base.h"
-#include "nlohmann/json_fwd.hpp"
+#include "nlohmann/json.hpp"
 #include "SpaceInvaders/MemoryController.h"
 
 namespace SpaceInvaders
@@ -124,14 +124,6 @@ namespace SpaceInvaders
 		uint8_t colour_{ 0xFF };
 
 	protected:
-		/** The maximum number of output audio sample files.
-
-			There are only 9 audio files that are used.
-
-			@see wavFiles_
-		*/
-		static constexpr uint8_t totalWavFiles_ = 16;
-
 		/** Video RAM access.
 
 			When the video ram is ready to be blitted it is sampled
@@ -160,31 +152,6 @@ namespace SpaceInvaders
 			@remark		This value can be set from a different thread, hence it is atomic.
 		*/
 		std::atomic<MachEmu::ISR> loadSaveInterrupt_{ MachEmu::ISR::NoInterrupt };
-		
-		/** The audio files to use for sound effects.
-
-			NOTE: DO NOT change the order of these files as they corrospond to the
-			correct port number bits of port 3 (low 8 bits) and 5 (high 8 bits)
-		*/
-		std::array<const char*, totalWavFiles_> wavFiles_ 
-		{
-			ROMS_DIR"/ufo_highpitch.wav",	/**< UFO */
-			ROMS_DIR"/shoot.wav",			/**< Player fire */
-			ROMS_DIR"/explosion.wav",		/**< Player killed */
-			ROMS_DIR"/invaderkilled.wav",	/**<	Invader killed */
-			nullptr,						/**< Extended Play */
-			nullptr,						/**< AMP Enable */
-			nullptr,						/**< Unused */
-			nullptr,						/**< Unused */
-			ROMS_DIR"/fastinvader1.wav",	/**< Invader fleet movement 1 */
-			ROMS_DIR"/fastinvader2.wav",	/**< Invader fleet movement 1 */
-			ROMS_DIR"/fastinvader3.wav",	/**< Invader fleet movement 1 */
-			ROMS_DIR"/fastinvader4.wav",	/**< Invader fleet movement 1 */
-			ROMS_DIR"/ufo_lowpitch.wav",	/**< UFO hit */
-			nullptr,						/**< Unused */
-			nullptr,						/**< Unused */
-			nullptr							/**< Unused */
-		};
 
 		/** Output video width
 		
@@ -208,6 +175,20 @@ namespace SpaceInvaders
 		*/
 		int height_{ MemoryController::VideoFrame::height };
 
+		/** Output texture properties
+
+			Properties of the texture used to blit the video ram.
+
+			@param	videoTextures	The properties of the texture in json format.
+
+									Configuration options are as follows:
+
+									bpp: 1 (1bpp), 8 (8bpp)
+									colour: "white", "red", "green", "blue", "random", hex
+									orientation: "cocktail" (horizontal), "upright" (vertical)
+		*/
+		void SetVideoTextureProperties(const nlohmann::json& videoTextureProperties);
+
 	public:
 		/** Initialisation contructor.
 
@@ -215,11 +196,6 @@ namespace SpaceInvaders
 			video ram access.
 
 			@param		memoryController	The memory controller where the video ram resides.
-			@param		config				Configuration options are as follows:
-
-											bpp: 1 (1bpp), 8 (8bpp)
-											colour: "white", "red", "green", "blue", "random", hex
-											orientation: "cocktail" (horizontal), "upright" (vertical)
 
 			@throw							A std::invalid_argument exception when the config file can't
 											be parsed.
@@ -231,7 +207,7 @@ namespace SpaceInvaders
 											colour: "white"
 											orientation: "cocktail"
 		*/
-		IoController(const std::shared_ptr<MemoryController>& memoryController, const nlohmann::json& config);
+		IoController(const std::shared_ptr<MemoryController>& memoryController);
 
 		/** Read from controller.
 
