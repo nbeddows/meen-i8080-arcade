@@ -31,6 +31,7 @@ SOFTWARE.
 
 #include "Base/Base.h"
 #include "Controller/IController.h"
+#include "meen_hw/MH_ResourcePool.h"
 
 namespace SpaceInvaders
 {
@@ -40,41 +41,6 @@ namespace SpaceInvaders
 	*/
 	class MemoryController final : public MachEmu::IController
 	{
-        public:
-            /** Video ram wrapper
-            
-                Individual frame bytes that will be housed in a frame pool.
-
-                @remark     Wrap unique pointer so it is more compatible with C based API's.
-            */
-            struct VideoFrame
-            {
-                /** Video ram width
-                
-                    The width of the compressed video ram in bytes.
-                */
-                static constexpr int width = 32;
-
-                /** Video ram width
-
-                    The width of the compressed video ram in bytes.
-                */
-                static constexpr int height = 224;
-
-                /** Video ram size
-                
-                    The size in bytes.
-                */
-                static constexpr int size = width * height;
-                
-                /** Video ram
-
-                    The bytes for each frame that will be copied out of memory
-                    when interrupt service routine ISR::Two is fired.
-                */
-                std::unique_ptr<std::array<uint8_t, size>> vram;
-            };
-
         private:
             /** Memory size
 
@@ -89,21 +55,11 @@ namespace SpaceInvaders
             */
             std::unique_ptr<uint8_t[]> memory_;
             
-            /** Frame pool mutex
+            /** VRAM frame pool
             
-                Mutual exclusion between the main thread and the machine thread for frame pool access.
-            
-                @remark     marked as mutable so GetVideoFrame can remain const
+                A pool of recyclable video frames.
             */
-            mutable std::mutex frameMutex_;
-
-            /** Frame pool
-            
-                A pool of video frames that can be used to copy the current vram into.
-
-                @remark     marked as mutable so GetVideoFrame can remain const
-            */
-            mutable std::vector<VideoFrame> framePool_;
+            meen_hw::MH_ResourcePool<std::array<uint8_t, 7168>> framePool_;
 
         public:
             /** Constructor
@@ -130,21 +86,9 @@ namespace SpaceInvaders
 
                 The VideoFrame containing the current video ram is taken from a finite frame pool.
 
-                @return         The current video ram as a unique_ptr wrapped in a VideoFrame.
-
-                @remark         The VideoFrame MUST be returned to the memory controller.
-
-                @see            ReturnVideoFrame.
+                @return         The current video ram as a recyclable resource.
             */
-            VideoFrame GetVideoFrame() const;
-
-            /** Return the frame to the frame pool
-            
-                @param      frame   the frame to be returned.
-
-                @remark     Not returning the frame (in at least real-time) will cause frame drops.
-            */
-            void ReturnVideoFrame(VideoFrame&& frame);
+            meen_hw::MH_ResourcePool<std::array<uint8_t, 7168>>::ResourcePtr GetVideoFrame() const;
 
             /** Load ROM file
 

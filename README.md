@@ -1,7 +1,7 @@
 
 ### Introduction
 
-This demo project shows how to make use of the [mach-emu sdk](http://github.com/nbeddows/mach-emu/) to emulate an arcade machine, in this case, Space Invaders.
+This demo project shows how to make use of the [mach-emu sdk](http://github.com/nbeddows/mach-emu/) and [meen_hw](http://github.com/nbeddows/meen-hw) to emulate an arcade machine, in this case, Space Invaders.
 
 ### Compilation
 
@@ -50,6 +50,7 @@ When cross compiling for arm you may need to add the arm development repositorie
 The following dependent packages will be (compiled if required and) installed:
 
 - mach_emu
+- meen_hw
 - nlohmann_json
 - popl
 - sdl
@@ -157,8 +158,6 @@ These settings affect visual output and can be changed for the desired output.
 `bpp:8` - Bits per pixel, supported values are 1 (currently not supported via the SDL IO controller) and 8.<br>
 `colour:white`: the forground colour (the background is always black), supported values are "white", "red", "green", "blue", "random" and an 8 bit custom hex value.<br>
 `orientation:upright` - The window layout, "cocktail" for horizontal and "upright" for vertical.<br>
-`x:0` - The horizontal position of the video output on the screen (currently unused).<br>
-`y:0` - The vertical position of the video output on the screen (currently unused).<br>
 
 ##### Audio
 

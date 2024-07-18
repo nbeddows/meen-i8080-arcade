@@ -76,9 +76,7 @@
             {
                 "bpp":8,
                 "colour":"white",
-                "orientation":"upright",
-                "x":0,
-                "y":0
+                "orientation":"upright"
             },
             "audio":
             {
