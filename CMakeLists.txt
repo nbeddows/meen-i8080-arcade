@@ -33,17 +33,16 @@ set(artifactsDir $<1:${CMAKE_SOURCE_DIR}/artifacts/${buildType}/${CMAKE_SYSTEM_P
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${artifactsDir}/bin)
 
 find_package(mach_emu REQUIRED)
+find_package(meen_hw REQUIRED)
 find_package(nlohmann_json REQUIRED)
 find_package(popl REQUIRED)
 find_package(SDL2 REQUIRED)
 find_package(SDL2_mixer REQUIRED)
 
 add_executable(${projectName}
-    include/SpaceInvaders/IoController.h
     include/SpaceInvaders/SdlIoController.h
     include/SpaceInvaders/MemoryController.h
     source/main.cpp
-    source/IoController.cpp
     source/SdlIoController.cpp
     source/MemoryController.cpp
 )
@@ -55,6 +54,7 @@ endif()
 target_include_directories(${projectName} PRIVATE ${CMAKE_SOURCE_DIR}/include)
 target_link_libraries(${projectName} PRIVATE
     mach_emu::mach_emu
+    meen_hw::meen_hw
     nlohmann_json::nlohmann_json
     popl::popl
     SDL2::SDL2
@@ -98,6 +98,10 @@ install(DIRECTORY "rom-files" DESTINATION .)
 
 if(DEFINED machEmuBinDir)
     install(DIRECTORY ${machEmuBinDir}/ DESTINATION lib FILES_MATCHING PATTERN "*${soExt}*")
+endif()
+
+if(DEFINED meenHwBinDir)
+    install(DIRECTORY ${meenHwBinDir}/ DESTINATION lib FILES_MATCHING PATTERN "*${soExt}*")
 endif()
 
 if(DEFINED sdlBinDir)

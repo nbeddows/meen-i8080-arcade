@@ -8,12 +8,14 @@ class MachuEmuPackageTest(ConanFile):
 
     def requirements(self):
         self.requires("mach_emu/1.6.1")
+        self.requires("meen_hw/0.1.0")
         self.requires("nlohmann_json/3.11.3")
         self.requires("popl/1.3.0")
         self.requires("sdl/2.28.5")
         self.requires("sdl_mixer/2.8.0")
 
     def configure(self):
+        self.options["meen_hw/*"].with_i8080_arcade = True
         self.options["sdl/*"].shared = True
         self.options["sdl/*"].alsa = False
         self.options["sdl/*"].pulse = True
@@ -54,6 +56,9 @@ class MachuEmuPackageTest(ConanFile):
         if self.settings.os == "Windows":            
             tc.cache_variables["machEmuBinDir"] = self.dependencies["mach_emu"].cpp_info.bindirs[0].replace("\\", "/")
 
+            if self.dependencies["meen_hw"].options.shared:
+                tc.cache_variables["meenHwBinDir"] = self.dependencies["meen_hw"].cpp_info.bindirs[0].replace("\\", "/")
+
             if self.dependencies["sdl"].options.shared:
                 tc.cache_variables["sdlBinDir"] = self.dependencies["sdl"].cpp_info.bindirs[0].replace("\\", "/")
 
@@ -65,6 +70,9 @@ class MachuEmuPackageTest(ConanFile):
         else:
             tc.cache_variables["machEmuBinDir"] = self.dependencies["mach_emu"].cpp_info.libdirs[0].replace("\\", "/")
 
+            if self.dependencies["meen_hw"].options.shared:
+                tc.cache_variables["meenHwBinDir"] = self.dependencies["meen_hw"].cpp_info.libdirs[0].replace("\\", "/")
+    
             if self.dependencies["sdl"].options.shared:
                 tc.cache_variables["sdlBinDir"] = self.dependencies["sdl"].cpp_info.libdirs[0].replace("\\", "/")
 
