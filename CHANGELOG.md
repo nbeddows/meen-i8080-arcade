@@ -1,3 +1,6 @@
+0.6.0
+* Using meen-hw for i8080-arcade support.
+
 0.5.0 [24/06/24]
 * Updated to mach-emu-1.6.1.
 * Using Conan package manager.
