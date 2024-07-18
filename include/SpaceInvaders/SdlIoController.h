@@ -23,7 +23,7 @@ SOFTWARE.
 #ifndef SDL_IO_CONTROLLER_H
 #define SDL_IO_CONTROLLER_H
 
-
+#include <atomic>
 #include <nlohmann/json.hpp>
 #include <SDL.h>
 #include <SDL_mixer.h>
@@ -48,7 +48,7 @@ namespace SpaceInvaders
 			SDL_Renderer* renderer_{};
 
 			/**	SDL_texture
-				
+
 				The texture which will hold the video ram for rendering.
 			*/
 			//cppcheck-suppress unusedStructMember
@@ -60,7 +60,7 @@ namespace SpaceInvaders
 			*/
 			//cppcheck-suppress unusedStructMember
 			SDL_Window* window_{};
-			
+
 			/**	i8080_arcade
 
 				The hardware emulator.
@@ -68,13 +68,13 @@ namespace SpaceInvaders
 			std::unique_ptr<meen_hw::MH_II8080ArcadeIO> i8080ArcadeIO_;
 
 			/** i8080 arcade memory
-			
+
 				Holds the underlying memory and vram frame pool.
 			*/
 			std::shared_ptr<MemoryController> memoryController_;
 
 			/** Audio samples
-			
+
 				The various audio samples to be played.
 			*/
 			//cppcheck-suppress unusedStructMember
@@ -89,7 +89,7 @@ namespace SpaceInvaders
 			uint64_t siEvent_{};
 
 			/** SDL Event codes
-			
+
 				Individual event codes that can be set on an SDL_Event of type 'Space Invaders Event'.
 
 				@see siEvent_
@@ -102,7 +102,7 @@ namespace SpaceInvaders
 			};
 
 			/** VideoFrameWrapper
-			 
+
 			 	A convenience wrapper used to pass unique pointers through SDL's event structure.
 			*/
 			struct VideoFrameWrapper
@@ -111,14 +111,14 @@ namespace SpaceInvaders
 			};
 
 			/** videoFrameWrapperPool_
-			
+
 				An array of frame wrappers used to pass video frames from the machine thread
 				to the main thread.
 			*/
 			std::vector<std::unique_ptr<VideoFrameWrapper>> videoFrameWrapperPool_;
-			
+
 			/** videoFrameWrapperMutex_
-			
+
 				Video frame mutual exclusion between the main thread and the machine thread.
 			*/
 			std::mutex videoFrameWrapperMutex_;
@@ -147,21 +147,21 @@ namespace SpaceInvaders
 
 		public:
 			/** Initialisation constructor
-			
+
 				Creates an SDL specific Space Invaders IO controller.
 			*/
 			SdlIoController(const std::shared_ptr<MemoryController>& memoryController, const nlohmann::json& audioHardware, const nlohmann::json& videoHardware);
 			
 			/** Destructor
-			
+
 				Free the various required SDL objects.
 			*/
 			~SdlIoController();
 
 			/** IController Read override
-			
+
 				Sample the keyboard so the CPU can take any required action.
-			
+
 				@param	port	The device to read from.
 
 				@return	int		A bitfield indicating the action to take.
@@ -169,16 +169,16 @@ namespace SpaceInvaders
 			uint8_t Read(uint16_t port) final;
 
 			/** IController write override
-			
+
 				Write the relevant audio sample to the output audio device.
-			
+
 				@param	port	The output device to write to.
 				@param	data	A bitfield indicating what data to write.
 			*/
 			void Write(uint16_t port, uint8_t data) final;
 
 			/** IController::ServiceInterrupts override
-			
+
 				Render the video ram texture to the window via the rendering context.
 
 				@param	currTime	The current CPU run time in nanoseconds.
@@ -203,16 +203,16 @@ namespace SpaceInvaders
 			void EventLoop();
 
 			/** Load Audio Samples
-			
+
 				Use SDL Mixer to load the audio samples.
 
-				@param	audioFilePath	The audio samples root directory
-				@param	audioSamples	JSON object representing the audio sample files. 
+				@param	audioFilePath	The audio samples root directory.
+				@param	audioSamples	JSON object representing the audio sample files.
 			*/
 			void LoadAudioSamples(const std::filesystem::path& audioFilePath, const nlohmann::json& audioSamples);
-			
+
 			/** Load Video Textures
-			
+
 				Create the video texture that will be rendered to the screen.
 
 				@param	videoTextures	JSON object describing the video texture.

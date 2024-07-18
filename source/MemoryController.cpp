@@ -20,6 +20,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
+#include <algorithm>
 #include <cstring>
 #include <fstream>
 
@@ -31,7 +32,7 @@ namespace SpaceInvaders
 		: memory_{ std::make_unique<uint8_t[]>(memorySize_) }
 	{
 		framePool_ = meen_hw::MH_ResourcePool<std::array<uint8_t, 7168>>();
-	
+
 		for(int i = 0; i < framePoolSize; i++)
 		{
 			framePool_.AddResource(new std::array<uint8_t, 7168>);
