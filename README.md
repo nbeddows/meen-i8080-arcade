@@ -1,7 +1,7 @@
 
 ### Introduction
 
-This demo project shows how to make use of the [mach-emu sdk](http://github.com/nbeddows/mach-emu/) and [meen_hw](http://github.com/nbeddows/meen-hw) to emulate an arcade machine, in this case, Space Invaders.
+This demo project shows how to make use of the [mach-emu sdk](http://github.com/nbeddows/mach-emu/) and [meen_hw](http://github.com/nbeddows/meen-hw) to emulate an arcade machine, in this case, Space Invaders. I don't consider the emulation to be the most efficient or accurate, but I'm happy with where it is at.
 
 ### Compilation
 
@@ -80,6 +80,15 @@ When running a cross compiled build the binaries need to be uploaded to the host
 5. Change directory to space-invaders `cd space-invaders`.
 6. Run Space Invaders: `./run-space-invaders.sh`.<br>
 
+The following command line options are available:
+
+- `-h, --help`: display a help message listing all available command line options.
+- `-c, --config-file`: the configuration file to load (default: conf/config.json).
+- `-r, --rom-file-path`: the path to the rom files directory (default: rom-files).
+- `-a, --audio-file-path`: the path to the audio samples directory (default: audio-files).
+- `-s, --save-file-path`: the path to the save files directory (default: save-files).
+- `-g, --game`: the name of the i8080 arcade game to load as defined in the config file (default: space-invaders).
+
 #### Building a binary package
 
 A standalone binary package can be built via CPack that can be distributed and installed.
@@ -99,7 +108,7 @@ Run `cpack --help` for a list available generators.
 
 ### Configuration
 
-A configuration file targeting the i8080 arcade hardware is provided, it is divided into two main sections:
+A configuration file targeting the i8080 arcade hardware is provided in json format. It is desinged for flexibility and verbosity. It is divided into two main sections:
 
 #### Hardware
 
@@ -133,27 +142,13 @@ Audio hardware options. The current settings for these options should be suffici
 
 **NOTE**: these options can be changed if using custom audio samples.
 
-#### Space Invaders
+#### Software
 
-These settings are fixed to the specified rom and should not be changed. 
-
-##### Memory
-
-`memory:rom:file:name` - The Space Invaders rom file.<br>
-`memory:rom:file:offset` - Currently unused.<br>
-`memory:rom:file:size` - Currently unused.<br>
-`memory:rom:size` - Currently unused.<br>
-`memory:ram:block:offset` - Currently unused.<br>
-`memory:ram:block:size` - Currently unused.<br>
-`memory:ram:size` - Currently unused.<br>
-`memory:romOffset:0` - The offset from the start of memory to the rom in bytes.<br>
-`memory:romSize:8192` - The size of the rom in bytes.<br>
-`memory:ramOffset:8192` - The offset from the start of memory to the ram in bytes.<br>
-`memory:ramSize:57343` - The size of the ram in bytes.<br>
+These settings apply to the various arcade roms that can be loaded.
 
 ##### Video
 
-These settings affect visual output and can be changed for the desired output.
+These settings affect visual output and can be changed. They apply to all game roms loaded.
 
 `bpp:8` - Bits per pixel, supported values are 1 (currently not supported via the SDL IO controller) and 8.<br>
 `colour:white`: the forground colour (the background is always black), supported values are "white", "red", "green", "blue", "random" and an 8 bit custom hex value.<br>
@@ -161,12 +156,27 @@ These settings affect visual output and can be changed for the desired output.
 
 ##### Audio
 
-These settings affect audio output. They can be changed if different audio samples are desired.
+These settings affect audio output. They can be changed if different audio samples are desired. They apply to all game roms loaded.
 
 `audio:file` - The name of the audio sample to load (empty entries are ignored and **must** not be removed).<br>
 
 **NOTE**: the position of the audio files in the array **must** not be changed.<br>
 **NOTE**: if changing the audio files, the audio hardware properties may need to be updated (untested).
+
+##### Space Invaders/Space Invaders Deluxe/Balloon Bomber/Lunar Rescue
+
+These settings are fixed to the specified rom and should not be changed.
+
+`memory:rom:file:name` - The name of the rom file.<br>
+`memory:rom:file:offset` - Currently unused.<br>
+`memory:rom:file:size` - Currently unused.<br>
+`memory:ram:block:offset` - Currently unused.<br>
+`memory:ram:block:size` - Currently unused.<br>
+`memory:ram:size` - Currently unused.<br>
+`memory:romOffset:0` - The offset from the start of memory to the rom in bytes.<br>
+`memory:romSize:8192` - The size of the rom in bytes.<br>
+`memory:ramOffset:8192` - The offset from the start of memory to the ram in bytes.<br>
+`memory:ramSize:57343` - The size of the ram in bytes.<br>
 
 ### Keyboard Controls
 

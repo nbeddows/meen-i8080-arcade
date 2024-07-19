@@ -1,5 +1,8 @@
 0.6.0
 * Using meen-hw for i8080-arcade support.
+* Added support for the following roms: `lunar-rescue`,
+`space-invaders-deluxe` and `balloon-bomber`.
+* Added command line option `-g` for rom selection.
 
 0.5.0 [24/06/24]
 * Updated to mach-emu-1.6.1.

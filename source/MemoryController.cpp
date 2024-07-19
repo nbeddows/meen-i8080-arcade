@@ -56,32 +56,36 @@ namespace SpaceInvaders
 		return memorySize_;
 	}
 
-	void MemoryController::Load(const std::filesystem::path& romFile, uint16_t offset)
+    void MemoryController::LoadRoms(const std::filesystem::path& romFilePath, const nlohmann::json& files)
 	{
-		std::ifstream fin(romFile, std::ios::binary | std::ios::ate);
-
-		if (!fin)
+		for(const auto& file : files)
 		{
-			throw std::runtime_error("The program file failed to open");
-		}
+			std::ifstream fin(romFilePath/file["name"].get<std::string>(), std::ios::binary | std::ios::ate);
 
-		if (static_cast<size_t>(fin.tellg()) > memorySize_)
-		{
-			throw std::length_error("The length of the program is too big");
-		}
+			if (!fin)
+			{
+				throw std::runtime_error("The program file failed to open");
+			}
 
-		uint16_t size = static_cast<uint16_t>(fin.tellg());
+			if (static_cast<size_t>(fin.tellg()) > memorySize_)
+			{
+				throw std::length_error("The length of the program is too big");
+			}
 
-		if (size > memorySize_ - offset)
-		{
-			throw std::length_error("The length of the program is too big to fit at the specified offset");
-		}
+			uint16_t size = static_cast<uint16_t>(fin.tellg());
+			uint16_t offset = file["offset"].get<uint16_t>();
 
-		fin.seekg(0, std::ios::beg);
+			if (size > memorySize_ - offset)
+			{
+				throw std::length_error("The length of the program is too big to fit at the specified offset");
+			}
 
-		if (!(fin.read(reinterpret_cast<char*>(&memory_[offset]), size)))
-		{
-			throw std::invalid_argument("The program specified failed to load");
+			fin.seekg(0, std::ios::beg);
+
+			if (!(fin.read(reinterpret_cast<char*>(&memory_[offset]), size)))
+			{
+				throw std::invalid_argument("The program specified failed to load");
+			}
 		}
 	}
 
