@@ -27,6 +27,7 @@ SOFTWARE.
 #include <filesystem>
 #include <memory>
 #include <mutex>
+#include <nlohmann/json.hpp>
 #include <vector>
 
 #include "Base/Base.h"
@@ -54,9 +55,9 @@ namespace SpaceInvaders
                 The memory bytes that the cpu will read from and write to.
             */
             std::unique_ptr<uint8_t[]> memory_;
-            
+
             /** VRAM frame pool
-            
+
                 A pool of recyclable video frames.
             */
             meen_hw::MH_ResourcePool<std::array<uint8_t, 7168>> framePool_;
@@ -67,7 +68,7 @@ namespace SpaceInvaders
                 Create a memory controller that can handle the memory requirements
                 of Space Invaders. Space Invaders runs on an Intel8080 with 64k
                 of memory therefore the memory controller will be of this size.
-            
+
                 @param      framePoolSize       The amount frames to allocate, each frame is 7168 bytes in length.
 
                 @remark     default frame pool size is 1.
@@ -92,24 +93,18 @@ namespace SpaceInvaders
 
             /** Load ROM file
 
-                Loads the specified rom file and the given memory address offset.
+                Loads the specified rom files located at the given path into memory
+                at the correct offset.
 
-                Space Invaders rom files have the following ROM layout:
+                @param      romFilePath     The path to the rom files (on local disk).
 
-                    invaders-h 0000-07FF
-                    invaders-g 0800-0FFF
-                    invaders-f 1000-17FF
-                    invaders-e 1800-1FFF
-
-                @param      romFile     the path to the rom file (on local disk).
-
-                @param      offset      the memory offset at which to load the rom.
+                @param      files           The rom files to load.
             */
-            void Load(const std::filesystem::path& romFile, uint16_t offset);
+		    void LoadRoms(const std::filesystem::path& romFilePath, const nlohmann::json& files);
 
             /** Memory size
 
-                @return     the size of the memory, in this case 64k.
+                @return     The size of the memory, in this case 64k.
             */
             size_t Size() const;
 

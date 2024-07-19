@@ -33,7 +33,8 @@ using namespace popl;
 std::filesystem::path configFile;
 std::filesystem::path romFilePath;
 std::filesystem::path audioFilePath;
-std::filesystem::path saveFilePath; 
+std::filesystem::path saveFilePath;
+std::string gameRom;
 
 int ParseCmdLine(int argc, char** argv)
 {
@@ -43,6 +44,7 @@ int ParseCmdLine(int argc, char** argv)
 	auto romFilePathOpt = op.add<Value<std::string>>("r", "rom-file-path", "Path to the Space Invaders rom files directory", "rom-files");
 	auto audioFilePathOpt = op.add<Value<std::string>>("a", "audio-file-path", "Path to the Space Invaders audio files directory", "audio-files");
 	auto saveFilePathOpt = op.add<Value<std::string>>("s", "save-file-path", "Path to the Space Invaders save files directory", "save-files");
+	auto gameRomOpt = op.add<Value<std::string>>("g", "game", "The name of the i8080 arcade game to load as defined in the config file", "space-invaders");
 	op.parse(argc, argv);
 	auto helpCount = helpOpt->count();
 
@@ -75,6 +77,7 @@ int ParseCmdLine(int argc, char** argv)
 	romFilePath = romFilePathOpt->value();
 	audioFilePath = audioFilePathOpt->value();
 	saveFilePath = saveFilePathOpt->value();
+	gameRom = gameRomOpt->value();
 	return 0;
 }
 
@@ -91,6 +94,14 @@ int main(int argc, char** argv)
 		// Open the configuration file, see the README for an explanation of each configuration option
 		std::ifstream fin(configFile);
 		const auto config = nlohmann::json::parse(fin);
+		auto software = config["i8080-arcade"]["software"];
+
+		if(software.contains(gameRom) == false)
+		{
+			std::cout << "The game " << gameRom << " does not exist in the software section of the config file" << std::endl;			
+			return 0;
+		}
+
 		auto hardware = config["i8080-arcade"]["hardware"];
 		// Create our custom Space Invaders machine
 		auto machine = MachEmu::MakeMachine(hardware["mach-emu"].dump().c_str());
@@ -98,20 +109,14 @@ int main(int argc, char** argv)
 		auto memoryController = std::make_shared<SpaceInvaders::MemoryController>();
 		// Create our custom Space Invaders I/O controller based on a specific configuration.
 		auto ioController = std::make_shared<SpaceInvaders::SdlIoController>(memoryController, hardware["audio"], hardware["video"]);
-		auto spaceInvaders = config["i8080-arcade"]["space-invaders"];
+		auto arcadeGame = software[gameRom];
 
-		// Load the ROM into memory with the following layout
-		for(const auto& file : spaceInvaders["memory"]["rom"]["file"])
-		{
-			memoryController->Load(romFilePath/file["name"].get<std::string>(), file["offset"].get<uint16_t>());
-		}
-
-		//memoryController->Load(romFilePath, spaceInvaders["memory"]);
-		ioController->LoadAudioSamples(audioFilePath, spaceInvaders["audio"]);
-		ioController->LoadVideoTextures(spaceInvaders["video"]);
+		ioController->LoadAudioSamples(audioFilePath, software["audio"]);
+		ioController->LoadVideoTextures(software["video"]);
+		memoryController->LoadRoms(romFilePath, arcadeGame["memory"]["rom"]["file"]);
 
 		// Load the memory layout into the machine
-		machine->SetOptions(spaceInvaders["memory"].dump().c_str());
+		machine->SetOptions(arcadeGame["memory"].dump().c_str());
 		// Load our controllers into the machine.
 		machine->SetMemoryController(memoryController);
 		machine->SetIoController(ioController);
@@ -120,7 +125,7 @@ int main(int argc, char** argv)
 		{
 			// Need to make a copy of the json if you want to hold the json string longer than the scope of this function
 			std::filesystem::create_directory(saveFilePath);
-			std::ofstream fout(saveFilePath/"spaceInvaders.json", std::ios::trunc);
+			std::ofstream fout((saveFilePath/gameRom).string() + ".json", std::ios::trunc);
 			fout.exceptions(fout.failbit);
 			fout.write(json, strlen(json));
 		});
@@ -130,7 +135,7 @@ int main(int argc, char** argv)
 		// Will be called from a different thread
 		machine->OnLoad([&loadJson]
 		{
-			std::ifstream fin(saveFilePath/"spaceInvaders.json", std::ios::ate);
+			std::ifstream fin((saveFilePath/gameRom).string() + ".json", std::ios::ate);
 			fin.exceptions(fin.failbit);
 			auto len = fin.tellg();
 			fin.seekg(0, std::ios::beg);
