@@ -3,6 +3,7 @@
 * Added support for the following roms: `lunar-rescue`,
 `space-invaders-deluxe` and `balloon-bomber`.
 * Added command line option `-g` for rom selection.
+* Strip package binary files.
 
 0.5.0 [24/06/24]
 * Updated to mach-emu-1.6.1.
