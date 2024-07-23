@@ -74,7 +74,7 @@ if(DEFINED WIN32)
   file(WRITE ${CMAKE_BINARY_DIR}/run-${projectName}${scriptExt}
   "@echo off\n\
 set PATH=%cd%\\lib;%PATH%\n\
-bin\\${projectName}\n\
+bin\\${projectName} %*\n\
 pause\n\
 exit"
 )
@@ -85,7 +85,7 @@ else()
   file(WRITE ${CMAKE_BINARY_DIR}/run-${projectName}${scriptExt}
   "#!/bin/bash\n\
 export LD_LIBRARY_PATH=`pwd`/lib:\${LD_LIBRARY_PATH}\n\
-bin/${projectName}"
+bin/${projectName} \"$@\""
 )  
 endif()
 
