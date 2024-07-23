@@ -60,11 +60,7 @@
                         "block": [
                             { "offset":8192, "size":57343 }
                         ]
-                    },
-                    "romOffset":0,
-                    "romSize":8192,
-                    "ramOffset":8192,
-                    "ramSize":57343
+                    }
                 }
             },
             "space-invaders-deluxe": {
@@ -80,13 +76,10 @@
                     },
                     "ram": {
                         "block": [
-                            { "offset":8192, "size":57343 }
+                            { "offset":8192, "size":8192 },
+                            { "offset":18432, "size": 47103}
                         ]
-                    },
-                    "romOffset":0,
-                    "romSize":8192,
-                    "ramOffset":8192,
-                    "ramSize":57343
+                    }
                 }
             },
             "balloon-bomber": {
@@ -102,13 +95,10 @@
                     },
                     "ram": {
                         "block": [
-                            { "offset":8192, "size":57343 }
+                            { "offset":8192, "size":8192 },
+                            { "offset":18432, "size": 47103}
                         ]
-                    },
-                    "romOffset":0,
-                    "romSize":8192,
-                    "ramOffset":8192,
-                    "ramSize":57343
+                    }
                 }
             },
             "lunar-rescue": {
@@ -125,13 +115,10 @@
                     },
                     "ram": {
                         "block": [
-                            { "offset":8192, "size":57343 }
+                            { "offset":8192, "size":8192 },
+                            { "offset":20480, "size": 45055}
                         ]
-                    },
-                    "romOffset":0,
-                    "romSize":8192,
-                    "ramOffset":8192,
-                    "ramSize":57343
+                    }
                 }
             }
         }

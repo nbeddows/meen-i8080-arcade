@@ -168,15 +168,10 @@ These settings affect audio output. They can be changed if different audio sampl
 These settings are fixed to the specified rom and should not be changed.
 
 `memory:rom:file:name` - The name of the rom file.<br>
-`memory:rom:file:offset` - Currently unused.<br>
-`memory:rom:file:size` - Currently unused.<br>
-`memory:ram:block:offset` - Currently unused.<br>
-`memory:ram:block:size` - Currently unused.<br>
-`memory:ram:size` - Currently unused.<br>
-`memory:romOffset:0` - The offset from the start of memory to the rom in bytes.<br>
-`memory:romSize:8192` - The size of the rom in bytes.<br>
-`memory:ramOffset:8192` - The offset from the start of memory to the ram in bytes.<br>
-`memory:ramSize:57343` - The size of the ram in bytes.<br>
+`memory:rom:file:offset` - The start of memory rom load offset.<br>
+`memory:rom:file:size` - The rom file size.<br>
+`memory:ram:block:offset` - The start of memory ram block offset.<br>
+`memory:ram:block:size` - The ram block size.<br>
 
 ### Keyboard Controls
 
