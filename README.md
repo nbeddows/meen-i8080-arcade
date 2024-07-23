@@ -91,20 +91,25 @@ The following command line options are available:
 
 #### Building a binary package
 
-A standalone binary package can be built via CPack that can be distributed and installed.
+A standalone binary package can be built via `cpack` that can be distributed and installed:
 
-- `cpack --config build\CPackConfig.cmake`
+- `cmake --build --preset conan-release --target=space-invaders-pkg`
 
-This will build a package using the default generator.
-The underlying package generator used to build the package must be installed otherwise this command will fail.
+The `space-invaders-pkg` target defined in the root CMakeLists.txt will build a tar gzipped package via the following cpack command:
 
-NOTE: the `-G` option can be specifed to overwrite the default cpack generator.
+- `cpack --config build\CPackConfig.cmake -C ${buildType} -G TGZ`
 
-- `cpack --config build\CPackConfig.cmake -G ZIP`
+The underlying package generator used to build the package (in this case `tar`) must be installed otherwise this command will fail.
 
-This will build a binary package using the zip utility.
+NOTE: the `-G` option can be specifed to overwrite the default `TGZ` cpack generator if a different packaging method is desired:
+
+- `cpack --config build\CPackConfig.cmake -C ${buildType} -G ZIP`
+
+This will build a binary package using the `zip` utility.
 
 Run `cpack --help` for a list available generators.
+
+The `space-invaders-pkg` target will also strip all binary files where applicable and will also perform static analysis of the source code via `cppcheck`.
 
 ### Configuration
 

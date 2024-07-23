@@ -65,6 +65,7 @@ target_compile_definitions(${projectName} PRIVATE SDL_MAIN_HANDLED)
 
 # CPACK INSTALL
 set(CMAKE_INSTALL_PREFIX ./)
+set(CPACK_PACKAGE_FILE_NAME ${projectName}-v${CMAKE_PROJECT_VERSION}-${CMAKE_SYSTEM}-${CMAKE_SYSTEM_PROCESSOR}-bin)
 
 if(DEFINED WIN32)
   set(soExt .dll)
@@ -73,7 +74,7 @@ if(DEFINED WIN32)
   file(WRITE ${CMAKE_BINARY_DIR}/run-${projectName}${scriptExt}
   "@echo off\n\
 set PATH=%cd%\\lib;%PATH%\n\
-bin\\${projectName}\n\
+bin\\${projectName} %*\n\
 pause\n\
 exit"
 )
@@ -84,9 +85,26 @@ else()
   file(WRITE ${CMAKE_BINARY_DIR}/run-${projectName}${scriptExt}
   "#!/bin/bash\n\
 export LD_LIBRARY_PATH=`pwd`/lib:\${LD_LIBRARY_PATH}\n\
-bin/${projectName}"
+bin/${projectName} \"$@\""
 )  
 endif()
+
+if(DEFINED CMAKE_STRIP)
+  set(STRIP_PKG
+    COMMAND ${CMAKE_COMMAND} -E tar -xzf ${CPACK_PACKAGE_FILE_NAME}.tar.gz
+    COMMAND ${CMAKE_STRIP} -s ${CPACK_PACKAGE_FILE_NAME}/bin/${projectName}
+    COMMAND ${CMAKE_STRIP} -s ${CPACK_PACKAGE_FILE_NAME}/lib/*.so
+    COMMAND ${CMAKE_COMMAND} -E tar czf ${CPACK_PACKAGE_FILE_NAME}.tar.gz ${CPACK_PACKAGE_FILE_NAME}/
+    COMMAND ${CMAKE_COMMAND} -E rm -r ${CPACK_PACKAGE_FILE_NAME}/
+  )
+endif()
+
+add_custom_target(${projectName}-pkg
+  #todo: add doxygen COMMAND
+  COMMAND cppcheck -i build -i _CPack_Packages --inline-suppr --enable=warning,style,performance,portability,unusedFunction --std=c++20 ${CMAKE_SOURCE_DIR}
+  COMMAND cpack --config ${CMAKE_BINARY_DIR}/CPackConfig.cmake -C ${buildType} -G TGZ
+  ${STRIP_PKG}
+)
 
 install(TARGETS ${projectName} RUNTIME)
 install(PROGRAMS ${CMAKE_BINARY_DIR}/run-${projectName}${scriptExt} DESTINATION .)
