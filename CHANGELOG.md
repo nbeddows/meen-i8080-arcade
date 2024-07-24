@@ -3,9 +3,13 @@
 * Added support for the following roms: `lunar-rescue`,
 `space-invaders-deluxe` and `balloon-bomber`.
 * Added command line option `-g` for rom selection.
-* Added build target `space-invaders-pkg` which builds the
+* Added build target `i8080-arcade-pkg` which builds the
   package, strips the binaries and performs static
   analysis.
+* Updated to mach-emu-1.6.2.
+* Renamed repository to i8080-arcade.
+* Replaced all occurrences of space-invaders with
+  i8080-arcade.
 
 0.5.0 [24/06/24]
 * Updated to mach-emu-1.6.1.

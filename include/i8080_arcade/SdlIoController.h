@@ -29,13 +29,13 @@ SOFTWARE.
 #include <SDL_mixer.h>
 
 #include "meen_hw/MH_Factory.h"
-#include "SpaceInvaders/MemoryController.h"
+#include "i8080_arcade/MemoryController.h"
 
-namespace SpaceInvaders
+namespace i8080_arcade
 {
 	/** Custom SDL io controller.
 
-		A custom io controller targetting the Space Invaders arcade ROM.
+		A custom io controller targetting Space Invaders i8080 arcade hardware compatible ROMs.
 	*/
 	class SdlIoController final : public MachEmu::IController
 	{
@@ -80,7 +80,7 @@ namespace SpaceInvaders
 			//cppcheck-suppress unusedStructMember
 			std::vector<Mix_Chunk*> mixChunk_;
 
-			/** The custom Space Invaders SDL event type
+			/** The custom i8080 arcade SDL event type
 
 				Event codes are defined in the EventCode enumeration.
 
@@ -90,7 +90,7 @@ namespace SpaceInvaders
 
 			/** SDL Event codes
 
-				Individual event codes that can be set on an SDL_Event of type 'Space Invaders Event'.
+				Individual event codes that can be set on an SDL_Event of type 'i8080 arcade Event'.
 
 				@see siEvent_
 			*/
@@ -148,7 +148,7 @@ namespace SpaceInvaders
 		public:
 			/** Initialisation constructor
 
-				Creates an SDL specific Space Invaders IO controller.
+				Creates an SDL specific i8080 arcade IO controller.
 			*/
 			SdlIoController(const std::shared_ptr<MemoryController>& memoryController, const nlohmann::json& audioHardware, const nlohmann::json& videoHardware);
 			
@@ -219,6 +219,6 @@ namespace SpaceInvaders
 			*/
 			void LoadVideoTextures(const nlohmann::json& videoTextures);
 	};
-} // namespace SpaceInvaders
+} // namespace i8080_arcade
 
 #endif // SDL_IO_CONTROLLER_H

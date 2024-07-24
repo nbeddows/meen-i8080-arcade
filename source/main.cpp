@@ -26,24 +26,24 @@ SOFTWARE.
 #include <popl.hpp>
 
 #include "Machine/MachineFactory.h"
-#include "SpaceInvaders/SdlIoController.h"
+#include "i8080_arcade/SdlIoController.h"
 
 using namespace popl;
 
-std::filesystem::path configFile;
-std::filesystem::path romFilePath;
-std::filesystem::path audioFilePath;
-std::filesystem::path saveFilePath;
-std::string gameRom;
+static std::filesystem::path configFile;
+static std::filesystem::path romFilePath;
+static std::filesystem::path audioFilePath;
+static std::filesystem::path saveFilePath;
+static std::string gameRom;
 
 int ParseCmdLine(int argc, char** argv)
 {
 	OptionParser op("Allowed options");
 	auto helpOpt = op.add<Switch>("h", "help", "produce this help message");
-	auto configFileOpt = op.add<Value<std::string>>("c", "config-file", "Space Invaders configuration file", "conf/config.json");
-	auto romFilePathOpt = op.add<Value<std::string>>("r", "rom-file-path", "Path to the Space Invaders rom files directory", "rom-files");
-	auto audioFilePathOpt = op.add<Value<std::string>>("a", "audio-file-path", "Path to the Space Invaders audio files directory", "audio-files");
-	auto saveFilePathOpt = op.add<Value<std::string>>("s", "save-file-path", "Path to the Space Invaders save files directory", "save-files");
+	auto configFileOpt = op.add<Value<std::string>>("c", "config-file", "i8080 arcade configuration file", "conf/config.json");
+	auto romFilePathOpt = op.add<Value<std::string>>("r", "rom-file-path", "Path to the i8080 arcade rom files directory", "rom-files");
+	auto audioFilePathOpt = op.add<Value<std::string>>("a", "audio-file-path", "Path to the i8080 arcade audio files directory", "audio-files");
+	auto saveFilePathOpt = op.add<Value<std::string>>("s", "save-file-path", "Path to the i8080 arcade save files directory", "save-files");
 	auto gameRomOpt = op.add<Value<std::string>>("g", "game", "The name of the i8080 arcade game to load as defined in the config file", "space-invaders");
 	op.parse(argc, argv);
 	auto helpCount = helpOpt->count();
@@ -103,12 +103,12 @@ int main(int argc, char** argv)
 		}
 
 		auto hardware = config["i8080-arcade"]["hardware"];
-		// Create our custom Space Invaders machine
+		// Create our custom i8080 arcade machine
 		auto machine = MachEmu::MakeMachine(hardware["mach-emu"].dump().c_str());
-		// Create our custom Space Invaders memory controller.
-		auto memoryController = std::make_shared<SpaceInvaders::MemoryController>();
-		// Create our custom Space Invaders I/O controller based on a specific configuration.
-		auto ioController = std::make_shared<SpaceInvaders::SdlIoController>(memoryController, hardware["audio"], hardware["video"]);
+		// Create our custom i8080 arcade memory controller.
+		auto memoryController = std::make_shared<i8080_arcade::MemoryController>();
+		// Create our custom i8080 arcade I/O controller based on a specific configuration.
+		auto ioController = std::make_shared<i8080_arcade::SdlIoController>(memoryController, hardware["audio"], hardware["video"]);
 		auto arcadeGame = software[gameRom];
 
 		ioController->LoadAudioSamples(audioFilePath, software["audio"]);

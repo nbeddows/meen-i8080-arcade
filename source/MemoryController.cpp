@@ -24,9 +24,9 @@ SOFTWARE.
 #include <cstring>
 #include <fstream>
 
-#include "SpaceInvaders/MemoryController.h"
+#include "i8080_arcade/MemoryController.h"
 
-namespace SpaceInvaders
+namespace i8080_arcade
 {
 	MemoryController::MemoryController(int framePoolSize)
 		: memory_{ std::make_unique<uint8_t[]>(memorySize_) }
@@ -108,4 +108,4 @@ namespace SpaceInvaders
 	{
 		return{ 0x5C, 0x64, 0x7C, 0xCB, 0x71, 0x2E, 0x4A, 0x0B, 0x8A, 0x26, 0x1D, 0xE2, 0x95, 0x44, 0xA1, 0xE9 };
 	}
-} // namespace SpaceInvaders
+} // namespace i8080_arcade
