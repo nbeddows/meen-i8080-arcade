@@ -19,7 +19,7 @@
 # SOFTWARE.
 
 cmake_minimum_required (VERSION 3.25)
-set(projectName space-invaders)
+set(projectName i8080-arcade)
 
 project(${projectName} VERSION 0.5.0)
 
@@ -40,8 +40,8 @@ find_package(SDL2 REQUIRED)
 find_package(SDL2_mixer REQUIRED)
 
 add_executable(${projectName}
-    include/SpaceInvaders/SdlIoController.h
-    include/SpaceInvaders/MemoryController.h
+    include/i8080_arcade/SdlIoController.h
+    include/i8080_arcade/MemoryController.h
     source/main.cpp
     source/SdlIoController.cpp
     source/MemoryController.cpp

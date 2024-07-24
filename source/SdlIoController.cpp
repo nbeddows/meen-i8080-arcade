@@ -24,9 +24,9 @@ SOFTWARE.
 #include <bitset>
 #include <future>
 
-#include "SpaceInvaders/SdlIoController.h"
+#include "i8080_arcade/SdlIoController.h"
 
-namespace SpaceInvaders
+namespace i8080_arcade
 {
     SdlIoController::SdlIoController(const std::shared_ptr<MemoryController>& memoryController, const nlohmann::json& audioHardware, const nlohmann::json& videoHardware)
 		: memoryController_{ memoryController }
@@ -38,7 +38,7 @@ namespace SpaceInvaders
 			throw std::runtime_error("Failed to initialise SDL");
 		}
 
-		window_ = SDL_CreateWindow("Space Invaders",
+		window_ = SDL_CreateWindow("i8080 arcade",
 								SDL_WINDOWPOS_UNDEFINED,
 								SDL_WINDOWPOS_UNDEFINED,
 								videoHardware["width"].get<int>(),
@@ -415,4 +415,4 @@ namespace SpaceInvaders
 			}
 		}
 	}
-} // namespace SpaceInvaders
+} // namespace i8080_arcade

@@ -34,11 +34,11 @@ SOFTWARE.
 #include "Controller/IController.h"
 #include "meen_hw/MH_ResourcePool.h"
 
-namespace SpaceInvaders
+namespace i8080_arcade
 {
 	/** Custom memory controller.
 
-		A custom memory controller targetting the Space Invaders arcade ROM.
+		A custom memory controller targetting Space Invaders arcade hardware compatible ROMs.
 	*/
 	class MemoryController final : public MachEmu::IController
 	{
@@ -66,7 +66,7 @@ namespace SpaceInvaders
             /** Constructor
 
                 Create a memory controller that can handle the memory requirements
-                of Space Invaders. Space Invaders runs on an Intel8080 with 64k
+                of i8080 arcade. The emulated hardware runs on an Intel8080 with 64k
                 of memory therefore the memory controller will be of this size.
 
                 @param      framePoolSize       The amount frames to allocate, each frame is 7168 bytes in length.
@@ -140,6 +140,6 @@ namespace SpaceInvaders
             */
             std::array<uint8_t, 16> Uuid() const final;
         };
-} // namespace SpaceInvaders
+} // namespace i8080_arcade
 
 #endif // MEMORY_CONTROLLER_H

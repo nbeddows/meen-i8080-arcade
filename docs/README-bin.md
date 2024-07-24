@@ -1,17 +1,17 @@
 
 ### Introduction
 
-This is a binary distribution of an [emulated i8080 arcade machine](https://github.com/nbeddows/space-invaders) running Space Invaders using the [mach-emu sdk](http://github.com/nbeddows/mach-emu/).
+This is a binary distribution of an [emulated i8080 arcade machine](https://github.com/nbeddows/i8080-arcade) based on Space Invaders arcade hardware using [mach-emu](http://github.com/nbeddows/mach-emu/) and [meen-hw](http://github.com/nbeddows/meen-hw/).
 
 ### Running the application
 
-A script is provided in the root directory which will configure the environment and run the arcade machine.
+A script is provided in the root directory which will configure the environment and run the i8080 arcade machine.
 
-`./run-space-invaders.sh`
+`./run-i8080-arcade.sh`
 
 ### Configuration
 
-A configuration file targeting the i8080 arcade hardware is provided (conf/config.json), it is divided into two main sections:
+A configuration file targeting the i8080 arcade hardware is provided in json format. It is desinged for flexibility and verbosity. It is divided into two main sections:
 
 #### Hardware
 
@@ -22,7 +22,7 @@ These options should be fixed to the specfied values unless stated otherwise.
 The current settings for these options should be sufficient, changing them may have a negative impact on performance.
 
 `clockResolution:1000000000 / 60 / 2` - i8080 arcade hardware runs at 60Hz with 2 interrupts per frame, set the machine clock resolution accordingly.<br>
-`isrFreq:0.9` - We require 4 interrupts, 2 for Space Invaders and 2 machine level interrupts for loading and saving. Ideally we would lock the interrupt service routine frequency to the clock resolution ("isrFreq":1), however, we need to spare some time for checking for load and save requests, so we bump the isrFreq down by ten percent ("isrFreq":0.9). One could lower it further, this would make it more responsive (0.9 should be good enough). Increasing it above 1 would make it slower and not respond to load/save requests.<br>
+`isrFreq:0.9` - We require 4 interrupts, 2 for i8080-arcade and 2 machine level interrupts for loading and saving. Ideally we would lock the interrupt service routine frequency to the clock resolution ("isrFreq":1), however, we need to spare some time for checking for load and save requests, so we bump the isrFreq down by ten percent ("isrFreq":0.9). One could lower it further, this would make it more responsive (0.9 should be good enough). Increasing it above 1 would make it slower and not respond to load/save requests.<br>
 `loadAsync:true` - Load the machine state asynchronously.<br> 
 `runAsync:true` - Run the machine asynchronously from the io.<br>
 `saveAsync:true` - Save the machine state asynchronously.<br>
@@ -45,42 +45,36 @@ Audio hardware options. The current settings for these options should be suffici
 
 **NOTE**: these options can be changed if using custom audio samples.
 
-#### Space Invaders
+#### Software
 
-These settings are fixed to the specified rom and should not be changed. 
-
-##### Memory
-
-`memory:rom:file:name` - The Space Invaders rom file.<br>
-`memory:rom:file:offset` - Currently unused.<br>
-`memory:rom:file:size` - Currently unused.<br>
-`memory:rom:size` - Currently unused.<br>
-`memory:ram:block:offset` - Currently unused.<br>
-`memory:ram:block:size` - Currently unused.<br>
-`memory:ram:size` - Currently unused.<br>
-`memory:romOffset:0` - The offset from the start of memory to the rom in bytes.<br>
-`memory:romSize:8192` - The size of the rom in bytes.<br>
-`memory:ramOffset:8192` - The offset from the start of memory to the ram in bytes.<br>
-`memory:ramSize:57343` - The size of the ram in bytes.<br>
+These settings apply to the various arcade roms that can be loaded.
 
 ##### Video
 
-These settings affect visual output and can be changed for the desired output.
+These settings affect visual output and can be changed. They apply to all game roms loaded.
 
 `bpp:8` - Bits per pixel, supported values are 1 (currently not supported via the SDL IO controller) and 8.<br>
 `colour:white`: the forground colour (the background is always black), supported values are "white", "red", "green", "blue", "random" and an 8 bit custom hex value.<br>
 `orientation:upright` - The window layout, "cocktail" for horizontal and "upright" for vertical.<br>
-`x:0` - The horizontal position of the video output on the screen (currently unused).<br>
-`y:0` - The vertical position of the video output on the screen (currently unused).<br>
 
 ##### Audio
 
-These settings affect audio output. They can be changed if different audio samples are desired.
+These settings affect audio output. They can be changed if different audio samples are desired. They apply to all game roms loaded.
 
 `audio:file` - The name of the audio sample to load (empty entries are ignored and **must** not be removed).<br>
 
 **NOTE**: the position of the audio files in the array **must** not be changed.<br>
 **NOTE**: if changing the audio files, the audio hardware properties may need to be updated (untested).
+
+##### Space Invaders/Space Invaders Deluxe/Balloon Bomber/Lunar Rescue
+
+These settings are fixed to the specified rom and should not be changed.
+
+`memory:rom:file:name` - The name of the rom file.<br>
+`memory:rom:file:offset` - The start of memory rom load offset.<br>
+`memory:rom:file:size` - The rom file size.<br>
+`memory:ram:block:offset` - The start of memory ram block offset.<br>
+`memory:ram:block:size` - The ram block size.<br>
 
 ### Keyboard Controls
 
@@ -101,6 +95,8 @@ These settings affect audio output. They can be changed if different audio sampl
 `k`: 2P Fire<br>
 `l`: 2P Right<br>
 `i`: Show coin info<br>
+
+![Upright green 8bpp](docs/images/screenShot.png)
 
 ### Acknowledgements
 
