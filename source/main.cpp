@@ -120,7 +120,7 @@ int main(int argc, char** argv)
 		// Load our controllers into the machine.
 		machine->SetMemoryController(memoryController);
 		machine->SetIoController(ioController);
-		// Will be called from a different thread
+		// Will be called from a different thread, this is a simple implementation which will overwrite the previous save file
 		machine->OnSave([](const char* json)
 		{
 			// Need to make a copy of the json if you want to hold the json string longer than the scope of this function
