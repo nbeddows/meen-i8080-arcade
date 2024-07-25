@@ -120,7 +120,7 @@ The `i8080-arcade-pkg` target will also strip all binary files where applicable 
 
 ### Configuration
 
-A configuration file targeting the i8080 arcade hardware is provided in json format. It is desinged for flexibility and verbosity. It is divided into two main sections:
+A configuration file targeting the i8080 arcade hardware is provided in json format. It is designed for flexibility and verbosity. It is divided into two main sections:
 
 #### Hardware
 

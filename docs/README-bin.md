@@ -1,7 +1,16 @@
 
 ### Introduction
 
-This is a binary distribution of an [emulated i8080 arcade machine](https://github.com/nbeddows/i8080-arcade) based on Space Invaders arcade hardware using [mach-emu](http://github.com/nbeddows/mach-emu/) and [meen-hw](http://github.com/nbeddows/meen-hw/).
+This is a binary distribution of an [emulated i8080 arcade machine](https://github.com/nbeddows/i8080-arcade) based on the Space Invaders Taito/Midway arcade hardware using [mach-emu](http://github.com/nbeddows/mach-emu/) and [meen-hw](http://github.com/nbeddows/meen-hw/).
+
+I don't consider the emulation to be the most efficient, accurate or to be extensively tested, but I'm happy with where it is at.
+
+This emulator has been tested against the following roms (which can be found elsewhere online):
+
+- Space Invaders.
+- Space Invaders Part II/Deluxe.
+- Balloon Bomber (This one looks to have issues which go beyond the superficial that require further investigation).
+- Lunar Rescue.
 
 ### Running the application
 
@@ -11,7 +20,7 @@ A script is provided in the root directory which will configure the environment 
 
 ### Configuration
 
-A configuration file targeting the i8080 arcade hardware is provided in json format. It is desinged for flexibility and verbosity. It is divided into two main sections:
+A configuration file targeting the i8080 arcade hardware is provided in json format. It is designed for flexibility and verbosity. It is divided into two main sections:
 
 #### Hardware
 
@@ -66,7 +75,7 @@ These settings affect audio output. They can be changed if different audio sampl
 **NOTE**: the position of the audio files in the array **must** not be changed.<br>
 **NOTE**: if changing the audio files, the audio hardware properties may need to be updated (untested).
 
-##### Space Invaders/Space Invaders Deluxe/Balloon Bomber/Lunar Rescue
+##### Space Invaders/Space Invaders Deluxe/Space Invaders II/Balloon Bomber/Lunar Rescue
 
 These settings are fixed to the specified rom and should not be changed.
 
@@ -95,8 +104,10 @@ These settings are fixed to the specified rom and should not be changed.
 `k`: 2P Fire<br>
 `l`: 2P Right<br>
 `i`: Show coin info<br>
+`y`: Save game<br>
+`r`: Load game<br> 
 
-![Upright green 8bpp](docs/images/screenShot.png)
+![space-invaders](docs/images/space-invaders.png) ![space-invaders-deluxe](docs/images/space-invaders-deluxe.png) ![lunar-rescue](docs/images/lunar-rescue.png) ![balloon-bomber](docs/images/balloon-bomber.png)
 
 ### Acknowledgements
 
