@@ -21,7 +21,7 @@
 cmake_minimum_required (VERSION 3.25)
 set(projectName i8080-arcade)
 
-project(${projectName} VERSION 0.5.0)
+project(${projectName} VERSION 0.6.0)
 
 if(DEFINED MSVC)
   set(buildType $<CONFIG>)

@@ -1,12 +1,12 @@
 
 ### Introduction
 
-This demo project shows how to make use of the [mach-emu sdk](http://github.com/nbeddows/mach-emu/) and [meen_hw](http://github.com/nbeddows/meen-hw) to emulate an arcade machine, in this case, one based on the Space Invaders arcade hardware. I don't consider the emulation to be the most efficient or accurate, but I'm happy with where it is at.
+This demo project shows how to make use of the [mach-emu sdk](http://github.com/nbeddows/mach-emu/) and [meen_hw](http://github.com/nbeddows/meen-hw) to emulate an arcade machine, in this case, one based on the Space Invaders Taito/Midway arcade hardware. I don't consider the emulation to be the most efficient, accurate or to be extensively tested, but I'm happy with where it is at.
 
-The project has been tested against the following roms:
+The project has been tested against the following roms (which can be found elsewhere online):
 
 - Space Invaders.
-- Space Invaders Deluxe.
+- Space Invaders Part II/Deluxe.
 - Balloon Bomber (This one looks to have issues which go beyond the superficial that require further investigation).
 - Lunar Rescue.
 
@@ -175,7 +175,7 @@ These settings affect audio output. They can be changed if different audio sampl
 **NOTE**: the position of the audio files in the array **must** not be changed.<br>
 **NOTE**: if changing the audio files, the audio hardware properties may need to be updated (untested).
 
-##### Space Invaders/Space Invaders Deluxe/Balloon Bomber/Lunar Rescue
+##### Space Invaders/Space Invaders Deluxe/Space Invaders II/Balloon Bomber/Lunar Rescue
 
 These settings are fixed to the specified rom and should not be changed.
 
@@ -189,23 +189,25 @@ These settings are fixed to the specified rom and should not be changed.
 
 `q`: Quit<br>
 `c`: Credit<br>
-`1`, 1P<br>
+`1`: 1P<br>
 `2`: 2P<br>
-`a`: 1P Left<br>
-`s`: 1P Fire<br>
-`d`: 1P Right<br>
-`3`: 3 Ships<br>
-`4`: 4 Ships<br>
-`5`: 5 Ships<br>
-`6`: 6 Ships<br>
+`a`: 1P left<br>
+`s`: 1P fire<br>
+`d`: 1P right<br>
+`3`: 3 ships<br>
+`4`: 4 ships<br>
+`5`: 5 ships<br>
+`6`: 6 ships<br>
 `t`: Tilt<br>
 `e`: Extra ship at<br>
-`j`: 2P Left<br>
-`k`: 2P Fire<br>
-`l`: 2P Right<br>
+`j`: 2P left<br>
+`k`: 2P fire<br>
+`l`: 2P right<br>
 `i`: Show coin info<br>
+`y`: Save game<br>
+`r`: Load game<br> 
 
-![Upright green 8bpp](docs/images/screenShot.png)
+![space-invaders](docs/images/space-invaders.png) ![space-invaders-deluxe](docs/images/space-invaders-deluxe.png) ![lunar-rescue](docs/images/lunar-rescue.png) ![balloon-bomber](docs/images/balloon-bomber.png)
 
 ### Acknowledgements
 
