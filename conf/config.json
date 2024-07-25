@@ -82,6 +82,25 @@
                     }
                 }
             },
+            "space-invaders-ii": {
+                "memory": {
+                    "rom": {
+                        "file": [
+                            { "name":"PV.01", "offset":0, "size":2048 },
+                            { "name":"PV.02", "offset":2048, "size":2048 },
+                            { "name":"PV.03", "offset":4096, "size":2048 },
+                            { "name":"PV.04", "offset":6144, "size":2048 },
+                            { "name":"PV.05", "offset":16384, "size":2048 }
+                        ]
+                    },
+                    "ram": {
+                        "block": [
+                            { "offset":8192, "size":8192 },
+                            { "offset":18432, "size": 47103}
+                        ]
+                    }
+                }
+            },
             "balloon-bomber": {
                 "memory": {
                     "rom": {
