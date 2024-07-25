@@ -20,60 +20,35 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
+#include <algorithm>
 #include <cstring>
 #include <fstream>
 
-#include "SpaceInvaders/MemoryController.h"
+#include "i8080_arcade/MemoryController.h"
 
-namespace SpaceInvaders
+namespace i8080_arcade
 {
 	MemoryController::MemoryController(int framePoolSize)
 		: memory_{ std::make_unique<uint8_t[]>(memorySize_) }
 	{
-		for (int i = 0; i < framePoolSize; i++)
+		framePool_ = meen_hw::MH_ResourcePool<std::array<uint8_t, 7168>>();
+
+		for(int i = 0; i < framePoolSize; i++)
 		{
-			framePool_.push_back({ std::make_unique<std::array<uint8_t, VideoFrame::size>>() });
+			framePool_.AddResource(new std::array<uint8_t, 7168>);
 		}
 	}
 
-	MemoryController::VideoFrame MemoryController::GetVideoFrame() const
+	meen_hw::MH_ResourcePool<std::array<uint8_t, 7168>>::ResourcePtr MemoryController::GetVideoFrame() const
 	{
-		VideoFrame frame;
-		// This method is called from ServiceInterrupts so we don't 
-		// want to block waiting for this mutex as we could stall the cpu,
-		// if we don't get it, this frame will be dropped (host is too
-		// slow, the machine clock resolution is too high or the function
-		// call spuriously failed).
-		auto locked = frameMutex_.try_lock();
-	
-		if (locked == true)
+		auto frame = framePool_.GetResource();
+
+		if(frame != nullptr)
 		{
-			if (framePool_.empty() == false)
-			{
-				frame = std::move(framePool_.back());
-				framePool_.pop_back();
-			}
-
-			frameMutex_.unlock();
-
-			if (frame.vram != nullptr)
-			{
-				auto data = frame.vram.get()->data();
-				auto size = frame.vram.get()->size();
-				auto vram = memory_.get() + 0x2400;
-
-				memcpy(data, vram, size);
-			}
+			std::copy_n(memory_.get() + 0x2400, frame->size(), frame->begin());
 		}
 
 		return frame;
-	}
-
-	void MemoryController::ReturnVideoFrame(VideoFrame&& frame)
-	{
-		// The resource has to be returned, otherwise the 'pipeline' will stall.
-		std::lock_guard<std::mutex> lock(frameMutex_);
-		framePool_.push_back(std::move(frame));
 	}
 
 	size_t MemoryController::Size() const
@@ -81,32 +56,36 @@ namespace SpaceInvaders
 		return memorySize_;
 	}
 
-	void MemoryController::Load(const std::filesystem::path& romFile, uint16_t offset)
+    void MemoryController::LoadRoms(const std::filesystem::path& romFilePath, const nlohmann::json& files)
 	{
-		std::ifstream fin(romFile, std::ios::binary | std::ios::ate);
-
-		if (!fin)
+		for(const auto& file : files)
 		{
-			throw std::runtime_error("The program file failed to open");
-		}
+			std::ifstream fin(romFilePath/file["name"].get<std::string>(), std::ios::binary | std::ios::ate);
 
-		if (static_cast<size_t>(fin.tellg()) > memorySize_)
-		{
-			throw std::length_error("The length of the program is too big");
-		}
+			if (!fin)
+			{
+				throw std::runtime_error("The program file failed to open");
+			}
 
-		uint16_t size = static_cast<uint16_t>(fin.tellg());
+			if (static_cast<size_t>(fin.tellg()) > memorySize_)
+			{
+				throw std::length_error("The length of the program is too big");
+			}
 
-		if (size > memorySize_ - offset)
-		{
-			throw std::length_error("The length of the program is too big to fit at the specified offset");
-		}
+			uint16_t size = static_cast<uint16_t>(fin.tellg());
+			uint16_t offset = file["offset"].get<uint16_t>();
 
-		fin.seekg(0, std::ios::beg);
+			if (size > memorySize_ - offset)
+			{
+				throw std::length_error("The length of the program is too big to fit at the specified offset");
+			}
 
-		if (!(fin.read(reinterpret_cast<char*>(&memory_[offset]), size)))
-		{
-			throw std::invalid_argument("The program specified failed to load");
+			fin.seekg(0, std::ios::beg);
+
+			if (!(fin.read(reinterpret_cast<char*>(&memory_[offset]), size)))
+			{
+				throw std::invalid_argument("The program specified failed to load");
+			}
 		}
 	}
 
@@ -129,4 +108,4 @@ namespace SpaceInvaders
 	{
 		return{ 0x5C, 0x64, 0x7C, 0xCB, 0x71, 0x2E, 0x4A, 0x0B, 0x8A, 0x26, 0x1D, 0xE2, 0x95, 0x44, 0xA1, 0xE9 };
 	}
-} // namespace SpaceInvaders
+} // namespace i8080_arcade

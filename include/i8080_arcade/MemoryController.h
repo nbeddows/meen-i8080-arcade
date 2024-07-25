@@ -27,54 +27,21 @@ SOFTWARE.
 #include <filesystem>
 #include <memory>
 #include <mutex>
+#include <nlohmann/json.hpp>
 #include <vector>
 
 #include "Base/Base.h"
 #include "Controller/IController.h"
+#include "meen_hw/MH_ResourcePool.h"
 
-namespace SpaceInvaders
+namespace i8080_arcade
 {
 	/** Custom memory controller.
 
-		A custom memory controller targetting the Space Invaders arcade ROM.
+		A custom memory controller targetting Space Invaders arcade hardware compatible ROMs.
 	*/
 	class MemoryController final : public MachEmu::IController
 	{
-        public:
-            /** Video ram wrapper
-            
-                Individual frame bytes that will be housed in a frame pool.
-
-                @remark     Wrap unique pointer so it is more compatible with C based API's.
-            */
-            struct VideoFrame
-            {
-                /** Video ram width
-                
-                    The width of the compressed video ram in bytes.
-                */
-                static constexpr int width = 32;
-
-                /** Video ram width
-
-                    The width of the compressed video ram in bytes.
-                */
-                static constexpr int height = 224;
-
-                /** Video ram size
-                
-                    The size in bytes.
-                */
-                static constexpr int size = width * height;
-                
-                /** Video ram
-
-                    The bytes for each frame that will be copied out of memory
-                    when interrupt service routine ISR::Two is fired.
-                */
-                std::unique_ptr<std::array<uint8_t, size>> vram;
-            };
-
         private:
             /** Memory size
 
@@ -88,30 +55,20 @@ namespace SpaceInvaders
                 The memory bytes that the cpu will read from and write to.
             */
             std::unique_ptr<uint8_t[]> memory_;
-            
-            /** Frame pool mutex
-            
-                Mutual exclusion between the main thread and the machine thread for frame pool access.
-            
-                @remark     marked as mutable so GetVideoFrame can remain const
-            */
-            mutable std::mutex frameMutex_;
 
-            /** Frame pool
-            
-                A pool of video frames that can be used to copy the current vram into.
+            /** VRAM frame pool
 
-                @remark     marked as mutable so GetVideoFrame can remain const
+                A pool of recyclable video frames.
             */
-            mutable std::vector<VideoFrame> framePool_;
+            meen_hw::MH_ResourcePool<std::array<uint8_t, 7168>> framePool_;
 
         public:
             /** Constructor
 
                 Create a memory controller that can handle the memory requirements
-                of Space Invaders. Space Invaders runs on an Intel8080 with 64k
+                of i8080 arcade. The emulated hardware runs on an Intel8080 with 64k
                 of memory therefore the memory controller will be of this size.
-            
+
                 @param      framePoolSize       The amount frames to allocate, each frame is 7168 bytes in length.
 
                 @remark     default frame pool size is 1.
@@ -130,42 +87,24 @@ namespace SpaceInvaders
 
                 The VideoFrame containing the current video ram is taken from a finite frame pool.
 
-                @return         The current video ram as a unique_ptr wrapped in a VideoFrame.
-
-                @remark         The VideoFrame MUST be returned to the memory controller.
-
-                @see            ReturnVideoFrame.
+                @return         The current video ram as a recyclable resource.
             */
-            VideoFrame GetVideoFrame() const;
-
-            /** Return the frame to the frame pool
-            
-                @param      frame   the frame to be returned.
-
-                @remark     Not returning the frame (in at least real-time) will cause frame drops.
-            */
-            void ReturnVideoFrame(VideoFrame&& frame);
+            meen_hw::MH_ResourcePool<std::array<uint8_t, 7168>>::ResourcePtr GetVideoFrame() const;
 
             /** Load ROM file
 
-                Loads the specified rom file and the given memory address offset.
+                Loads the specified rom files located at the given path into memory
+                at the correct offset.
 
-                Space Invaders rom files have the following ROM layout:
+                @param      romFilePath     The path to the rom files (on local disk).
 
-                    invaders-h 0000-07FF
-                    invaders-g 0800-0FFF
-                    invaders-f 1000-17FF
-                    invaders-e 1800-1FFF
-
-                @param      romFile     the path to the rom file (on local disk).
-
-                @param      offset      the memory offset at which to load the rom.
+                @param      files           The rom files to load.
             */
-            void Load(const std::filesystem::path& romFile, uint16_t offset);
+		    void LoadRoms(const std::filesystem::path& romFilePath, const nlohmann::json& files);
 
             /** Memory size
 
-                @return     the size of the memory, in this case 64k.
+                @return     The size of the memory, in this case 64k.
             */
             size_t Size() const;
 
@@ -201,6 +140,6 @@ namespace SpaceInvaders
             */
             std::array<uint8_t, 16> Uuid() const final;
         };
-} // namespace SpaceInvaders
+} // namespace i8080_arcade
 
 #endif // MEMORY_CONTROLLER_H

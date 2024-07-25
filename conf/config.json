@@ -1,10 +1,7 @@
 {
-    "i8080-arcade":
-    {
-        "hardware":
-        {
-            "mach-emu":
-            {
+    "i8080-arcade": {
+        "hardware": {
+            "mach-emu": {
                 "cpu":"i8080",
                 "clockResolution":8333333.3,
                 "isrFreq":0.9,
@@ -12,83 +9,30 @@
                 "runAsync":true,
                 "saveAsync":true
             },
-            "video":
-            {
+            "video": {
                 "width":224,
                 "height":256,
                 "full-screen":false
             },
-            "audio":
-            {
+            "audio": {
                 "channels":1,
                 "sample-rate":11025,
                 "sample-size":512
             }
         },
-        "space-invaders":
-        {
-            "memory":
-            {
-                "rom":
-                {
-                    "file":
-                    [
-                        {
-                            "name":"invaders-h.bin",
-                            "offset":0,
-                            "size":2048
-                        },
-                        {
-                            "name":"invaders-g.bin",
-                            "offset":2048,
-                            "size":2048
-                        },
-                        {
-                            "name":"invaders-f.bin",
-                            "offset":4096,
-                            "size":2048
-                        },
-                        {
-                            "name":"invaders-e.bin",
-                            "offset":6144,
-                            "size":2048
-                        }
-                    ],
-                    "size":8192
-                },
-                "ram":
-                {
-                    "block":
-                    [
-                        {
-                            "offset":8192,
-                            "size":57343
-                        }
-                    ],
-                    "size":57343
-                },
-                "romOffset":0,
-                "romSize":8192,
-                "ramOffset":8192,
-                "ramSize":57343
-            },
-            "video":
-            {
+        "software": {
+            "video": {
                 "bpp":8,
                 "colour":"white",
-                "orientation":"upright",
-                "x":0,
-                "y":0
+                "orientation":"upright"
             },
-            "audio":
-            {
-                "file":
-                [
+            "audio": {
+                "file": [
                     "ufo_highpitch.wav",
                     "shoot.wav",
                     "explosion.wav",
                     "invaderkilled.wav",
-                    "",
+                    "extendedplay.wav",
                     "",
                     "",
                     "",
@@ -101,6 +45,100 @@
                     "",
                     ""
                 ]
+            },
+            "space-invaders": {
+                "memory": {
+                    "rom": {
+                        "file": [
+                            { "name":"invaders-h.bin", "offset":0, "size":2048 },
+                            { "name":"invaders-g.bin", "offset":2048, "size":2048 },
+                            { "name":"invaders-f.bin", "offset":4096, "size":2048 },
+                            { "name":"invaders-e.bin", "offset":6144, "size":2048 }
+                        ]
+                    },
+                    "ram": {
+                        "block": [
+                            { "offset":8192, "size":57343 }
+                        ]
+                    }
+                }
+            },
+            "space-invaders-deluxe": {
+                "memory": {
+                    "rom": {
+                        "file": [
+                            { "name":"invdelux-h.bin", "offset":0, "size":2048 },
+                            { "name":"invdelux-g.bin", "offset":2048, "size":2048 },
+                            { "name":"invdelux-f.bin", "offset":4096, "size":2048 },
+                            { "name":"invdelux-e.bin", "offset":6144, "size":2048 },
+                            { "name":"invdelux-d.bin", "offset":16384, "size":2048 }
+                        ]
+                    },
+                    "ram": {
+                        "block": [
+                            { "offset":8192, "size":8192 },
+                            { "offset":18432, "size": 47103}
+                        ]
+                    }
+                }
+            },
+            "space-invaders-ii": {
+                "memory": {
+                    "rom": {
+                        "file": [
+                            { "name":"PV.01", "offset":0, "size":2048 },
+                            { "name":"PV.02", "offset":2048, "size":2048 },
+                            { "name":"PV.03", "offset":4096, "size":2048 },
+                            { "name":"PV.04", "offset":6144, "size":2048 },
+                            { "name":"PV.05", "offset":16384, "size":2048 }
+                        ]
+                    },
+                    "ram": {
+                        "block": [
+                            { "offset":8192, "size":8192 },
+                            { "offset":18432, "size": 47103}
+                        ]
+                    }
+                }
+            },
+            "balloon-bomber": {
+                "memory": {
+                    "rom": {
+                        "file": [
+                            { "name":"tn01.bin", "offset":0, "size":2048 },
+                            { "name":"tn02.bin", "offset":2048, "size":2048 },
+                            { "name":"tn03.bin", "offset":4096, "size":2048 },
+                            { "name":"tn04.bin", "offset":6144, "size":2048 },
+                            { "name":"tn05-1.bin", "offset":16384, "size":2048 }
+                        ]
+                    },
+                    "ram": {
+                        "block": [
+                            { "offset":8192, "size":8192 },
+                            { "offset":18432, "size": 47103}
+                        ]
+                    }
+                }
+            },
+            "lunar-rescue": {
+                "memory": {
+                    "rom": {
+                        "file": [
+                            { "name":"lrescue-1.bin", "offset":0, "size":2048 },
+                            { "name":"lrescue-2.bin", "offset":2048, "size":2048 },
+                            { "name":"lrescue-3.bin", "offset":4096, "size":2048 },
+                            { "name":"lrescue-4.bin", "offset":6144, "size":2048 },
+                            { "name":"lrescue-5.bin", "offset":16384, "size":2048 },
+                            { "name":"lrescue-6.bin", "offset":18432, "size":2048 }
+                        ]
+                    },
+                    "ram": {
+                        "block": [
+                            { "offset":8192, "size":8192 },
+                            { "offset":20480, "size": 45055}
+                        ]
+                    }
+                }
             }
         }
     }

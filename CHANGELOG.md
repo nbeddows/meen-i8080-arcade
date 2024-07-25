@@ -1,3 +1,17 @@
+0.6.0 [25/07/24]
+* Using meen-hw for i8080-arcade support.
+* Added support for the following roms: `lunar-rescue`,
+  `space-invaders-deluxe`, `space-invaders-ii` and
+  `balloon-bomber`.
+* Added command line option `-g` for rom selection.
+* Added build target `i8080-arcade-pkg` which builds the
+  package, strips the binaries and performs static
+  analysis.
+* Updated to mach-emu-1.6.2.
+* Renamed repository to i8080-arcade.
+* Replaced all occurrences of space-invaders with
+  i8080-arcade.
+
 0.5.0 [24/06/24]
 * Updated to mach-emu-1.6.1.
 * Using Conan package manager.
@@ -8,7 +22,7 @@
 * Updated to mach-emu-1.5.1.
 * Added `IMachine::Load` support.
 * Added `IMachine::Save` support.
-* Added support for Space Invaders Part II Deluxe.
+* Added support for Space Invaders Part II/Deluxe.
 * Moved all required options to the config file.
 * Updated the README to document the config options.
 

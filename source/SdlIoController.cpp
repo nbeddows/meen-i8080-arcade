@@ -24,12 +24,12 @@ SOFTWARE.
 #include <bitset>
 #include <future>
 
-#include "SpaceInvaders/SdlIoController.h"
+#include "i8080_arcade/SdlIoController.h"
 
-namespace SpaceInvaders
+namespace i8080_arcade
 {
     SdlIoController::SdlIoController(const std::shared_ptr<MemoryController>& memoryController, const nlohmann::json& audioHardware, const nlohmann::json& videoHardware)
-		: IoController(memoryController)
+		: memoryController_{ memoryController }
 	{
 		SDL_SetMainReady();
 
@@ -38,7 +38,7 @@ namespace SpaceInvaders
 			throw std::runtime_error("Failed to initialise SDL");
 		}
 
-		window_ = SDL_CreateWindow("Space Invaders",
+		window_ = SDL_CreateWindow("i8080 arcade",
 								SDL_WINDOWPOS_UNDEFINED,
 								SDL_WINDOWPOS_UNDEFINED,
 								videoHardware["width"].get<int>(),
@@ -61,6 +61,13 @@ namespace SpaceInvaders
 			{
 				throw std::runtime_error("Failed to allocate an SDL renderer");
 			}
+		}
+
+		i8080ArcadeIO_ = meen_hw::MakeI8080ArcadeIO();
+
+		if(i8080ArcadeIO_ == nullptr)
+		{
+			throw std::runtime_error("Failed to create i8080 arcade hardware");
 		}
 
 		if (Mix_OpenAudio(audioHardware["sample-rate"].get<int>(), 8 /* format (mono) */, audioHardware["channels"].get<int>(), audioHardware["sample-size"].get<int>()) < 0)
@@ -88,6 +95,11 @@ namespace SpaceInvaders
 			}
 		},
 		reinterpret_cast<void*>(siEvent_));
+
+		for(int i = 0; i < 1; i++)
+		{
+			videoFrameWrapperPool_.emplace_back(std::make_unique<VideoFrameWrapper>());
+		}
 	}
 
 	SdlIoController::~SdlIoController()
@@ -130,9 +142,9 @@ namespace SpaceInvaders
 
 	void SdlIoController::LoadVideoTextures(const nlohmann::json& videoTextures)
 	{
-		IoController::SetVideoTextureProperties(videoTextures);
+		i8080ArcadeIO_->SetOptions(videoTextures.dump().c_str());
 		SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "linear");
-		texture_ = SDL_CreateTexture(renderer_, SDL_PIXELFORMAT_RGB332, SDL_TEXTUREACCESS_STREAMING, width_, height_);
+		texture_ = SDL_CreateTexture(renderer_, SDL_PIXELFORMAT_RGB332, SDL_TEXTUREACCESS_STREAMING, i8080ArcadeIO_->GetVRAMWidth(), i8080ArcadeIO_->GetVRAMHeight());
 
 		if (texture_ == nullptr)
 		{
@@ -146,7 +158,7 @@ namespace SpaceInvaders
 
 		if (quit_ == false)
 		{
-			ret = IoController::ReadFrom(port);
+			ret = i8080ArcadeIO_->ReadPort(port);
 
 			if (ret == 0)
 			{
@@ -171,7 +183,7 @@ namespace SpaceInvaders
 	{
 		if (quit_ == false)
 		{
-			auto audio = IoController::WriteTo(port, data);
+			auto audio = i8080ArcadeIO_->WritePort(port, data);
 
 			if (audio > 0)
 			{
@@ -187,25 +199,59 @@ namespace SpaceInvaders
 
 	MachEmu::ISR SdlIoController::ServiceInterrupts(uint64_t currTime, uint64_t cycles)
 	{
-		auto isr = IoController::ServiceInterrupts(currTime, cycles);
+		auto isr = MachEmu::ISR::Quit;
 
-		if (isr == MachEmu::ISR::Two)
+		if(quit_ == false)
 		{
-			auto videoFrame = memoryController_->GetVideoFrame();
-
-			SDL_Event e{};
-			e.type = siEvent_;
-			e.user.code = EventCode::RenderVideo;
-
-			// Allow events where the vram is nullptr to be pushed so we can track
-			// dropped frames in the main thread.
-			if (videoFrame.vram != nullptr)
+			auto interrupt = i8080ArcadeIO_->GenerateInterrupt(currTime, cycles);
+	
+			switch(interrupt)
 			{
-				e.user.data1 = videoFrame.vram.release();
-			}
+				case 0:
+				{
+					isr = loadSaveInterrupt_.exchange(MachEmu::ISR::NoInterrupt);				
+					break;
+				}
+				case 1:
+				{
+					isr = MachEmu::ISR::One;
+					break;
+				}
+				case 2:
+				{
+					isr = MachEmu::ISR::Two;
+					VideoFrameWrapper* videoFrameWrapper = nullptr; 
 
-			e.user.data2 = nullptr;
-			SDL_PushEvent(&e);
+					{
+						std::lock_guard<std::mutex> lg(videoFrameWrapperMutex_);
+						
+						if(videoFrameWrapperPool_.empty() == false)
+						{
+							videoFrameWrapper = videoFrameWrapperPool_.back().release();
+						}
+					}
+
+					if(videoFrameWrapper != nullptr)
+					{				
+						videoFrameWrapper->videoFrame = memoryController_->GetVideoFrame();	
+					}
+
+					SDL_Event e{};
+					e.type = siEvent_;
+					e.user.code = EventCode::RenderVideo;
+					// Allow events where the vram is nullptr to be pushed so we can track
+					// dropped frames in the main thread.
+					e.user.data1 = videoFrameWrapper;
+					e.user.data2 = nullptr;
+					SDL_PushEvent(&e);
+					break;
+				}
+				default:
+				{
+					assert(interrupt >= 0 && interrupt <= 2);
+					break;
+				}
+			}
 		}
 
 		return isr;
@@ -240,24 +286,44 @@ namespace SpaceInvaders
 						{
 							case EventCode::RenderVideo:
 							{
-								auto* src = reinterpret_cast<std::array<uint8_t, MemoryController::VideoFrame::size>*>(e.user.data1);
-								uint8_t * dst = nullptr;
-								int rowBytes = 0;
+								auto videoFrameWrapper = std::bit_cast<VideoFrameWrapper*>(e.user.data1);
 
-								// If src is nullptr then the frame that this interrupt refers to has been dropped.
-								if (src != nullptr)
+								if (videoFrameWrapper != nullptr)
 								{
-									if (SDL_LockTexture(texture_, nullptr, reinterpret_cast<void**>(&dst), &rowBytes) == 0)
+									// Move the frame out of the wrapper. This must be done as it allows the
+									// video frame to be returned back to the memory controller, alternatively,
+									// one could set videoFrameWrapper->videoFrame to nullptr once it is no longer
+									// needed.
+									auto videoFrame = std::move(videoFrameWrapper->videoFrame);
+									// We are done with the wrapper, return it back to the wrapper pool
 									{
-										IoController::Blit(dst, src->data(), rowBytes);
-										SDL_UnlockTexture(texture_);
+										std::lock_guard<std::mutex> lg(videoFrameWrapperMutex_);
+										videoFrameWrapperPool_.push_back(std::unique_ptr<VideoFrameWrapper>(videoFrameWrapper));
 									}
 
-									memoryController_->ReturnVideoFrame({ std::unique_ptr<std::array<uint8_t, MemoryController::VideoFrame::size>>(src) });
+									if (videoFrame != nullptr)
+									{
+										uint8_t* dst = nullptr;
+										int rowBytes = 0;
+
+										if (SDL_LockTexture(texture_, nullptr, std::bit_cast<void**>(&dst), &rowBytes) == 0)
+										{
+											i8080ArcadeIO_->BlitVRAM(std::span(dst, i8080ArcadeIO_->GetVRAMWidth() * i8080ArcadeIO_->GetVRAMHeight()), rowBytes, std::span(*videoFrame));
+											SDL_UnlockTexture(texture_);
+										}
+										else
+										{
+											printf("Failed to lock texture, video frame dropped\n");
+										}
+									}
+									else
+									{
+										printf("Video frame dropped\n");
+									}
 								}
 								else
 								{
-									printf ("Dropped Video Frame\n");
+									printf("Wrapper empty, video frame dropped\n");
 								}
 
 								SDL_RenderCopy(renderer_, texture_, nullptr, nullptr);
@@ -349,4 +415,4 @@ namespace SpaceInvaders
 			}
 		}
 	}
-} // namespace SpaceInvaders
+} // namespace i8080_arcade
