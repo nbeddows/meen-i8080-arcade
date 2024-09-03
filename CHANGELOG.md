@@ -1,3 +1,6 @@
+0.6.1
+* Added profiles for improved build support.
+
 0.6.0 [25/07/24]
 * Using meen-hw for i8080-arcade support.
 * Added support for the following roms: `lunar-rescue`,

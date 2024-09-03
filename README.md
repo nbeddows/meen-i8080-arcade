@@ -1,7 +1,7 @@
 
 ### Introduction
 
-This demo project shows how to make use of the [mach-emu sdk](http://github.com/nbeddows/mach-emu/) and [meen_hw](http://github.com/nbeddows/meen-hw) to emulate an arcade machine, in this case, one based on the Space Invaders Taito/Midway arcade hardware. I don't consider the emulation to be the most efficient, accurate or to be extensively tested, but I'm happy with where it is at.
+This demo project shows how to make use of the [meen](http://github.com/nbeddows/mach-emu/) and [meen_hw](http://github.com/nbeddows/meen-hw) packages to emulate an arcade machine, in this case, one based on the Space Invaders Taito/Midway arcade hardware. I don't consider the emulation to be the most efficient, accurate or to be extensively tested, but I'm happy with where it is at.
 
 The project has been tested against the following roms (which can be found elsewhere online):
 
@@ -12,7 +12,7 @@ The project has been tested against the following roms (which can be found elsew
 
 ### Compilation
 
-This project uses [CMake (minimum version 3.23)](https://cmake.org/) for its build system and [Conan (minimum version 2.0)](https://conan.io/) for it's dependency package management. Supported compilers are GCC (minimum version 12), MSVC(minimum version 16) and Clang (minimum version 16).
+This project uses [CMake (minimum version 3.23)](https://cmake.org/) for its build system and [Conan (minimum version 2.0)](https://conan.io/) for it's dependency package management. Supported compilers are GCC (minimum version 12), MSVC(minimum version 16).
 
 #### Pre-requisites
 
@@ -20,27 +20,29 @@ This project uses [CMake (minimum version 3.23)](https://cmake.org/) for its bui
 
 - [Install Conan](https://conan.io/downloads/).
 - `sudo apt install cmake`.
-- `sudo apt install gcc-arm-linux-gnueabihf` (if cross compiling for armv7hf).
-- `sudo apt install gcc-aarch64-linux-gnu` (if cross compiling for aarch64).
-- `sudo apt install g++-aarch64-linux-gnu` (if cross compiling for aarch64).
+- cross compilation:
+  - armv7hf:
+    - `sudo apt install gcc-arm-linux-gnueabihf g++-arm-linux-gnueabihf`.
+  - aarch64:
+    - `sudo apt install gcc-aarch64-linux-gnu g++-aarch64-linux-gnu`.
 
 ##### Windows
 
 - [Install Conan](https://conan.io/downloads).
 - [Install CMake](https://cmake.org/download/).
 
-**1.** Create a default profile (if you have no profiles): `conan profile detect`. This will detect the operating system, build architecture, compiler settings and set the build configuration as Release by default. The profile will be named `default` and will reside in $HOME/.conan2/profiles. 
+**1.** Install the supported meen conan configurations (v0.1.0) (if not done so already):
+- `conan config install -sf profiles -tf profiles https://github.com/nbeddows/meen-conan-config.git --args "--branch v0.1.0"`
 
 **2.** Install dependencies:
-- Using the default build and host profiles: `conan install . --build=missing`.
-- Using the default build profile targeting 32 bit Raspberry Pi OS: `conan install . --build=missing -pr:h=profiles/raspberry-32`.<br>
-- Using the default build profile targeting 64 bit Raspberry Pi OS: `conan install . --build=missing -pr:h=profiles/raspberry-64`.<br>
-
-**NOTE**: raspberry host profiles can be obtained from the [mach-emu project](https://github.com/nbeddows/mach-emu/tree/main/profiles).
+- Windows msvc x86_64 build and host: `conan install . --build=missing --profile:build=Windows-x86_64-msvc-193 --profile:host=profiles/Windows-x86_64-msvc-193-sdl`.
+- Linux x86_64 build and host: `conan install . --build=missing --profile:build=Linux-x86_64-gcc-13 --profile:host=profiles/Linux-x86_64-gcc-13-sdl`.
+- Linux x86_64 build, Linux armv7hf host: `conan install . --build=missing -profile:build=Linux-x86_64-gcc-13 -profile:host=profiles/Linux-armv7hf-gcc-13-sdl`.
+- Linux x86_64 build, Linux armv8 host: `conan install . --build=missing -profile:build=Linux-x86_64-gcc-13 -profile:host=profiles/Linux-armv8-gcc-13-sdl`.
 
 **NOTE**: when performing a cross compile using a host profile you must install the requisite toolchain of the target architecture, [see pre-requisites](#pre-requisites).
 
-**NOTE**: under Linux errors similar to the following, `ERROR: xorg/system: Error in system_requirements() method` require additional package installations as denoted by the above console messages: "`dpkg-query: no packages found matching ${pkg0}`": `sudo apt install ${pkg0} ${pkg1} ${pkgn}`.
+**NOTE**: under Linux with an sdl host profile errors similar to the following, `ERROR: xorg/system: Error in system_requirements() method` require additional package installations as denoted by the above console messages: "`dpkg-query: no packages found matching ${pkg0}`": `sudo apt install ${pkg0} ${pkg1} ${pkgn}`.
 When cross compiling for arm you may need to add the arm development repositories to your apt sources if the packages previously installed could not be found, for example (at the time of writing):
 - `sudo nano /etc/apt/source.list`
 - Append the following:
