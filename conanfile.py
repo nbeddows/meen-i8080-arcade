@@ -14,35 +14,6 @@ class I8080ArcadeRecipe(ConanFile):
         self.requires("sdl/2.28.5")
         self.requires("sdl_mixer/2.8.0")
 
-    def configure(self):
-        self.options["meen_hw/*"].with_i8080_arcade = True
-        self.options["sdl/*"].shared = True
-        self.options["sdl/*"].alsa = False
-        self.options["sdl/*"].pulse = True
-        self.options["sdl/*"].x11 = True
-        self.options["sdl/*"].xcursor = False
-        self.options["sdl/*"].xinerama = False
-        self.options["sdl/*"].xinput = False
-        self.options["sdl/*"].xrandr = False
-        self.options["sdl/*"].xscrnsaver = False
-        self.options["sdl/*"].xshape = False
-        self.options["sdl/*"].xvm = False
-        self.options["sdl/*"].wayland = False
-        self.options["sdl/*"].libunwind = False
-        self.options["sdl/*"].opengl = False
-        self.options["sdl/*"].opengles = False
-        self.options["sdl/*"].vulkan = False
-        self.options["sdl_mixer/*"].shared = True
-        self.options["sdl_mixer/*"].flac = False
-        self.options["sdl_mixer/*"].mpg123 = False
-        self.options["sdl_mixer/*"].mad = False
-        self.options["sdl_mixer/*"].ogg = False
-        self.options["sdl_mixer/*"].opus = False
-        self.options["sdl_mixer/*"].mikmod = False
-        self.options["sdl_mixer/*"].modplug = False
-        self.options["sdl_mixer/*"].nativemidi = False
-        self.options["sdl_mixer/*"].tinymidi = False
-
     def build(self):
         cmake = CMake(self)
         cmake.configure()
