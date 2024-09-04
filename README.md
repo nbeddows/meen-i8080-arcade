@@ -43,12 +43,42 @@ This project uses [CMake (minimum version 3.23)](https://cmake.org/) for its bui
 
 **NOTE**: under Linux with an sdl host profile errors similar to the following, `ERROR: xorg/system: Error in system_requirements() method` require additional package installations as denoted by the above console messages: "`dpkg-query: no packages found matching ${pkg0}`": `sudo apt install ${pkg0} ${pkg1} ${pkgn}`.
 When cross compiling for arm you may need to add the arm development repositories to your apt sources if the packages previously installed could not be found, for example (at the time of writing):
-- `sudo nano /etc/apt/source.list`
-- Append the following:
-    - deb [arch=arm64] http://ports.ubuntu.com/ lunar main multiverse universe
-    - deb [arch=arm64] http://ports.ubuntu.com/ lunar-security main multiverse universe
-    - deb [arch=arm64] http://ports.ubuntu.com/ lunar-backports main multiverse universe
-    - deb [arch=arm64] http://ports.ubuntu.com/ lunar-updates main multiverse universe
+- Pre Ubuntu Noble:
+  - `sudo nano /etc/apt/source.list`
+  - Append the following:
+      - deb [arch=arm64] http://ports.ubuntu.com/ lunar main multiverse universe
+      - deb [arch=arm64] http://ports.ubuntu.com/ lunar-security main multiverse universe
+      - deb [arch=arm64] http://ports.ubuntu.com/ lunar-backports main multiverse universe
+      - deb [arch=arm64] http://ports.ubuntu.com/ lunar-updates main multiverse universe
+- Ubuntu Noble onwards:
+  - `sudo nano /etc/apt/sources.list.d/ubuntu.sources
+  - Append the following:
+      Types: deb
+      URIs: http://ports.ubuntu.com/
+      Suites: noble
+      Architectures: arm64
+      Components: main multiverse universe
+      Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg
+
+      Types: deb
+      URIs: http://ports.ubuntu.com/
+      Suites: noble-security
+      Architectures: arm64
+      Components: main multiverse universe
+      Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg
+
+      Types: deb
+      URIs: http://ports.ubuntu.com/
+      Suites: noble-backports
+      Components: main multiverse universe
+      Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg
+
+      Types: deb
+      URIs: http://ports.ubuntu.com/
+      Suites: noble-updates
+      Architectures: arm64
+      Components: main multiverse universe
+      Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg
 - Save and exit
 - `sudo dpkg --add-architecture arm64`
 - `sudo dpkg --print-foreign-architectures`
