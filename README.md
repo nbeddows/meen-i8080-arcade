@@ -1,7 +1,6 @@
-
 ### Introduction
 
-This demo project shows how to make use of the [mach-emu sdk](http://github.com/nbeddows/mach-emu/) and [meen_hw](http://github.com/nbeddows/meen-hw) to emulate an arcade machine, in this case, one based on the Space Invaders Taito/Midway arcade hardware. I don't consider the emulation to be the most efficient, accurate or to be extensively tested, but I'm happy with where it is at.
+This demo project shows how to make use of the [meen](http://github.com/nbeddows/mach-emu/) and [meen_hw](http://github.com/nbeddows/meen-hw) packages to emulate an arcade machine, in this case, one based on the Space Invaders Taito/Midway arcade hardware. I don't consider the emulation to be the most efficient, accurate or to be extensively tested, but I'm happy with where it is at.
 
 The project has been tested against the following roms (which can be found elsewhere online):
 
@@ -12,7 +11,7 @@ The project has been tested against the following roms (which can be found elsew
 
 ### Compilation
 
-This project uses [CMake (minimum version 3.23)](https://cmake.org/) for its build system and [Conan (minimum version 2.0)](https://conan.io/) for it's dependency package management. Supported compilers are GCC (minimum version 12), MSVC(minimum version 16) and Clang (minimum version 16).
+This project uses [CMake (minimum version 3.23)](https://cmake.org/) for its build system and [Conan (minimum version 2.0)](https://conan.io/) for it's dependency package management. Supported compilers are GCC (minimum version 12), MSVC(minimum version 16).
 
 #### Pre-requisites
 
@@ -20,34 +19,66 @@ This project uses [CMake (minimum version 3.23)](https://cmake.org/) for its bui
 
 - [Install Conan](https://conan.io/downloads/).
 - `sudo apt install cmake`.
-- `sudo apt install gcc-arm-linux-gnueabihf` (if cross compiling for armv7hf).
-- `sudo apt install gcc-aarch64-linux-gnu` (if cross compiling for aarch64).
-- `sudo apt install g++-aarch64-linux-gnu` (if cross compiling for aarch64).
+- cross compilation:
+  - armv7hf:
+    - `sudo apt install gcc-arm-linux-gnueabihf g++-arm-linux-gnueabihf`.
+  - aarch64:
+    - `sudo apt install gcc-aarch64-linux-gnu g++-aarch64-linux-gnu`.
 
 ##### Windows
 
 - [Install Conan](https://conan.io/downloads).
 - [Install CMake](https://cmake.org/download/).
 
-**1.** Create a default profile (if you have no profiles): `conan profile detect`. This will detect the operating system, build architecture, compiler settings and set the build configuration as Release by default. The profile will be named `default` and will reside in $HOME/.conan2/profiles. 
+**1.** Install the supported meen conan configurations (v0.1.0) (if not done so already):
+- `conan config install -sf profiles -tf profiles https://github.com/nbeddows/meen-conan-config.git --args "--branch v0.1.0"`
 
 **2.** Install dependencies:
-- Using the default build and host profiles: `conan install . --build=missing`.
-- Using the default build profile targeting 32 bit Raspberry Pi OS: `conan install . --build=missing -pr:h=profiles/raspberry-32`.<br>
-- Using the default build profile targeting 64 bit Raspberry Pi OS: `conan install . --build=missing -pr:h=profiles/raspberry-64`.<br>
-
-**NOTE**: raspberry host profiles can be obtained from the [mach-emu project](https://github.com/nbeddows/mach-emu/tree/main/profiles).
+- Windows msvc x86_64 build and host: `conan install . --build=missing --profile:build=Windows-x86_64-msvc-193 --profile:host=profiles/Windows-x86_64-msvc-193-sdl`.
+- Linux x86_64 build and host: `conan install . --build=missing --profile:build=Linux-x86_64-gcc-13 --profile:host=profiles/Linux-x86_64-gcc-13-sdl`.
+- Linux x86_64 build, Linux armv7hf host: `conan install . --build=missing -profile:build=Linux-x86_64-gcc-13 -profile:host=profiles/Linux-armv7hf-gcc-13-sdl`.
+- Linux x86_64 build, Linux armv8 host: `conan install . --build=missing -profile:build=Linux-x86_64-gcc-13 -profile:host=profiles/Linux-armv8-gcc-13-sdl`.
 
 **NOTE**: when performing a cross compile using a host profile you must install the requisite toolchain of the target architecture, [see pre-requisites](#pre-requisites).
 
-**NOTE**: under Linux errors similar to the following, `ERROR: xorg/system: Error in system_requirements() method` require additional package installations as denoted by the above console messages: "`dpkg-query: no packages found matching ${pkg0}`": `sudo apt install ${pkg0} ${pkg1} ${pkgn}`.
+**NOTE**: under Linux with an sdl host profile errors similar to the following, `ERROR: xorg/system: Error in system_requirements() method` require additional package installations as denoted by the above console messages: "`dpkg-query: no packages found matching ${pkg0}`": `sudo apt install ${pkg0} ${pkg1} ${pkgn}`.
 When cross compiling for arm you may need to add the arm development repositories to your apt sources if the packages previously installed could not be found, for example (at the time of writing):
-- `sudo nano /etc/apt/source.list`
-- Append the following:
-    - deb [arch=arm64] http://ports.ubuntu.com/ lunar main multiverse universe
-    - deb [arch=arm64] http://ports.ubuntu.com/ lunar-security main multiverse universe
-    - deb [arch=arm64] http://ports.ubuntu.com/ lunar-backports main multiverse universe
-    - deb [arch=arm64] http://ports.ubuntu.com/ lunar-updates main multiverse universe
+- Pre Ubuntu Noble:
+  - `sudo nano /etc/apt/source.list`
+  - Append the following:
+      - deb [arch=arm64] http://ports.ubuntu.com/ lunar main multiverse universe
+      - deb [arch=arm64] http://ports.ubuntu.com/ lunar-security main multiverse universe
+      - deb [arch=arm64] http://ports.ubuntu.com/ lunar-backports main multiverse universe
+      - deb [arch=arm64] http://ports.ubuntu.com/ lunar-updates main multiverse universe
+- Ubuntu Noble onwards:
+  - `sudo nano /etc/apt/sources.list.d/ubuntu.sources
+  - Append the following:
+      Types: deb
+      URIs: http://ports.ubuntu.com/
+      Suites: noble
+      Architectures: arm64
+      Components: main multiverse universe
+      Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg
+
+      Types: deb
+      URIs: http://ports.ubuntu.com/
+      Suites: noble-security
+      Architectures: arm64
+      Components: main multiverse universe
+      Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg
+
+      Types: deb
+      URIs: http://ports.ubuntu.com/
+      Suites: noble-backports
+      Components: main multiverse universe
+      Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg
+
+      Types: deb
+      URIs: http://ports.ubuntu.com/
+      Suites: noble-updates
+      Architectures: arm64
+      Components: main multiverse universe
+      Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg
 - Save and exit
 - `sudo dpkg --add-architecture arm64`
 - `sudo dpkg --print-foreign-architectures`
@@ -56,12 +87,14 @@ When cross compiling for arm you may need to add the arm development repositorie
 
 The following dependent packages will be (compiled if required and) installed:
 
-- mach_emu
-- meen_hw
+- mach_emu ^
+- meen_hw ^
 - nlohmann_json
 - popl
 - sdl
 - sdl_mixer
+
+^ These packages are not currently hosted on a Conan server and require manual installation, see the section titled [Export a Conan package](https://github.com/nbeddows/mach-emu/blob/main/README.md)
 
 **3.** Run cmake to configure and generate the build system.
 
@@ -98,25 +131,27 @@ The following command line options are available:
 
 #### Building a binary package
 
-A standalone binary package can be built via `cpack` that can be distributed and installed:
+A standalone binary package can be built via the `package` target that can be distributed and installed:
 
-- `cmake --build --preset conan-release --target=i8080-arcade-pkg`
+- `cmake --build --preset conan-release --target=package`
 
-The `i8080-arcade-pkg` target defined in the root CMakeLists.txt will build a tar gzipped package via the following cpack command:
+This will also create doxygen generated documentation (todo) and perform static analysis.
 
-- `cpack --config build\CPackConfig.cmake -C ${buildType} -G TGZ`
+The `package` target as defined by the install targets in the root CMakeLists.txt will build a tar gzipped package which can be replicated by the following cpack command:
+- `cpack --config build\CPackConfig.cmake -C ${build_type} -G TGZ`
 
 The underlying package generator used to build the package (in this case `tar`) must be installed otherwise this command will fail.
 
-NOTE: the `-G` option can be specifed to overwrite the default `TGZ` cpack generator if a different packaging method is desired:
+**NOTE**: the `-G` option can be specifed to overwrite the default `TGZ` cpack generator if a different packaging method is desired:
 
-- `cpack --config build\CPackConfig.cmake -C ${buildType} -G ZIP`
+- `cpack --config build\CPackConfig.cmake -C ${build_type} -G ZIP`
 
 This will build a binary package using the `zip` utility.
 
 Run `cpack --help` for a list available generators.
 
-The `i8080-arcade-pkg` target will also strip all binary files where applicable and will also perform static analysis of the source code via `cppcheck`.
+The final package can be stripped by running the i8080-arcade-strip-pkg target (defined only for platforms that support strip):
+- `cmake --build --preset conan-release --target=i8080-arcade-strip-pkg`.
 
 ### Configuration
 

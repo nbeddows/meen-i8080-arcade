@@ -1,0 +1,2 @@
+{% set os, arch, compiler, compiler_version, framework = profile_name.split('-') %}
+{% include 'i8080_arcade' %}
