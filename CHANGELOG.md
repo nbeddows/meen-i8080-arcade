@@ -7,6 +7,7 @@
   build the package and perform static analysis.
 * Added target `i8080-arcade-strip-pkg` for
   optional package stripping.
+* Updated to meen_hw/0.2.1.
 
 0.6.0 [25/07/24]
 * Using meen-hw for i8080-arcade support.
