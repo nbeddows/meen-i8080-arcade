@@ -1,5 +1,13 @@
-0.6.1
+0.6.1 [04/08/24]
 * Added profiles for improved build support.
+* Compiler id and version are now incorporated
+  into the package name.
+* Removed target `i8080-arcade-pkg`.
+* Now using the built in `package` target to
+  build the package and perform static analysis.
+* Added target `i8080-arcade-strip-pkg` for
+  optional package stripping.
+* Updated to meen_hw/0.2.1.
 
 0.6.0 [25/07/24]
 * Using meen-hw for i8080-arcade support.

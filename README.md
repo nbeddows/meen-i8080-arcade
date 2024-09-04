@@ -1,4 +1,3 @@
-
 ### Introduction
 
 This demo project shows how to make use of the [meen](http://github.com/nbeddows/mach-emu/) and [meen_hw](http://github.com/nbeddows/meen-hw) packages to emulate an arcade machine, in this case, one based on the Space Invaders Taito/Midway arcade hardware. I don't consider the emulation to be the most efficient, accurate or to be extensively tested, but I'm happy with where it is at.
@@ -44,12 +43,42 @@ This project uses [CMake (minimum version 3.23)](https://cmake.org/) for its bui
 
 **NOTE**: under Linux with an sdl host profile errors similar to the following, `ERROR: xorg/system: Error in system_requirements() method` require additional package installations as denoted by the above console messages: "`dpkg-query: no packages found matching ${pkg0}`": `sudo apt install ${pkg0} ${pkg1} ${pkgn}`.
 When cross compiling for arm you may need to add the arm development repositories to your apt sources if the packages previously installed could not be found, for example (at the time of writing):
-- `sudo nano /etc/apt/source.list`
-- Append the following:
-    - deb [arch=arm64] http://ports.ubuntu.com/ lunar main multiverse universe
-    - deb [arch=arm64] http://ports.ubuntu.com/ lunar-security main multiverse universe
-    - deb [arch=arm64] http://ports.ubuntu.com/ lunar-backports main multiverse universe
-    - deb [arch=arm64] http://ports.ubuntu.com/ lunar-updates main multiverse universe
+- Pre Ubuntu Noble:
+  - `sudo nano /etc/apt/source.list`
+  - Append the following:
+      - deb [arch=arm64] http://ports.ubuntu.com/ lunar main multiverse universe
+      - deb [arch=arm64] http://ports.ubuntu.com/ lunar-security main multiverse universe
+      - deb [arch=arm64] http://ports.ubuntu.com/ lunar-backports main multiverse universe
+      - deb [arch=arm64] http://ports.ubuntu.com/ lunar-updates main multiverse universe
+- Ubuntu Noble onwards:
+  - `sudo nano /etc/apt/sources.list.d/ubuntu.sources
+  - Append the following:
+      Types: deb
+      URIs: http://ports.ubuntu.com/
+      Suites: noble
+      Architectures: arm64
+      Components: main multiverse universe
+      Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg
+
+      Types: deb
+      URIs: http://ports.ubuntu.com/
+      Suites: noble-security
+      Architectures: arm64
+      Components: main multiverse universe
+      Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg
+
+      Types: deb
+      URIs: http://ports.ubuntu.com/
+      Suites: noble-backports
+      Components: main multiverse universe
+      Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg
+
+      Types: deb
+      URIs: http://ports.ubuntu.com/
+      Suites: noble-updates
+      Architectures: arm64
+      Components: main multiverse universe
+      Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg
 - Save and exit
 - `sudo dpkg --add-architecture arm64`
 - `sudo dpkg --print-foreign-architectures`
@@ -58,12 +87,14 @@ When cross compiling for arm you may need to add the arm development repositorie
 
 The following dependent packages will be (compiled if required and) installed:
 
-- mach_emu
-- meen_hw
+- mach_emu ^
+- meen_hw ^
 - nlohmann_json
 - popl
 - sdl
 - sdl_mixer
+
+^ These packages are not currently hosted on a Conan server and require manual installation, see the section titled [Export a Conan package](https://github.com/nbeddows/mach-emu/blob/main/README.md)
 
 **3.** Run cmake to configure and generate the build system.
 
@@ -100,25 +131,27 @@ The following command line options are available:
 
 #### Building a binary package
 
-A standalone binary package can be built via `cpack` that can be distributed and installed:
+A standalone binary package can be built via the `package` target that can be distributed and installed:
 
-- `cmake --build --preset conan-release --target=i8080-arcade-pkg`
+- `cmake --build --preset conan-release --target=package`
 
-The `i8080-arcade-pkg` target defined in the root CMakeLists.txt will build a tar gzipped package via the following cpack command:
+This will also create doxygen generated documentation (todo) and perform static analysis.
 
-- `cpack --config build\CPackConfig.cmake -C ${buildType} -G TGZ`
+The `package` target as defined by the install targets in the root CMakeLists.txt will build a tar gzipped package which can be replicated by the following cpack command:
+- `cpack --config build\CPackConfig.cmake -C ${build_type} -G TGZ`
 
 The underlying package generator used to build the package (in this case `tar`) must be installed otherwise this command will fail.
 
-NOTE: the `-G` option can be specifed to overwrite the default `TGZ` cpack generator if a different packaging method is desired:
+**NOTE**: the `-G` option can be specifed to overwrite the default `TGZ` cpack generator if a different packaging method is desired:
 
-- `cpack --config build\CPackConfig.cmake -C ${buildType} -G ZIP`
+- `cpack --config build\CPackConfig.cmake -C ${build_type} -G ZIP`
 
 This will build a binary package using the `zip` utility.
 
 Run `cpack --help` for a list available generators.
 
-The `i8080-arcade-pkg` target will also strip all binary files where applicable and will also perform static analysis of the source code via `cppcheck`.
+The final package can be stripped by running the i8080-arcade-strip-pkg target (defined only for platforms that support strip):
+- `cmake --build --preset conan-release --target=i8080-arcade-strip-pkg`.
 
 ### Configuration
 
