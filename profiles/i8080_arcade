@@ -2,29 +2,38 @@ include({{ os }}-{{ arch }}-{{ compiler }}-{{ compiler_version }})
 [options]
 &:with_{{ framework }}=True
 meen_hw/*:with_i8080_arcade=True
-{% if framework == 'sdl' %}
-  {{ framework }}/*:shared = True
-  {{ framework }}/*:alsa = False
-  {{ framework }}/*:xcursor = False
-  {{ framework }}/*:xinerama = False
-  {{ framework }}/*:xinput = False
-  {{ framework }}/*:xrandr = False
-  {{ framework }}/*:xscrnsaver = False
-  {{ framework }}/*:xshape = False
-  {{ framework }}/*:xvm = False
-  {{ framework }}/*:wayland = False
-  {{ framework }}/*:libunwind = False
-  {{ framework }}/*:opengl = False
-  {{ framework }}/*:opengles = False
-  {{ framework }}/*:vulkan = False
-  {{ framework }}_mixer/*:shared = True
-  {{ framework }}_mixer/*:flac = False
-  {{ framework }}_mixer/*:mpg123 = False
-  {{ framework }}_mixer/*:mad = False
-  {{ framework }}_mixer/*:ogg = False
-  {{ framework }}_mixer/*:opus = False
-  {{ framework }}_mixer/*:mikmod = False
-  {{ framework }}_mixer/*:modplug = False
-  {{ framework }}_mixer/*:nativemidi = False
-  {{ framework }}_mixer/*:tinymidi = False
+{% if os == 'rp2040' %}
+  mach_emu/*:with_{{ os }}=True
+  mach_emu/*:fPIC=False
+  mach_emu/*:shared=False
+  meen_hw/*:with_{{ os }}=True
+  meen_hw/*:fPIC=False
+  meen_hw/*:shared=False
+{% else %}
+  {% if framework == 'sdl' %}
+    {{ framework }}/*:shared = True
+    {{ framework }}/*:alsa = False
+    {{ framework }}/*:xcursor = False
+    {{ framework }}/*:xinerama = False
+    {{ framework }}/*:xinput = False
+    {{ framework }}/*:xrandr = False
+    {{ framework }}/*:xscrnsaver = False
+    {{ framework }}/*:xshape = False
+    {{ framework }}/*:xvm = False
+    {{ framework }}/*:wayland = False
+    {{ framework }}/*:libunwind = False
+    {{ framework }}/*:opengl = False
+    {{ framework }}/*:opengles = False
+    {{ framework }}/*:vulkan = False
+    {{ framework }}_mixer/*:shared = True
+    {{ framework }}_mixer/*:flac = False
+    {{ framework }}_mixer/*:mpg123 = False
+    {{ framework }}_mixer/*:mad = False
+    {{ framework }}_mixer/*:ogg = False
+    {{ framework }}_mixer/*:opus = False
+    {{ framework }}_mixer/*:mikmod = False
+    {{ framework }}_mixer/*:modplug = False
+    {{ framework }}_mixer/*:nativemidi = False
+    {{ framework }}_mixer/*:tinymidi = False
+  {% endif %}
 {% endif %}
