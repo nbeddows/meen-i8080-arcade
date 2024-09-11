@@ -28,26 +28,26 @@ SOFTWARE.
 
 namespace i8080_arcade
 {
-    SdlIoController::SdlIoController(const std::shared_ptr<MemoryController>& memoryController, const nlohmann::json& audioHardware, const nlohmann::json& videoHardware)
+    SDLIoController::SDLIoController(const std::shared_ptr<MemoryController>& memoryController, const JsonVariant& audioHardware, const JsonVariant& videoHardware)
 		: memoryController_{ memoryController }
 	{
 		SDL_SetMainReady();
 
 		if (SDL_Init(SDL_INIT_VIDEO|SDL_INIT_AUDIO) < 0)
 		{
-			throw std::runtime_error("Failed to initialise SDL");
+			printf("Failed to initialise SDL");
 		}
 
 		window_ = SDL_CreateWindow("i8080 arcade",
 								SDL_WINDOWPOS_UNDEFINED,
 								SDL_WINDOWPOS_UNDEFINED,
-								videoHardware["width"].get<int>(),
-								videoHardware["height"].get<int>(),
-								videoHardware["full-screen"].get<bool>() ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0);
+								videoHardware["width"].as<int>(),
+								videoHardware["height"].as<int>(),
+								videoHardware["full-screen"].as<bool>() ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0);
 
 		if (window_ == nullptr)
 		{
-			throw std::bad_alloc();
+			printf("Failed to allocate window\n");
 		}
 
 		renderer_ = SDL_CreateRenderer(window_, -1, SDL_RENDERER_ACCELERATED);
@@ -59,7 +59,7 @@ namespace i8080_arcade
 
 			if (renderer_ == nullptr)
 			{
-				throw std::runtime_error("Failed to allocate an SDL renderer");
+				printf("Failed to allocate an SDL renderer");
 			}
 		}
 
@@ -67,19 +67,19 @@ namespace i8080_arcade
 
 		if(i8080ArcadeIO_ == nullptr)
 		{
-			throw std::runtime_error("Failed to create i8080 arcade hardware");
+			printf("Failed to create i8080 arcade hardware");
 		}
 
-		if (Mix_OpenAudio(audioHardware["sample-rate"].get<int>(), 8 /* format (mono) */, audioHardware["channels"].get<int>(), audioHardware["sample-size"].get<int>()) < 0)
+		if (Mix_OpenAudio(audioHardware["sample-rate"].as<int>(), 8 /* format (mono) */, audioHardware["channels"].as<int>(), audioHardware["sample-size"].as<int>()) < 0)
 		{
-			throw std::runtime_error("Failed to open SDL Mixer");
+			printf("Failed to open SDL Mixer");
 		}
 
 		siEvent_ = SDL_RegisterEvents(1);
 
 		if (siEvent_ == 0xFFFFFFFF)
 		{
-			throw std::runtime_error("Exhausted all user level events");
+			printf("Exhausted all user level events");
 		}
 
 		SDL_SetEventFilter([](void* eventType, SDL_Event* e)
@@ -102,7 +102,7 @@ namespace i8080_arcade
 		}
 	}
 
-	SdlIoController::~SdlIoController()
+	SDLIoController::~SDLIoController()
 	{
 		if (renderer_ != nullptr)
 		{
@@ -124,35 +124,49 @@ namespace i8080_arcade
 		SDL_Quit();
 	}
 
-	void SdlIoController::LoadAudioSamples(const std::filesystem::path& audioFilePath, const nlohmann::json& audio)
+	int SDLIoController::LoadAudioSamples(const std::filesystem::path& audioFilePath, const JsonVariant& audio)
 	{
-		for(const auto& file : audio["file"])
+		for(const auto& file : audio["file"].as<JsonArray>())
 		{
-			auto name = file.get<std::string>();
+			auto name = file.as<std::string>();
 			auto mixChunk = Mix_LoadWAV((audioFilePath/name).string().c_str());
 
 			if(name.empty() == false && mixChunk == nullptr)
 			{
-				throw std::runtime_error("Failed to load audio sample");
+				return -1;
 			}
 
 			mixChunk_.emplace_back(mixChunk);
 		}
+
+		return 0;
 	}
 
-	void SdlIoController::LoadVideoTextures(const nlohmann::json& videoTextures)
+	int SDLIoController::LoadVideoTextures(const JsonVariant& videoTextures)
 	{
-		i8080ArcadeIO_->SetOptions(videoTextures.dump().c_str());
+		std::string meenConfig;
+		serializeJson(videoTextures, meenConfig);
+
+		if(meenConfig.empty() == true)
+		{
+			printf("Parse error while serializing hardware:mach_emu\n");
+			return -1;
+		}
+
+		i8080ArcadeIO_->SetOptions(meenConfig.c_str());
 		SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "linear");
 		texture_ = SDL_CreateTexture(renderer_, SDL_PIXELFORMAT_RGB332, SDL_TEXTUREACCESS_STREAMING, i8080ArcadeIO_->GetVRAMWidth(), i8080ArcadeIO_->GetVRAMHeight());
 
 		if (texture_ == nullptr)
 		{
-			throw std::bad_alloc();
+			printf("Failed to allocate SDL texture\n");
+			return -1;
 		}
+
+		return 0;
 	}
 
-	uint8_t SdlIoController::Read(uint16_t port)
+	uint8_t SDLIoController::Read(uint16_t port)
 	{
 		uint8_t ret = 0;
 
@@ -179,7 +193,7 @@ namespace i8080_arcade
 		return ret;
 	}
 
-	void SdlIoController::Write(uint16_t port, uint8_t data)
+	void SDLIoController::Write(uint16_t port, uint8_t data)
 	{
 		if (quit_ == false)
 		{
@@ -197,19 +211,19 @@ namespace i8080_arcade
 		}
 	}
 
-	MachEmu::ISR SdlIoController::ServiceInterrupts(uint64_t currTime, uint64_t cycles)
+	MachEmu::ISR SDLIoController::ServiceInterrupts(uint64_t currTime, uint64_t cycles)
 	{
 		auto isr = MachEmu::ISR::Quit;
 
 		if(quit_ == false)
 		{
 			auto interrupt = i8080ArcadeIO_->GenerateInterrupt(currTime, cycles);
-	
+
 			switch(interrupt)
 			{
 				case 0:
 				{
-					isr = loadSaveInterrupt_.exchange(MachEmu::ISR::NoInterrupt);				
+					isr = loadSaveInterrupt_.exchange(MachEmu::ISR::NoInterrupt);
 					break;
 				}
 				case 1:
@@ -220,11 +234,11 @@ namespace i8080_arcade
 				case 2:
 				{
 					isr = MachEmu::ISR::Two;
-					VideoFrameWrapper* videoFrameWrapper = nullptr; 
+					VideoFrameWrapper* videoFrameWrapper = nullptr;
 
 					{
 						std::lock_guard<std::mutex> lg(videoFrameWrapperMutex_);
-						
+
 						if(videoFrameWrapperPool_.empty() == false)
 						{
 							videoFrameWrapper = videoFrameWrapperPool_.back().release();
@@ -232,8 +246,8 @@ namespace i8080_arcade
 					}
 
 					if(videoFrameWrapper != nullptr)
-					{				
-						videoFrameWrapper->videoFrame = memoryController_->GetVideoFrame();	
+					{
+						videoFrameWrapper->videoFrame = memoryController_->GetVideoFrame();
 					}
 
 					SDL_Event e{};
@@ -257,12 +271,12 @@ namespace i8080_arcade
 		return isr;
 	}
 
-	std::array<uint8_t, 16> SdlIoController::Uuid() const
+	std::array<uint8_t, 16> SDLIoController::Uuid() const
 	{
 		return{ 0x22, 0x61, 0xC9, 0x53, 0x9A, 0x36, 0x4B, 0xD3, 0xB9, 0x68, 0x47, 0x67, 0x6F, 0x52, 0x6D, 0x48 };
 	}
 
-	void SdlIoController::EventLoop()
+	void SDLIoController::EventLoop()
 	{
 		SDL_Event e;
 		Uint8 lastR = 0;
