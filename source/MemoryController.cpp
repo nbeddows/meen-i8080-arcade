@@ -22,90 +22,144 @@ SOFTWARE.
 
 #include <algorithm>
 #include <cstring>
-#include <fstream>
 
 #include "i8080_arcade/MemoryController.h"
 
+#ifdef ENABLE_MH_RP2040
+extern uint8_t invadersHStart;
+extern uint8_t invadersHEnd;
+extern uint8_t invadersGStart;
+extern uint8_t invadersGEnd;
+extern uint8_t invadersFStart;
+extern uint8_t invadersFEnd;
+extern uint8_t invadersEStart;
+extern uint8_t invadersEEnd;
+#else
+#include <fstream>
+#endif // ENABLE_MH_RP2040
+
 namespace i8080_arcade
 {
-	MemoryController::MemoryController(int framePoolSize)
-		: memory_{ std::make_unique<uint8_t[]>(memorySize_) }
-	{
-		framePool_ = meen_hw::MH_ResourcePool<std::array<uint8_t, 7168>>();
+    MemoryController::MemoryController(int framePoolSize)
+        : memory_{ std::make_unique<uint8_t[]>(memorySize_) }
+    {
+        framePool_ = meen_hw::MH_ResourcePool<std::array<uint8_t, 7168>>();
 
-		for(int i = 0; i < framePoolSize; i++)
-		{
-			framePool_.AddResource(new std::array<uint8_t, 7168>);
-		}
-	}
+        for(int i = 0; i < framePoolSize; i++)
+        {
+            framePool_.AddResource(new std::array<uint8_t, 7168>);
+        }
+    }
 
-	meen_hw::MH_ResourcePool<std::array<uint8_t, 7168>>::ResourcePtr MemoryController::GetVideoFrame() const
-	{
-		auto frame = framePool_.GetResource();
+    meen_hw::MH_ResourcePool<std::array<uint8_t, 7168>>::ResourcePtr MemoryController::GetVideoFrame() const
+    {
+        auto frame = framePool_.GetResource();
 
-		if(frame != nullptr)
-		{
-			std::copy_n(memory_.get() + 0x2400, frame->size(), frame->begin());
-		}
+        if(frame != nullptr)
+        {
+            std::copy_n(memory_.get() + 0x2400, frame->size(), frame->begin());
+        }
 
-		return frame;
-	}
+        return frame;
+    }
+#ifdef ENABLE_MH_RP2040
+    int MemoryController::LoadRoms(const JsonVariant& files)
+    {
+        auto copyFromFlashToRam = [this](uint8_t* src, uint16_t srcSize, uint16_t offset)
+        {
+            if(srcSize > memorySize_ - offset)
+            {
+                return -1;
+            }
 
-	size_t MemoryController::Size() const
-	{
-		return memorySize_;
-	}
+            std::copy_n(memory_.get() + offset, srcSize, src);
+            return 0;
+        };
 
-    void MemoryController::LoadRoms(const std::filesystem::path& romFilePath, const nlohmann::json& files)
-	{
-		for(const auto& file : files)
-		{
-			std::ifstream fin(romFilePath/file["name"].get<std::string>(), std::ios::binary | std::ios::ate);
+        for(const auto& file : files.as<JsonArrayConst>())
+        {
+            if(file["name"].as<std::string>() == "invaders-h.bin")
+            {
+                return copyFromFlashToRam(&invadersHStart, &invadersHEnd - &invadersHStart, file["offset"].as<uint16_t>());
+            }
+            else if(file["name"].as<std::string>() == "invaders-g.bin")
+            {
+                return copyFromFlashToRam(&invadersGStart, &invadersGEnd - &invadersGStart, file["offset"].as<uint16_t>());
+            }
+            else if(file["name"].as<std::string>() == "invaders-f.bin")
+            {
+                return copyFromFlashToRam(&invadersFStart, &invadersFEnd - &invadersFStart, file["offset"].as<uint16_t>());
+            }
+            else if(file["name"].as<std::string>() == "invaders-e.bin")
+            {
+                return copyFromFlashToRam(&invadersEStart, &invadersEEnd - &invadersEStart, file["offset"].as<uint16_t>());
+            }
+            else
+            {
+                return -1;
+            }
+        }
 
-			if (!fin)
-			{
-				throw std::runtime_error("The program file failed to open");
-			}
+        return -1;
+    }
+#else
+    int MemoryController::LoadRoms(const std::filesystem::path& romFilePath, const JsonVariant& files)
+    {
+        for(const auto& file : files.as<JsonArrayConst>())
+        {
+            std::ifstream fin(romFilePath/file["name"].as<std::string>(), std::ios::binary | std::ios::ate);
 
-			if (static_cast<size_t>(fin.tellg()) > memorySize_)
-			{
-				throw std::length_error("The length of the program is too big");
-			}
+            if (!fin)
+            {
+                return -1;
+            }
 
-			uint16_t size = static_cast<uint16_t>(fin.tellg());
-			uint16_t offset = file["offset"].get<uint16_t>();
+            if (static_cast<size_t>(fin.tellg()) > memorySize_)
+            {
+                return -1;
+            }
 
-			if (size > memorySize_ - offset)
-			{
-				throw std::length_error("The length of the program is too big to fit at the specified offset");
-			}
+            uint16_t size = static_cast<uint16_t>(fin.tellg());
+            uint16_t offset = file["offset"].as<uint16_t>();
 
-			fin.seekg(0, std::ios::beg);
+            if (size > memorySize_ - offset)
+            {
+                return -1;
+            }
 
-			if (!(fin.read(reinterpret_cast<char*>(&memory_[offset]), size)))
-			{
-				throw std::invalid_argument("The program specified failed to load");
-			}
-		}
-	}
+            fin.seekg(0, std::ios::beg);
 
-	uint8_t MemoryController::Read(uint16_t addr)
-	{
-		return memory_[addr];
-	}
+            if (!(fin.read(reinterpret_cast<char*>(&memory_[offset]), size)))
+            {
+                return -1;
+            }
+        }
 
-	void MemoryController::Write(uint16_t addr, uint8_t data)
-	{
-		memory_[addr] = data;
-	}
+        return 0;
+    }
 
-	MachEmu::ISR MemoryController::ServiceInterrupts([[maybe_unused]] uint64_t currTime, [[maybe_unused]] uint64_t cycles)
-	{
-		return MachEmu::ISR::NoInterrupt;
-	}
+#endif // ENABLE_MH_RP2040
+    uint8_t MemoryController::Read(uint16_t addr)
+    {
+        return memory_[addr];
+    }
 
-	std::array<uint8_t, 16> MemoryController::Uuid() const
-	{
-		return{ 0x5C, 0x64, 0x7C, 0xCB, 0x71, 0x2E, 0x4A, 0x0B, 0x8A, 0x26, 0x1D, 0xE2, 0x95, 0x44, 0xA1, 0xE9 };
-	}
+    void MemoryController::Write(uint16_t addr, uint8_t data)
+    {
+        memory_[addr] = data;
+    }
+
+    MachEmu::ISR MemoryController::ServiceInterrupts([[maybe_unused]] uint64_t currTime, [[maybe_unused]] uint64_t cycles)
+    {
+        return MachEmu::ISR::NoInterrupt;
+    }
+
+    std::array<uint8_t, 16> MemoryController::Uuid() const
+    {
+#ifdef ENABLE_MH_RP2040
+        return{ 0xE6, 0x48, 0x51, 0x13, 0xA4, 0xBD, 0x4E, 0xB2, 0x8D, 0xC3, 0xA0, 0x8C, 0xF7, 0x6A, 0x8B, 0xAE };
+#else
+        return{ 0x5C, 0x64, 0x7C, 0xCB, 0x71, 0x2E, 0x4A, 0x0B, 0x8A, 0x26, 0x1D, 0xE2, 0x95, 0x44, 0xA1, 0xE9 };
+#endif // ENABLE_MH_RP2040
+    }
 } // namespace i8080_arcade
