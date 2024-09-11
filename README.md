@@ -24,6 +24,26 @@ This project uses [CMake (minimum version 3.23)](https://cmake.org/) for its bui
     - `sudo apt install gcc-arm-linux-gnueabihf g++-arm-linux-gnueabihf`.
   - aarch64:
     - `sudo apt install gcc-aarch64-linux-gnu g++-aarch64-linux-gnu`.
+  - rp2040:
+    - `sudo apt install gcc-arm-none-eabi libnewlib-arm-none-eabi build-essential libstdc++-arm-none-eabi-newlib`. # Needs to be installed for the 2.x SDK (for picotool) - libusb-1.0-0-dev`.
+    - `git clone https://github.com/raspberrypi/pico-sdk.git --branch 1.5.1`
+    - `cd pico-sdk`
+    - `git submodule update --init`
+    - build the Raspberry Pi Pico SDK:
+      - Conan and the Raspberry Pi Pico Sdk seem to have an issue with conflicting use of the cmake toolchain file
+        which results in test programs not being able to be compiled during the conan build process as outlined [here](https://github.com/raspberrypi/pico-sdk/issues/1693).
+        At this point we need to build the sdk so that we have the required tools pre-built so the Conan build process will succeed:
+        - `mkdir build`<br>
+           **NOTE**: Conan will assume that the build tools are located in the `build` directory, **do not** use a different directory name.
+        - `cd build`
+        - `cmake ..`
+        - `make`
+    - Set the Raspberry Pi Pico SDK Path:
+        -`export PICO_SDK_PATH=${PATH_TO_PICO_SDK}`
+        To avoid having to export it on every session, add it to the end of your .bashrc file instead:
+        - `nano ~/.bashrc`
+        - `export PICO_SDK_PATH=${PATH_TO_PICO_SDK}`
+	- save, close and re-open shell.
 
 ##### Windows
 
@@ -38,6 +58,7 @@ This project uses [CMake (minimum version 3.23)](https://cmake.org/) for its bui
 - Linux x86_64 build and host: `conan install . --build=missing --profile:build=Linux-x86_64-gcc-13 --profile:host=profiles/Linux-x86_64-gcc-13-sdl`.
 - Linux x86_64 build, Linux armv7hf host: `conan install . --build=missing -profile:build=Linux-x86_64-gcc-13 -profile:host=profiles/Linux-armv7hf-gcc-13-sdl`.
 - Linux x86_64 build, Linux armv8 host: `conan install . --build=missing -profile:build=Linux-x86_64-gcc-13 -profile:host=profiles/Linux-armv8-gcc-13-sdl`.
+- Linux x86_64 build, RP2040 microcontroller (baremetal armv6-m) host: `conan install . --build=missing -profile:build=Linux-x86_64-gcc-13 -profile:host=profiles/rp2040-armv6-gcc-13-st7789vw`.<br>
 
 **NOTE**: when performing a cross compile using a host profile you must install the requisite toolchain of the target architecture, [see pre-requisites](#pre-requisites).
 
