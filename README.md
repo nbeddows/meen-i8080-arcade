@@ -192,6 +192,8 @@ The current settings for these options should be sufficient, changing them may h
 `runAsync:true` - Run the machine asynchronously from the io.<br>
 `saveAsync:true` - Save the machine state asynchronously.<br>
 
+**NOTE**: the RP IO Controller does not support saving (`saveAsync`) or loading (`loadAsync`) state.
+
 ##### Video
 
 Video hardware options. These options can be changed for the desired output.
@@ -199,6 +201,8 @@ Video hardware options. These options can be changed for the desired output.
 `width:224` - The width of the screen.<br>
 `height:256` - The height of the screen.<br>
 `full-screen:false` - Window or full screen display.<br>
+
+**NOTE**: the RP IO controller fixes the width and height to native resolution and does not use full-screen mode.
 
 ##### Audio
 
@@ -209,6 +213,7 @@ Audio hardware options. The current settings for these options should be suffici
 `sample-size:512` - The audio output sample size.<br>
 
 **NOTE**: these options can be changed if using custom audio samples.
+**NOTE**: the RP IO Controller does not support audio, these options have no affect.
 
 #### Software
 
@@ -218,8 +223,8 @@ These settings apply to the various arcade roms that can be loaded.
 
 These settings affect visual output and can be changed. They apply to all game roms loaded.
 
-`bpp:8` - Bits per pixel, supported values are 1 (currently not supported via the SDL IO controller) and 8.<br>
-`colour:white`: the forground colour (the background is always black), supported values are "white", "red", "green", "blue", "random" and an 8 bit custom hex value.<br>
+`bpp:8` - Bits per pixel, supported values are 1 (currently not supported via the SDL IO controller), 8 (rgb332, not supported via the RP IO Controller) and 16 (rgb565).<br>
+`colour:white`: the forground colour (the background is always black), supported values are "white", "red", "green", "blue", "random" and an 16 bit custom hex value.<br>
 `orientation:upright` - The window layout, "cocktail" for horizontal and "upright" for vertical.<br>
 
 ##### Audio
@@ -230,6 +235,7 @@ These settings affect audio output. They can be changed if different audio sampl
 
 **NOTE**: the position of the audio files in the array **must** not be changed.<br>
 **NOTE**: if changing the audio files, the audio hardware properties may need to be updated (untested).
+**NOTE**: the RP IO Controller does not support audio, these setting has no affect.
 
 ##### Space Invaders/Space Invaders Deluxe/Space Invaders II/Balloon Bomber/Lunar Rescue
 
@@ -240,6 +246,8 @@ These settings are fixed to the specified rom and should not be changed.
 `memory:rom:file:size` - The rom file size.<br>
 `memory:ram:block:offset` - The start of memory ram block offset.<br>
 `memory:ram:block:size` - The ram block size.<br>
+
+**NOTE**: the RP IO Controller does not support saving or loading, hence these settiings will have no affect.
 
 ### Keyboard Controls
 
