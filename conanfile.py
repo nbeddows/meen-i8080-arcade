@@ -10,7 +10,7 @@ class I8080ArcadeRecipe(ConanFile):
 
     def requirements(self):
         self.requires("mach_emu/2.0.0")
-        self.requires("meen_hw/0.2.1")
+        self.requires("meen_hw/0.3.0")
         self.requires("arduinojson/7.0.1")
 
         if not self.settings.os == "baremetal":
@@ -22,7 +22,7 @@ class I8080ArcadeRecipe(ConanFile):
 
     def config_options(self):
         if self.settings.os == "baremetal":
-            self.options.rm_safe("with_sdl");
+            self.options.rm_safe("with_sdl")
         else:
             self.options.rm_safe("with_st7789vw")
 
