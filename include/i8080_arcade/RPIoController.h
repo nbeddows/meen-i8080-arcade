@@ -39,7 +39,35 @@ namespace i8080_arcade
     class RPIoController final : public MachEmu::IController
     {
     private:
-	int64_t currTime_{};
+        // TODO: these pins need to change depending on the device pin configuration,
+        //       may be best to pass them in via the config file.
+        enum Pin
+        {
+            DIN = 11,
+            CLK = 10,
+            CS = 9,
+            DC = 8,
+            RST = 12,
+            BL = 13
+        };
+
+        /** Output device width
+
+            Width in pixels.
+
+            @remark This is determined by the hardware:video:width parameter
+                    in the config file.
+        */
+        int width_{};
+
+        /** Output device height
+
+            @remark Height in pixels.
+
+            @remark This is determined by the hardware:video:height parameter
+                    in the config file.
+        */
+        int height_{};
 
         /** i8080_arcade
 
@@ -53,23 +81,17 @@ namespace i8080_arcade
         */
         std::shared_ptr<MemoryController> memoryController_;
 
-        /** videoFrameQueue
+        /** Video frame to render queue
 
-            A single element queue used to pass the current frame to be rendered between cores.
+            A double element queue used to render the current frame while generating the next frame.
         */
         queue_t videoFrameQueue_;
 
-        /** Compressed video frame pool
+        /** Available frame queue
 
-            Video frames that are ready to be rendered.
+            Remainder frames (ones that are not being rendered or generated).
         */
-        //std::vector<meen_hw::MH_ResourcePool<std::array<uint8_t, 7168>>::ResourcePtr> videoFrames_;
-
-        /** Mutex for thread safe video frame access
-
-            Allows safe access to the underlying resource pool video frames.
-        */
-        meen_hw::MH_Mutex videoFrameMutex_;
+        queue_t freeQueue_;
 
         /** VideoFrameWrapper
 
@@ -80,13 +102,43 @@ namespace i8080_arcade
             meen_hw::MH_ResourcePool<std::array<uint8_t, 7168>>::ResourcePtr videoFrame;
         };
 
-        /** videoFrameWrapper_
+        /** An array of resourcePtr wrappers for use with RP2040s C based queue api
 
-            A resourcePtr wrapper for use with RP2040s C based queue api
-
-            @remark    only using one frame
+            @remark    these wrappers are solely accessed via queues to implement double buffering.
         */
-        VideoFrameWrapper videoFrameWrapper_;
+        VideoFrameWrapper videoFrameWrapper_[2];
+
+        /** Video frame buffer
+
+            The pixels that will be rendered to the display.
+        */
+        std::unique_ptr<uint8_t> texture_;
+
+        /** LCD command
+
+            Write a command to the LCD driver.
+        */
+        void WriteCmd(uint8_t cmd);
+
+        /** LCD params
+
+            Write command parameters to the LCD driver.
+
+            @param    param    The next parameter in the parameter sequence defined
+                               by the previous call to WriteCmd.
+        */
+        void WriteParam(uint8_t param);
+
+        /** Ram write region
+
+            Define a region in display ram where pixels can be written to,
+
+            @param    startX    the starting x coordinate of the blit region.
+            @param    startY    the starting y coordinate of the blit region.
+            @param    endX      the ending x coordinate of the blit region.
+            @param    endX      the ending x coordinate of the blit region.
+        */
+        void SetRegion(uint16_t Xstart, uint16_t Ystart, uint16_t Xend, uint16_t Yend);
 
     public:
         /** Initialisation constructor
@@ -136,6 +188,16 @@ namespace i8080_arcade
             @return    The uuid as a 16 byte array.
         */
         std::array<uint8_t, 16> Uuid() const final;
+
+        /** Load Video Textures
+
+            Create the video texture that will be rendered to the screen.
+
+            @param  videoTextures   JSON object describing the video texture.
+
+            @return                 0 on success, -1 on failure.
+        */
+        int LoadVideoTextures(const JsonVariant& videoTextures);
 
         /** Main control loop
 
