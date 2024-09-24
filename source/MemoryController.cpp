@@ -65,6 +65,8 @@ namespace i8080_arcade
 #ifdef ENABLE_MH_RP2040
     int MemoryController::LoadRoms(const JsonVariant& files)
     {
+        int err = 0;
+
         auto copyFromFlashToRam = [this](uint8_t* src, uint16_t srcSize, uint16_t offset)
         {
             if(srcSize > memorySize_ - offset)
@@ -72,7 +74,7 @@ namespace i8080_arcade
                 return -1;
             }
 
-            std::copy_n(memory_.get() + offset, srcSize, src);
+            std::copy_n(src, srcSize, memory_.get() + offset);
             return 0;
         };
 
@@ -80,27 +82,32 @@ namespace i8080_arcade
         {
             if(file["name"].as<std::string>() == "invaders-h.bin")
             {
-                return copyFromFlashToRam(&invadersHStart, &invadersHEnd - &invadersHStart, file["offset"].as<uint16_t>());
+                err = copyFromFlashToRam(&invadersHStart, &invadersHEnd - &invadersHStart, file["offset"].as<uint16_t>());
             }
             else if(file["name"].as<std::string>() == "invaders-g.bin")
             {
-                return copyFromFlashToRam(&invadersGStart, &invadersGEnd - &invadersGStart, file["offset"].as<uint16_t>());
+                err = copyFromFlashToRam(&invadersGStart, &invadersGEnd - &invadersGStart, file["offset"].as<uint16_t>());
             }
             else if(file["name"].as<std::string>() == "invaders-f.bin")
             {
-                return copyFromFlashToRam(&invadersFStart, &invadersFEnd - &invadersFStart, file["offset"].as<uint16_t>());
+                err = copyFromFlashToRam(&invadersFStart, &invadersFEnd - &invadersFStart, file["offset"].as<uint16_t>());
             }
             else if(file["name"].as<std::string>() == "invaders-e.bin")
             {
-                return copyFromFlashToRam(&invadersEStart, &invadersEEnd - &invadersEStart, file["offset"].as<uint16_t>());
+                err = copyFromFlashToRam(&invadersEStart, &invadersEEnd - &invadersEStart, file["offset"].as<uint16_t>());
             }
             else
             {
-                return -1;
+                err = -1;
+            }
+
+            if (err == -1)
+            {
+                return err;
             }
         }
 
-        return -1;
+        return err;
     }
 #else
     int MemoryController::LoadRoms(const std::filesystem::path& romFilePath, const JsonVariant& files)
