@@ -156,8 +156,8 @@ int main(int argc, char** argv)
 
     // Create our custom i8080 arcade machine
     auto machine = MachEmu::MakeMachine(meenConfig.c_str());
-    // Create our custom i8080 arcade memory controller.
-    auto memoryController = std::make_shared<i8080_arcade::MemoryController>();
+    // Create our custom i8080 arcade memory controller. Two video frames for double buffering.
+    auto memoryController = std::make_shared<i8080_arcade::MemoryController>(2);
 #ifdef ENABLE_MH_RP2040
     // load roms/textures/(audio samples)
     memoryController->LoadRoms(arcadeGame["memory"]["rom"]["file"]);
