@@ -22,7 +22,7 @@
         },
         "software": {
             "video": {
-                "bpp":8,
+                "bpp":16,
                 "colour":"white",
                 "orientation":"upright"
             },

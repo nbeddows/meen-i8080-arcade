@@ -21,7 +21,24 @@
 cmake_minimum_required (VERSION 3.25)
 set(project_name i8080-arcade)
 
-project(${project_name} VERSION 0.6.1)
+if(${enable_rp2040} STREQUAL ON)
+  include ($ENV{PICO_SDK_PATH}/external/pico_sdk_import.cmake)
+endif()
+
+project(${project_name} VERSION 0.6.1 LANGUAGES C CXX ASM)
+
+if(${enable_rp2040} STREQUAL ON)
+  add_executable(Pioasm IMPORTED)
+  set_property(TARGET Pioasm PROPERTY IMPORTED_LOCATION $ENV{PICO_SDK_PATH}/build/pioasm/pioasm)
+  set(Pioasm_FOUND 1)
+
+  # In the 2.x SDK this is handled by picotool, need to account for this with version numbers
+  add_executable(ELF2UF2 IMPORTED)
+  set_property(TARGET ELF2UF2 PROPERTY IMPORTED_LOCATION $ENV{PICO_SDK_PATH}/build/elf2uf2/elf2uf2)
+  set(ELF2UF2_FOUND 1)
+
+  pico_sdk_init()
+endif()
 
 if(DEFINED MSVC)
   set(build_type $<CONFIG>)
@@ -29,22 +46,64 @@ else()
   set(build_type ${CMAKE_BUILD_TYPE})
 endif()
 
-set(artifacts_dir $<1:${CMAKE_SOURCE_DIR}/artifacts/${build_type}/${CMAKE_SYSTEM_PROCESSOR}>)
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${artifacts_dir}/bin)
+if(NOT DEFINED build_arch)
+  set(build_arch ${CMAKE_SYSTEM_PROCESSOR})
+endif()
+
+if(NOT DEFINED build_os)
+  set(build_os ${CMAKE_SYSTEM_NAME})
+endif()
+
+if(NOT DEFINED archive_dir)
+  set(archive_dir "lib")
+endif()
+
+if(NOT DEFINED runtime_dir)
+  set(runtime_dir "bin")
+endif()
+
+if(DEFINED WIN32)
+  set(soExt .dll)
+else()
+  set(soExt .so)
+endif()
+
+# TODO: rp2040 does not output all artifacts correctly when setting this - investigate me
+if(NOT ${enable_rp2040} STREQUAL ON)
+  set(artifacts_dir $<1:${CMAKE_SOURCE_DIR}/artifacts/${build_type}/${build_arch}>)
+  set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${artifacts_dir}/${runtime_dir})
+endif()
 
 find_package(mach_emu REQUIRED)
 find_package(meen_hw REQUIRED)
-find_package(nlohmann_json REQUIRED)
-find_package(popl REQUIRED)
-find_package(SDL2 REQUIRED)
-find_package(SDL2_mixer REQUIRED)
+find_package(ArduinoJson REQUIRED)
+
+set(${project_name}_source_files source/main.cpp source/MemoryController.cpp)
+set(${project_name}_include_files include/i8080_arcade/MemoryController.h)
+set(${project_name}_deps mach_emu::mach_emu meen_hw::meen_hw ArduinoJson)
+
+if(${build_os} STREQUAL "baremetal")
+  if(${enable_rp2040} STREQUAL ON)
+    set(${project_name}_include_files ${${project_name}_include_files} include/i8080_arcade/RPIoController.h)
+    set(${project_name}_source_files ${${project_name}_source_files} source/RPConfig.S source/RPIoController.cpp)
+    set(${project_name}_deps ${${project_name}_deps} pico_stdlib hardware_spi hardware_gpio hardware_pwm)
+  endif()
+else()
+  find_package(popl REQUIRED)
+  set(${project_name}_deps ${${project_name}_deps} popl::popl)
+
+  if(${enable_sdl} STREQUAL ON)
+    find_package(SDL2 REQUIRED)
+    find_package(SDL2_mixer REQUIRED)
+    set(${project_name}_include_files ${${project_name}_include_files} include/i8080_arcade/SdlIoController.h)
+    set(${project_name}_source_files ${${project_name}_source_files} source/SdlIoController.cpp)
+    set(${project_name}_deps ${${project_name}_deps} SDL2::SDL2 SDL2_mixer::SDL2_mixer)
+  endif()
+endif()
 
 add_executable(${project_name}
-    include/i8080_arcade/SdlIoController.h
-    include/i8080_arcade/MemoryController.h
-    source/main.cpp
-    source/SdlIoController.cpp
-    source/MemoryController.cpp
+  ${${project_name}_include_files}
+  ${${project_name}_source_files}
 )
 
 if(DEFINED MSVC)
@@ -52,42 +111,62 @@ if(DEFINED MSVC)
 endif()
 
 target_include_directories(${project_name} PRIVATE ${CMAKE_SOURCE_DIR}/include)
-target_link_libraries(${project_name} PRIVATE
-    mach_emu::mach_emu
-    meen_hw::meen_hw
-    nlohmann_json::nlohmann_json
-    popl::popl
-    SDL2::SDL2
-    SDL2_mixer::SDL2_mixer
-)
 
-target_compile_definitions(${project_name} PRIVATE SDL_MAIN_HANDLED)
+if(${build_os} STREQUAL "baremetal")
+  target_include_directories(${project_name} PRIVATE ${CMAKE_SOURCE_DIR}/conf ${CMAKE_SOURCE_DIR}/rom-files)
+endif()
+
+target_link_libraries(${project_name} PRIVATE ${${project_name}_deps})
 
 # CPACK INSTALL
 set(CMAKE_INSTALL_PREFIX ./)
-set(CPACK_PACKAGE_FILE_NAME ${project_name}-v${CMAKE_PROJECT_VERSION}-${CMAKE_SYSTEM}-${CMAKE_SYSTEM_PROCESSOR}-${CMAKE_C_COMPILER_ID}-${CMAKE_C_COMPILER_VERSION})
+set(CPACK_PACKAGE_FILE_NAME ${project_name}-v${CMAKE_PROJECT_VERSION}-${build_os}-${build_arch}-${CMAKE_C_COMPILER_ID}-${CMAKE_C_COMPILER_VERSION})
 set(CPACK_GENERATOR TGZ)
 
-if(DEFINED WIN32)
-  set(soExt .dll)
-  set(scriptExt .bat)
+if(${build_os} STREQUAL "baremetal")
+  if(${enable_st7789vw} STREQUAL ON)
+    target_compile_definitions(${project_name} PRIVATE ENABLE_MH_ST7789VW)
+  endif()
 
-  file(WRITE ${CMAKE_BINARY_DIR}/run-${project_name}${scriptExt}
-  "@echo off\n\
+  if(${enable_rp2040} STREQUAL ON)
+    target_compile_definitions(${project_name} PRIVATE ENABLE_MH_RP2040)
+    pico_enable_stdio_usb(${project_name} 1)
+    pico_enable_stdio_uart(${project_name} 0)
+    pico_set_program_url(${project_name} "https://github.com/neddows/meen-${project_name}")
+    pico_add_extra_outputs(${project_name})
+    install(PROGRAMS ${CMAKE_BINARY_DIR}/${project_name}.bin DESTINATION ${runtime_dir})
+    install(FILES ${CMAKE_BINARY_DIR}/${project_name}.uf2 DESTINATION ${runtime_dir})
+    install(FILES ${CMAKE_BINARY_DIR}/${project_name}.dis DESTINATION ${archive_dir})
+    install(FILES ${CMAKE_BINARY_DIR}/${project_name}.elf.map DESTINATION ${archive_dir})
+    install(FILES ${CMAKE_BINARY_DIR}/${project_name}.hex DESTINATION ${archive_dir})
+  endif()
+else()
+  if(${enable_sdl} STREQUAL ON)
+    #target_compile_definitions(${project_name} PRIVATE ENABLE_MH_SDL2)
+    target_compile_definitions(${project_name} PRIVATE SDL_MAIN_HANDLED)
+  endif()
+
+  if(DEFINED WIN32)
+    set(scriptExt .bat)
+
+    file(WRITE ${CMAKE_BINARY_DIR}/run-${project_name}${scriptExt}
+    "@echo off\n\
 set PATH=%cd%\\lib;%PATH%\n\
 bin\\${project_name} %*\n\
 pause\n\
 exit"
-)
-else()
-  set(soExt .so)
-  set(scriptExt .sh)
+    )
+  else()
+    set(scriptExt .sh)
 
-  file(WRITE ${CMAKE_BINARY_DIR}/run-${project_name}${scriptExt}
-  "#!/bin/bash\n\
+    file(WRITE ${CMAKE_BINARY_DIR}/run-${project_name}${scriptExt}
+    "#!/bin/bash\n\
 export LD_LIBRARY_PATH=`pwd`/lib:\${LD_LIBRARY_PATH}\n\
 bin/${project_name} \"$@\""
-)  
+    )
+  endif()
+
+  install(PROGRAMS ${CMAKE_BINARY_DIR}/run-${project_name}${scriptExt} DESTINATION .)
 endif()
 
 if(DEFINED CMAKE_STRIP)
@@ -101,9 +180,8 @@ if(DEFINED CMAKE_STRIP)
 endif()
 
 #install(CODE "execute_process(COMMAND doxygen ${CMAKE_SOURCE_DIR}/docs/Doxyfile)")
-install(CODE "execute_process(COMMAND cppcheck -ibuild -i_CPack_Packages -itests --check-level=exhaustive --inline-suppr --enable=warning,style,performance,portability,unusedFunction --std=c++20 ${CMAKE_SOURCE_DIR})")
+install(CODE "execute_process(COMMAND cppcheck -ibuild -i_CPack_Packages --check-level=exhaustive --inline-suppr --enable=warning,style,performance,portability,unusedFunction --std=c++20 ${CMAKE_SOURCE_DIR})")
 install(TARGETS ${project_name} RUNTIME)
-install(PROGRAMS ${CMAKE_BINARY_DIR}/run-${project_name}${scriptExt} DESTINATION .)
 install(FILES LICENSE.md DESTINATION . RENAME LICENSE)
 install(FILES docs/README-bin.md DESTINATION . RENAME README.md)
 install(DIRECTORY docs/images DESTINATION ./docs)

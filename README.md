@@ -1,8 +1,8 @@
 ### Introduction
 
-This demo project shows how to make use of the [meen](http://github.com/nbeddows/mach-emu/) and [meen_hw](http://github.com/nbeddows/meen-hw) packages to emulate an arcade machine, in this case, one based on the Space Invaders Taito/Midway arcade hardware. I don't consider the emulation to be the most efficient, accurate or to be extensively tested, but I'm happy with where it is at.
+This demo project shows how to make use of the [meen](http://github.com/nbeddows/mach-emu/) and [meen_hw](http://github.com/nbeddows/meen-hw) packages to emulate an arcade machine, in this case, one based on the Space Invaders Taito/Midway arcade hardware. I don't consider the emulation to be the most efficient, accurate, or to be extensively tested, but I'm happy with where it is at.
 
-The project has been tested against the following roms (which can be found elsewhere online):
+This project has been tested against the following roms (which can be found elsewhere online) on the following platforms: Windows/Linux(x86_64), Linux(armv7hf, armv8), RP2040(armv6-m):
 
 - Space Invaders.
 - Space Invaders Part II/Deluxe.
@@ -24,6 +24,26 @@ This project uses [CMake (minimum version 3.23)](https://cmake.org/) for its bui
     - `sudo apt install gcc-arm-linux-gnueabihf g++-arm-linux-gnueabihf`.
   - aarch64:
     - `sudo apt install gcc-aarch64-linux-gnu g++-aarch64-linux-gnu`.
+  - rp2040:
+    - `sudo apt install gcc-arm-none-eabi libnewlib-arm-none-eabi build-essential libstdc++-arm-none-eabi-newlib`. # Needs to be installed for the 2.x SDK (for picotool) - libusb-1.0-0-dev`.
+    - `git clone https://github.com/raspberrypi/pico-sdk.git --branch 1.5.1`
+    - `cd pico-sdk`
+    - `git submodule update --init`
+    - build the Raspberry Pi Pico SDK:
+      - Conan and the Raspberry Pi Pico Sdk seem to have an issue with conflicting use of the cmake toolchain file
+        which results in test programs not being able to be compiled during the conan build process as outlined [here](https://github.com/raspberrypi/pico-sdk/issues/1693).
+        At this point we need to build the sdk so that we have the required tools pre-built so the Conan build process will succeed:
+        - `mkdir build`<br>
+           **NOTE**: Conan will assume that the build tools are located in the `build` directory, **do not** use a different directory name.
+        - `cd build`
+        - `cmake ..`
+        - `make`
+    - Set the Raspberry Pi Pico SDK Path:
+        -`export PICO_SDK_PATH=${PATH_TO_PICO_SDK}`
+        To avoid having to export it on every session, add it to the end of your .bashrc file instead:
+        - `nano ~/.bashrc`
+        - `export PICO_SDK_PATH=${PATH_TO_PICO_SDK}`
+	- save, close and re-open shell.
 
 ##### Windows
 
@@ -38,6 +58,7 @@ This project uses [CMake (minimum version 3.23)](https://cmake.org/) for its bui
 - Linux x86_64 build and host: `conan install . --build=missing --profile:build=Linux-x86_64-gcc-13 --profile:host=profiles/Linux-x86_64-gcc-13-sdl`.
 - Linux x86_64 build, Linux armv7hf host: `conan install . --build=missing -profile:build=Linux-x86_64-gcc-13 -profile:host=profiles/Linux-armv7hf-gcc-13-sdl`.
 - Linux x86_64 build, Linux armv8 host: `conan install . --build=missing -profile:build=Linux-x86_64-gcc-13 -profile:host=profiles/Linux-armv8-gcc-13-sdl`.
+- Linux x86_64 build, RP2040 microcontroller (baremetal armv6-m) host: `conan install . --build=missing -profile:build=Linux-x86_64-gcc-13 -profile:host=profiles/rp2040-armv6-gcc-13-st7789vw`.<br>
 
 **NOTE**: when performing a cross compile using a host profile you must install the requisite toolchain of the target architecture, [see pre-requisites](#pre-requisites).
 
@@ -89,12 +110,13 @@ The following dependent packages will be (compiled if required and) installed:
 
 - mach_emu ^
 - meen_hw ^
-- nlohmann_json
+- ArduinoJson
 - popl
 - sdl
 - sdl_mixer
 
-^ These packages are not currently hosted on a Conan server and require manual installation, see the section titled [Export a Conan package](https://github.com/nbeddows/mach-emu/blob/main/README.md)
+^ These packages are not currently hosted on a Conan server and require manual installation, see the section titled [Export a Conan package](https://github.com/nbeddows/mach-emu/blob/main/README.md).
+**NOTE**: mach_emu minimum version of 2.0.0 is required for rp2040 support which is currently under development and therefore must be installed from the mach_emu development branch.
 
 **3.** Run cmake to configure and generate the build system.
 
@@ -106,9 +128,9 @@ The following dependent packages will be (compiled if required and) installed:
 **5.** Run i8080-arcade:
 
 **Linux/Windows (x86_64)**:
-- `build\generators\conanrun.bat/sh`: export the dependent shared library paths.
+- `build\generators\conanrun.[bat|sh]`: export the dependent shared library paths.
 - `artifacts/Release/x86_64/bin/i8080-arcade`.
-- `build\generators\deactivate_conanrun.bat/sh`: restore the environment.
+- `build\generators\deactivate_conanrun.[bat|sh]`: restore the environment.
 
 **Linux (armv7hf, armv8)**:
 
@@ -120,7 +142,28 @@ When running a cross compiled build the binaries need to be uploaded to the host
 5. Change directory to i8080-arcade `cd i8080-arcade`.
 6. Run i8080-arcade: `./run-i8080-arcade.sh`.<br>
 
-The following command line options are available:
+**RP2040 (armv6)**:
+
+This has been tested successfully using a 2 inch 320x240 lcd using the st7789 driver. 
+Before uploading the UF2 image to the pico board ensure that your lcd is connected correctly.
+
+When running a cross compiled build the binaries need to be uploaded to the host machine before they can be executed.
+This example will assume you are deploying the UF2 file from a Raspberry Pi.
+1. Create an Arm Linux binary distribution: see building a binary development package.
+2. Copy the distribution to the arm machine: `scp build/Release/i8080-arcade-v0.7.0-baremetal-armv6-GNU-13.2.1.tar.gz ${user}@raspberrypi:i8080-arcade-v0.7.0.tar.gz`.
+3. Ssh into the arm machine: `ssh ${user}@raspberrypi`.
+4. Extract the i8080-arcade archive copied over via scp: `tar -xzf i8080-arcade-v0.7.0.tar.gz`.
+5. Hold down the `bootsel` button on the pico and plug in the usb cable into the usb port of the Raspberry Pi then release the `bootsel` button.
+6. Echo the attached `/dev` device (this should show up as `sdb1` for example): `dmesg | tail`.
+7. Create a mount point (if not done already): `sudo mkdir /mnt/pico`.
+8. Mount the device: `sudo mount /dev/sdb1 /mnt/pico`. Run `ls /mnt/pico` to confirm it mounted.
+9. Copy the uf2 image to the pico: `cp i8080-arcade-v0.7.0-baremetal-armv6-GNU-13.2.1/bin/i8080_arcade.uf2 /mnt/pico`
+10. You should see a new device `ttyACM0`: `ls /dev` to confirm.
+11. Unmount the device: `sudo umount /mnt/pico`.
+
+Once the UF2 image has been uploaded the Space Invaders rom should start running on the display.
+
+The following command line options are available (not available for embedded targets, rp2040 for example):
 
 - `-h, --help`: display a help message listing all available command line options.
 - `-c, --config-file`: the configuration file to load (default: conf/config.json).
@@ -155,7 +198,9 @@ The final package can be stripped by running the i8080-arcade-strip-pkg target (
 
 ### Configuration
 
-A configuration file targeting the i8080 arcade hardware is provided in json format. It is designed for flexibility and verbosity. It is divided into two main sections:
+A configuration file targeting the i8080 arcade hardware is provided in json format. It is designed for flexibility and verbosity.
+
+It is divided into two main sections:
 
 #### Hardware
 
@@ -171,6 +216,8 @@ The current settings for these options should be sufficient, changing them may h
 `runAsync:true` - Run the machine asynchronously from the io.<br>
 `saveAsync:true` - Save the machine state asynchronously.<br>
 
+**NOTE**: the RP IO Controller does not support saving (`saveAsync`) or loading (`loadAsync`) state.
+
 ##### Video
 
 Video hardware options. These options can be changed for the desired output.
@@ -178,6 +225,8 @@ Video hardware options. These options can be changed for the desired output.
 `width:224` - The width of the screen.<br>
 `height:256` - The height of the screen.<br>
 `full-screen:false` - Window or full screen display.<br>
+
+**NOTE**: the RP IO Controller does not support scaling or full-screen, the width and height parameters will be used to center the output on the display device.
 
 ##### Audio
 
@@ -188,6 +237,7 @@ Audio hardware options. The current settings for these options should be suffici
 `sample-size:512` - The audio output sample size.<br>
 
 **NOTE**: these options can be changed if using custom audio samples.
+**NOTE**: the RP IO Controller does not support audio, these options have no affect.
 
 #### Software
 
@@ -197,8 +247,8 @@ These settings apply to the various arcade roms that can be loaded.
 
 These settings affect visual output and can be changed. They apply to all game roms loaded.
 
-`bpp:8` - Bits per pixel, supported values are 1 (currently not supported via the SDL IO controller) and 8.<br>
-`colour:white`: the forground colour (the background is always black), supported values are "white", "red", "green", "blue", "random" and an 8 bit custom hex value.<br>
+`bpp:8` - Bits per pixel, supported values are 1 (currently not supported via the SDL IO controller), 8 (rgb332, not supported via the RP IO Controller) and 16 (rgb565).<br>
+`colour:white`: the forground colour (the background is always black), supported values are "white", "red", "green", "blue", "random" and an 16 bit custom hex value.<br>
 `orientation:upright` - The window layout, "cocktail" for horizontal and "upright" for vertical.<br>
 
 ##### Audio
@@ -209,6 +259,7 @@ These settings affect audio output. They can be changed if different audio sampl
 
 **NOTE**: the position of the audio files in the array **must** not be changed.<br>
 **NOTE**: if changing the audio files, the audio hardware properties may need to be updated (untested).
+**NOTE**: the RP IO Controller does not support audio, these setting has no affect.
 
 ##### Space Invaders/Space Invaders Deluxe/Space Invaders II/Balloon Bomber/Lunar Rescue
 
@@ -219,6 +270,8 @@ These settings are fixed to the specified rom and should not be changed.
 `memory:rom:file:size` - The rom file size.<br>
 `memory:ram:block:offset` - The start of memory ram block offset.<br>
 `memory:ram:block:size` - The ram block size.<br>
+
+**NOTE**: the RP IO Controller does not support saving or loading, hence these settiings will have no affect.
 
 ### Keyboard Controls
 

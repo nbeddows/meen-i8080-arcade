@@ -20,13 +20,14 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-#ifndef SDL_IO_CONTROLLER_H
-#define SDL_IO_CONTROLLER_H
+#ifndef SDLIOCONTROLLER_H
+#define SDLIOCONTROLLER_H
 
 #include <atomic>
-#include <nlohmann/json.hpp>
+#include <ArduinoJson.h>
 #include <SDL.h>
 #include <SDL_mixer.h>
+#include <vector>
 
 #include "meen_hw/MH_Factory.h"
 #include "i8080_arcade/MemoryController.h"
@@ -37,7 +38,7 @@ namespace i8080_arcade
 
 		A custom io controller targetting Space Invaders i8080 arcade hardware compatible ROMs.
 	*/
-	class SdlIoController final : public MachEmu::IController
+	class SDLIoController final : public MachEmu::IController
 	{
 		private:
 			/** SDL Renderer
@@ -150,13 +151,13 @@ namespace i8080_arcade
 
 				Creates an SDL specific i8080 arcade IO controller.
 			*/
-			SdlIoController(const std::shared_ptr<MemoryController>& memoryController, const nlohmann::json& audioHardware, const nlohmann::json& videoHardware);
-			
+			SDLIoController(const std::shared_ptr<MemoryController>& memoryController, const JsonVariant& audioHardware, const JsonVariant& videoHardware);
+
 			/** Destructor
 
 				Free the various required SDL objects.
 			*/
-			~SdlIoController();
+			~SDLIoController();
 
 			/** IController Read override
 
@@ -208,17 +209,21 @@ namespace i8080_arcade
 
 				@param	audioFilePath	The audio samples root directory.
 				@param	audioSamples	JSON object representing the audio sample files.
+
+				@return			0 on success, -1 on failure.
 			*/
-			void LoadAudioSamples(const std::filesystem::path& audioFilePath, const nlohmann::json& audioSamples);
+			int LoadAudioSamples(const std::filesystem::path& audioFilePath, const JsonVariant& audioSamples);
 
 			/** Load Video Textures
 
 				Create the video texture that will be rendered to the screen.
 
 				@param	videoTextures	JSON object describing the video texture.
+
+				@return			0 on success, -1 on failure.
 			*/
-			void LoadVideoTextures(const nlohmann::json& videoTextures);
+			int LoadVideoTextures(const JsonVariant& videoTextures);
 	};
 } // namespace i8080_arcade
 
-#endif // SDL_IO_CONTROLLER_H
+#endif // SDLIOCONTROLLER_H

@@ -20,126 +20,132 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-#ifndef MEMORY_CONTROLLER_H
-#define MEMORY_CONTROLLER_H
+#ifndef MEMORYCONTROLLER_H
+#define MEMORYCONTROLLER_H
 
+#include <ArduinoJson.h>
 #include <array>
-#include <filesystem>
 #include <memory>
-#include <mutex>
-#include <nlohmann/json.hpp>
-#include <vector>
 
-#include "Base/Base.h"
-#include "Controller/IController.h"
+#ifndef ENABLE_MH_RP2040
+#include <filesystem>
+#endif // ENABLE_MH_RP2040
+
+#include "meen/Base.h"
+#include "meen/IController.h"
 #include "meen_hw/MH_ResourcePool.h"
 
 namespace i8080_arcade
 {
-	/** Custom memory controller.
+    /** Custom memory controller.
 
-		A custom memory controller targetting Space Invaders arcade hardware compatible ROMs.
-	*/
-	class MemoryController final : public MachEmu::IController
-	{
-        private:
-            /** Memory size
+        A custom memory controller targetting Space Invaders arcade hardware compatible ROMs
+        based on the st7789vw driver targetting the rp2040 microcontroller.
+    */
+    class MemoryController final : public MachEmu::IController
+    {
+    private:
+        /** Memory size
 
-                The size in bytes of the memory.
-            */
-            //cppcheck-suppress unusedStructMember
-            size_t memorySize_{ 1 << 16 };
+            The size in bytes of the memory.
+        */
+        //cppcheck-suppress unusedStructMember
+        size_t memorySize_{ 1 << 16 };
 
-            /** Memory buffer
+        /** Memory buffer
 
-                The memory bytes that the cpu will read from and write to.
-            */
-            std::unique_ptr<uint8_t[]> memory_;
+             The memory bytes that the cpu will read from and write to.
+        */
+        std::unique_ptr<uint8_t[]> memory_;
 
-            /** VRAM frame pool
+        /** VRAM frame pool
 
-                A pool of recyclable video frames.
-            */
-            meen_hw::MH_ResourcePool<std::array<uint8_t, 7168>> framePool_;
+            A pool of recyclable video frames.
+        */
+        meen_hw::MH_ResourcePool<std::array<uint8_t, 7168>> framePool_;
 
-        public:
-            /** Constructor
 
-                Create a memory controller that can handle the memory requirements
-                of i8080 arcade. The emulated hardware runs on an Intel8080 with 64k
-                of memory therefore the memory controller will be of this size.
+    public:
+        /** Constructor
 
-                @param      framePoolSize       The amount frames to allocate, each frame is 7168 bytes in length.
+            Create a memory controller that can handle the memory requirements
+            of i8080 arcade. The emulated hardware runs on an Intel8080 with 64k
+            of memory therefore the memory controller will be of this size.
 
-                @remark     default frame pool size is 1.
+            @param      framePoolSize       The amount frames to allocate, each frame is 7168 bytes in length.
 
-                @see framePool_
-            */
-            explicit MemoryController(int framePoolSize = 1);
+            @remark     default frame pool size is 1.
 
-            /** Destructor
+            @see framePool_
+        */
+        explicit MemoryController(int framePoolSize = 1);
 
-                Free the memory controller resources.
-            */
-            ~MemoryController() = default;
+        /** Destructor
 
-            /** Get a copy of the current video ram
+            Free the memory controller resources.
+        */
+        ~MemoryController() = default;
 
-                The VideoFrame containing the current video ram is taken from a finite frame pool.
+        /** Get a copy of the current video ram
 
-                @return         The current video ram as a recyclable resource.
-            */
-            meen_hw::MH_ResourcePool<std::array<uint8_t, 7168>>::ResourcePtr GetVideoFrame() const;
+            The VideoFrame containing the current video ram is taken from a finite frame pool.
 
-            /** Load ROM file
+            @return         The current video ram as a recyclable resource.
+        */
+        meen_hw::MH_ResourcePool<std::array<uint8_t, 7168>>::ResourcePtr GetVideoFrame() const;
+#ifdef ENABLE_MH_RP2040
+        /** Load ROM file
 
-                Loads the specified rom files located at the given path into memory
-                at the correct offset.
+            Loads the specified rom files located on flash into memory
+            at the correct offset.
 
-                @param      romFilePath     The path to the rom files (on local disk).
+            @param      files           The rom files to load.
+        */
+        int LoadRoms(const JsonVariant& files);
+#else
+        /** Load ROM file
 
-                @param      files           The rom files to load.
-            */
-		    void LoadRoms(const std::filesystem::path& romFilePath, const nlohmann::json& files);
+            Loads the specified rom files located at the given path into memory
+            at the correct offset.
 
-            /** Memory size
+            @param      romFilePath     The path to the rom files (on local disk).
 
-                @return     The size of the memory, in this case 64k.
-            */
-            size_t Size() const;
+            @param      files           The rom files to load.
+        */
+        int LoadRoms(const std::filesystem::path& romFilePath, const JsonVariant& files);
+#endif // ENABLE_MH_RP2040
+        /** Read from controller
 
-            /** Read from controller
+            Reads 8 bits of data from the specifed 16 bit memory address.
 
-                Reads 8 bits of data from the specifed 16 bit memory address.
+            @see IController::Read for further details.
+        */
+        uint8_t Read(uint16_t address) final;
 
-                @see IController::Read for further details.
-            */
-            uint8_t Read(uint16_t address) final;
+        /** Write to controller
 
-            /** Write to controller
+            Write 8 bits of data to the specifed 16 bit memory address.
 
-                Write 8 bits of data to the specifed 16 bit memory address.
+            @see IController::Write for further details.
+        */
+        void Write(uint16_t address, uint8_t value) final;
 
-                @see IController::Write for further details.
-            */
-            void Write(uint16_t address, uint8_t value) final;
+        /** Service memory interrupts
 
-            /** Service memory interrupts
+            Memory interrupts are never generated.
 
-                Memory interrupts are never generated.
+            The function will always return ISR::NoInterrupt.
+        */
+        MachEmu::ISR ServiceInterrupts(uint64_t currTime, uint64_t cycles) final;
 
-                The function will always return ISR::NoInterrupt.
-            */
-            MachEmu::ISR ServiceInterrupts(uint64_t currTime, uint64_t cycles) final;
+        /** Uuid
 
-            /**	Uuid
+            Unique universal identifier for this controller.
 
-                Unique universal identifier for this controller.
-
-                @return					The uuid as a 16 byte array.
-            */
-            std::array<uint8_t, 16> Uuid() const final;
-        };
+            @return    The uuid as a 16 byte array.
+        */
+        std::array<uint8_t, 16> Uuid() const final;
+    };
 } // namespace i8080_arcade
 
-#endif // MEMORY_CONTROLLER_H
+#endif // MEMORYCONTROLLER_H

@@ -1,3 +1,6 @@
+0.7.0
+* Added RP2040 support (no audio).
+
 0.6.1 [04/08/24]
 * Added profiles for improved build support.
 * Compiler id and version are now incorporated
