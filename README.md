@@ -222,9 +222,9 @@ The current settings for these options should be sufficient, changing them may h
 
 Video hardware options. These options can be changed for the desired output.
 
-`width:224` - The width of the screen.<br>
-`height:256` - The height of the screen.<br>
-`full-screen:false` - Window or full screen display.<br>
+`width:224` - The width of the screen. For non embedded platforms, the output will scale to fit. For embedded platforms, the value should be the width of your attached lcd panel<br>
+`height:256` - The height of the screen. For non embedded platforms, the output will scale to fit. For embedded platforms, the value should be the width of your attached lcd panel<br>
+`full-screen:false` - Window or full screen display. (Experimental)<br>
 
 **NOTE**: the RP IO Controller does not support scaling or full-screen, the width and height parameters will be used to center the output on the display device.
 

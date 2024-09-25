@@ -153,9 +153,39 @@ namespace i8080_arcade
 			return -1;
 		}
 
-		i8080ArcadeIO_->SetOptions(meenConfig.c_str());
+		auto err = i8080ArcadeIO_->SetOptions(meenConfig.c_str());
+		
+		if(err)
+		{
+			printf("Failed to set options: %s\n", err.message().c_str());
+			return -1;
+		}
+
+		auto pf = SDL_PIXELFORMAT_UNKNOWN;
+
+		if(videoTextures["bpp"] != nullptr)
+		{
+			switch(videoTextures["bpp"].as<int>())
+			{
+				case 8:
+					pf = SDL_PIXELFORMAT_RGB332;
+					break;
+				case 16:
+					pf = SDL_PIXELFORMAT_RGB565;
+					break;
+				default:
+					printf("Invalid bpp: %d\n", videoTextures["bpp"].as<int>());
+					return -1;
+			}
+		}
+		else
+		{
+			printf("No valid bpp has been set\n");
+			return -1;
+		}
+
 		SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "linear");
-		texture_ = SDL_CreateTexture(renderer_, SDL_PIXELFORMAT_RGB332, SDL_TEXTUREACCESS_STREAMING, i8080ArcadeIO_->GetVRAMWidth(), i8080ArcadeIO_->GetVRAMHeight());
+		texture_ = SDL_CreateTexture(renderer_, pf, SDL_TEXTUREACCESS_STREAMING, i8080ArcadeIO_->GetVRAMWidth(), i8080ArcadeIO_->GetVRAMHeight());
 
 		if (texture_ == nullptr)
 		{
