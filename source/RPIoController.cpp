@@ -155,7 +155,7 @@ namespace i8080_arcade
         i8080ArcadeIO_->SetOptions(meenConfig.c_str());
 
         // We decompress and write one scanline at a time to lcd ram
-        texture_ = std::make_unique<uint8_t>(i8080ArcadeIO_->GetVRAMWidth() * 2); // 2 - 2 bytes per pixel
+        texture_ = std::make_unique<uint8_t>((i8080ArcadeIO_->GetVRAMWidth() * bpp) / 8); // 8 - bits per pixel
 
         if (texture_ == nullptr)
         {
