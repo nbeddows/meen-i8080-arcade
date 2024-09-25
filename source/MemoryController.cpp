@@ -82,18 +82,22 @@ namespace i8080_arcade
         {
             if(file["name"].as<std::string>() == "invaders-h.bin")
             {
+                //cppcheck-suppress comparePointers
                 err = copyFromFlashToRam(&invadersHStart, &invadersHEnd - &invadersHStart, file["offset"].as<uint16_t>());
             }
             else if(file["name"].as<std::string>() == "invaders-g.bin")
             {
+                //cppcheck-suppress comparePointers
                 err = copyFromFlashToRam(&invadersGStart, &invadersGEnd - &invadersGStart, file["offset"].as<uint16_t>());
             }
             else if(file["name"].as<std::string>() == "invaders-f.bin")
             {
+                //cppcheck-suppress comparePointers
                 err = copyFromFlashToRam(&invadersFStart, &invadersFEnd - &invadersFStart, file["offset"].as<uint16_t>());
             }
             else if(file["name"].as<std::string>() == "invaders-e.bin")
             {
+                //cppcheck-suppress comparePointers
                 err = copyFromFlashToRam(&invadersEStart, &invadersEEnd - &invadersEStart, file["offset"].as<uint16_t>());
             }
             else

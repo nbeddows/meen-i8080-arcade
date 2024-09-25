@@ -96,6 +96,7 @@ int main(int argc, char** argv)
 #ifdef ENABLE_MH_RP2040
     stdio_init_all();
     // Open the configuration file, see the README for an explanation of each configuration option
+    //cppcheck-suppress comparePointers
     auto err = deserializeJson(json, std::string(&rpConfigStart, &rpConfigEnd - &rpConfigStart));
 #else
     if (ParseCmdLine(argc, argv) < 0)
