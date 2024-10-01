@@ -22,6 +22,7 @@ SOFTWARE.
 
 #include <assert.h>
 #include <bitset>
+#include <cstring>
 #include <hardware/gpio.h>
 #include <hardware/pwm.h>
 #include <hardware/spi.h>
@@ -231,7 +232,7 @@ namespace i8080_arcade
                 }
                 else
                 {
-//                    printf("1 Video frame dropped, renderer too slow\n");
+                    printf("1 Video frame dropped, renderer too slow\n");
                 }
 
                 isr = MachEmu::ISR::Two;
@@ -268,28 +269,30 @@ namespace i8080_arcade
     void RPIoController::SetRegion(uint16_t Xstart, uint16_t Ystart, uint16_t Xend, uint16_t Yend)
     {
         //set the X coordinates
-        WriteCmd(0x2A);
-        WriteParam(Xstart >>8);
-        WriteParam(Xstart & 0xff);
-        WriteParam((Xend - 1) >> 8);
-        WriteParam((Xend-1) & 0xFF);
+        RPIoController::WriteCmd(0x2A);
+        RPIoController::WriteParam(Xstart >>8);
+        RPIoController::WriteParam(Xstart & 0xff);
+        RPIoController::WriteParam((Xend - 1) >> 8);
+        RPIoController::WriteParam((Xend-1) & 0xFF);
 
         //set the Y coordinates
-        WriteCmd(0x2B);
-        WriteParam(Ystart >>8);
-        WriteParam(Ystart & 0xff);
-        WriteParam((Yend - 1) >> 8);
-        WriteParam((Yend - 1) & 0xff);
+        RPIoController::WriteCmd(0x2B);
+        RPIoController::WriteParam(Ystart >>8);
+        RPIoController::WriteParam(Ystart & 0xff);
+        RPIoController::WriteParam((Yend - 1) >> 8);
+        RPIoController::WriteParam((Yend - 1) & 0xff);
     };
 
     void RPIoController::EventLoop()
     {
         auto arcadeWidth = i8080ArcadeIO_->GetVRAMWidth();
         auto arcadeHeight = i8080ArcadeIO_->GetVRAMHeight();
+        auto compressedWidth = arcadeWidth >> 3;
         auto widthOffset = (width_ - arcadeWidth) / 2;
         auto heightOffset = (height_ - arcadeHeight) / 2;
         auto dst = std::bit_cast<uint16_t*>(texture_.get());
         VideoFrameWrapper* vfw = nullptr;
+	    meen_hw::MH_ResourcePool<std::array<uint8_t, 7168>>::ResourcePtr backBuffer;
 
         // Write 8 bits at a time
         spi_set_format(spi1, 8, SPI_CPOL_0, SPI_CPHA_0, SPI_MSB_FIRST);
@@ -313,16 +316,23 @@ namespace i8080_arcade
              }
         }
 
-        gpio_put(Pin::CS, 1);
+        auto setRegion = [wo = widthOffset, ho = heightOffset, w = width_, h = height_](int hIndex)
+        {
+            gpio_put(Pin::CS, 1);
+            // Write 8 bits at a time
+            spi_set_format(spi1, 8, SPI_CPOL_0, SPI_CPHA_0, SPI_MSB_FIRST);
+            // Center the graphics on the display
+            RPIoController::SetRegion(wo, ho + hIndex, w - wo, h - ho);
+            // write to lcd ram
+            RPIoController::WriteCmd(0X2C);
+            // Write 16 bits at a time
+            spi_set_format(spi1, 16, SPI_CPOL_0, SPI_CPHA_0, SPI_MSB_FIRST);
+        };
 
-        // Write 8 bits at a time
-        spi_set_format(spi1, 8, SPI_CPOL_0, SPI_CPHA_0, SPI_MSB_FIRST);
-        // Center the graphics on the display
-        SetRegion(widthOffset, heightOffset, width_ - widthOffset, height_ - heightOffset);
-        // write to lcd ram
-        WriteCmd(0X2C);
-        // Write 16 bits at a time
-        spi_set_format(spi1, 16, SPI_CPOL_0, SPI_CPHA_0, SPI_MSB_FIRST);
+        setRegion(0);
+
+	    //auto lastTime = get_absolute_time();
+	    //int fr = 0;
 
         while(1)
         {
@@ -336,41 +346,82 @@ namespace i8080_arcade
             if (videoFrame != nullptr)
             {
                 auto vf = videoFrame.get()->data();
-                int index = 0;
+                uint8_t* bb = nullptr;
+
+                if(backBuffer != nullptr)
+                {
+                    bb = backBuffer.get()->data();
+                }
 
                 gpio_put(Pin::DC, 1);
                 gpio_put(Pin::CS, 0);
 
-                for(int i = 0; i < arcadeHeight; i++)
+                for(int i = 0/*, lastScanline = 0*/; i < arcadeHeight; i++)
                 {
                     // Blit a scanline at a time for performance reasons
 
-                    // TODO: This method needs to be optimised, see TODO in meen_hw::BlitVRAM
-                    //i8080ArcadeIO_->BlitVRAM(std::span(texture_.get(), 512), 512, std::span(vf, 32));
-                    //vf += 32;
-
-                    for(int j = 0; j < arcadeWidth; j += 8)
+                    // Utilise a back buffer so we only render scanlines that have changed
+                    if(bb != nullptr)
                     {
-                        uint8_t cp = vf[index++];
-
-                        for(int k = 0; k < 8; k++)
+                        // Check to see if this scanline has changed compared to its counterpart in the previous frame
+                        if(std::memcmp(bb, vf, compressedWidth) != 0)
                         {
-                            dst[j + k] = ((cp >> k) & 0x01) * 0xFFFF;
+                            // Update the region only if the scanline to be rendered is non contiguous from the previous scanline
+                            // TODO: this minor optimisation yields rendering errors, requires further investigation if it is needed.
+                            //if(i - lastScanline > 1)
+                            {
+                                setRegion(i);
+
+                                gpio_put(Pin::DC, 1);
+                                gpio_put(Pin::CS, 0);
+                            }
+
+                            // Blit and render the current scanline
+                            i8080ArcadeIO_->BlitVRAM(std::span(texture_.get(), 512), 512, std::span(vf, compressedWidth));
+                            spi_write16_blocking(spi1, dst, arcadeWidth);
+
+                            // Update the last scanline index
+                            //lastScanline = i;
                         }
+//                      else
+//                          this scanline is the same as its counterpart in the previous frame, no need to render this scanline
+
+                        // Move to the next scanline in the back buffer
+                        bb += compressedWidth;
+                    }
+                    else
+                    {
+                        i8080ArcadeIO_->BlitVRAM(std::span(texture_.get(), 512), 512, std::span(vf, compressedWidth));
+                        spi_write16_blocking(spi1, dst, arcadeWidth);
                     }
 
-                    spi_write16_blocking(spi1, dst, 256);
+                    // Move to the next scanline in the front buffer
+                    vf += compressedWidth;
                 }
 
                 gpio_put(Pin::CS, 1);
 
-                // explicitly set to nullptr so it is immediately returned to the memory controller.
+                // We are done, swap the front and back buffers
+                std::swap(backBuffer, videoFrame);
+
+                // Explicitly set to nullptr so it is immediately returned to the memory controller.
                 videoFrame = nullptr;
+
+                //fr++;
             }
             else
             {
                 printf("Video frame dropped\n");
             }
+
+            //auto now = get_absolute_time();
+
+            //if(absolute_time_diff_us(lastTime, now) >= 1000000)
+            //{
+            //    lastTime = now;
+            //    printf("FR: %d\n", fr);
+            //    fr = 0;
+            //}
         }
     }
 } // namespace i8080_arcade
