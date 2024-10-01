@@ -247,9 +247,11 @@ These settings apply to the various arcade roms that can be loaded.
 
 These settings affect visual output and can be changed. They apply to all game roms loaded.
 
-`bpp:8` - Bits per pixel, supported values are 1 (currently not supported via the SDL IO controller), 8 (rgb332, not supported via the RP IO Controller) and 16 (rgb565).<br>
-`colour:white`: the forground colour (the background is always black), supported values are "white", "red", "green", "blue", "random" and an 16 bit custom hex value.<br>
+`bpp:8` - Bits per pixel, supported values are 1 (experimental and not universally supported), 8 (rgb332) and 16 (rgb565).<br>
+`colour:white`: the forground colour (the background is always black), supported values are "white", "red", "green", "blue", "random" and a 16 bit custom hex value.<br>
 `orientation:upright` - The window layout, "cocktail" for horizontal and "upright" for vertical.<br>
+
+**NOTE**: the RP IO Controller only supports cocktail orientation @ 16bpp.
 
 ##### Audio
 
@@ -259,7 +261,7 @@ These settings affect audio output. They can be changed if different audio sampl
 
 **NOTE**: the position of the audio files in the array **must** not be changed.<br>
 **NOTE**: if changing the audio files, the audio hardware properties may need to be updated (untested).
-**NOTE**: the RP IO Controller does not support audio, these setting has no affect.
+**NOTE**: the RP IO Controller does not support audio, these setting have no affect.
 
 ##### Space Invaders/Space Invaders Deluxe/Space Invaders II/Balloon Bomber/Lunar Rescue
 

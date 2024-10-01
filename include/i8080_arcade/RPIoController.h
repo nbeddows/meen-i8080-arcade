@@ -118,7 +118,7 @@ namespace i8080_arcade
 
             Write a command to the LCD driver.
         */
-        void WriteCmd(uint8_t cmd);
+        static void WriteCmd(uint8_t cmd);
 
         /** LCD params
 
@@ -127,7 +127,7 @@ namespace i8080_arcade
             @param    param    The next parameter in the parameter sequence defined
                                by the previous call to WriteCmd.
         */
-        void WriteParam(uint8_t param);
+        static void WriteParam(uint8_t param);
 
         /** Ram write region
 
@@ -138,7 +138,7 @@ namespace i8080_arcade
             @param    endX      the ending x coordinate of the blit region.
             @param    endX      the ending x coordinate of the blit region.
         */
-        void SetRegion(uint16_t Xstart, uint16_t Ystart, uint16_t Xend, uint16_t Yend);
+        static void SetRegion(uint16_t Xstart, uint16_t Ystart, uint16_t Xend, uint16_t Yend);
 
     public:
         /** Initialisation constructor
