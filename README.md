@@ -2,12 +2,15 @@
 
 This demo project shows how to make use of the [meen](http://github.com/nbeddows/mach-emu/) and [meen_hw](http://github.com/nbeddows/meen-hw) packages to emulate an arcade machine, in this case, one based on the Space Invaders Taito/Midway arcade hardware. I don't consider the emulation to be the most efficient, accurate, or to be extensively tested, but I'm happy with where it is at.
 
-This project has been tested against the following roms (which can be found elsewhere online) on the following platforms: Windows/Linux(x86_64), Linux(armv7hf, armv8), RP2040(armv6-m):
+This project has been tested against the following roms (which can be found elsewhere online) on the following platforms: Windows/Linux(x86_64), Linux(armv7hf, armv8), Pico RP2040(armv6-m):
 
 - Space Invaders.
 - Space Invaders Part II/Deluxe.
 - Balloon Bomber (This one looks to have issues which go beyond the superficial that require further investigation).
 - Lunar Rescue.
+
+For supported desktop platforms The Simple Direct MediaLayer (SDL) is used to render the output and requires a keyboard for interaction (keyboard controls are documented towards the end of this document).
+For supported embedded platforms an st7789 based lcd screen is requried for rendering the output (tested with 320x240) with a minimum of 4 buttons for interaction (button controls are documented towards the end of this document).
 
 ### Compilation
 
@@ -275,7 +278,7 @@ These settings are fixed to the specified rom and should not be changed.
 
 **NOTE**: the RP IO Controller does not support saving or loading, hence these settiings will have no affect.
 
-### Keyboard Controls
+### Desktop Keyboard Controls
 
 `q`: Quit<br>
 `c`: Credit<br>
@@ -296,6 +299,20 @@ These settings are fixed to the specified rom and should not be changed.
 `i`: Show coin info<br>
 `y`: Save game<br>
 `r`: Load game<br> 
+
+### Embedded button controls
+
+Four buttons can be used to control a one player emulation. All game settings will be at defaults, this includes starting with 3 ships with an addtional
+ship every 1500 points.
+
+More buttons and/or logic can be added for a more complete emulation, 2 player support for example (keeping it simple for demonstration purposes).
+
+The pin layout used is the same as the [hardware lcd](https://www.waveshare.com/wiki/Pico-LCD-2) used for testing.
+
+`button 0`: when on the rom attraction screen, select the previous rom in the list of supported roms, when in gameplay mode, move the ship to the left.
+`button 1`: when on the rom attraction screen, add a credit and start a single player game, when in gameplay mode, quit and return to the attraction screen.
+`button 2`: when in gameplay mode, fire at the enemy.
+`button 3`: when on the rom attraction screen, select the next rom in the list of supported roms, when in gameplay mode, move the ship to the right.
 
 ![space-invaders](docs/images/space-invaders.png) ![space-invaders-deluxe](docs/images/space-invaders-deluxe.png) ![lunar-rescue](docs/images/lunar-rescue.png) ![balloon-bomber](docs/images/balloon-bomber.png)
 
