@@ -72,6 +72,22 @@ namespace i8080_arcade
         gpio_init(Pin::BL);
         gpio_set_dir(Pin::BL, GPIO_OUT);
 
+        gpio_init(Pin::K0);
+        gpio_set_dir(Pin::K0, GPIO_IN);
+        gpio_pull_up(Pin::K0);//Need to pull up
+
+        gpio_init(Pin::K1);
+        gpio_set_dir(Pin::K1, GPIO_IN);
+        gpio_pull_up(Pin::K1);//Need to pull up
+
+        gpio_init(Pin::K2);
+        gpio_set_dir(Pin::K2, GPIO_IN);
+        gpio_pull_up(Pin::K2);//Need to pull up
+
+        gpio_init(Pin::K3);
+        gpio_set_dir(Pin::K3, GPIO_IN);
+        gpio_pull_up(Pin::K3);//Need to pull up
+
         gpio_put(Pin::BL, 1);
         gpio_put(Pin::CS, 1);
         gpio_put(Pin::DC, 0);
@@ -112,6 +128,10 @@ namespace i8080_arcade
         gpio_deinit(Pin::BL);
         gpio_deinit(Pin::CS);
         gpio_deinit(Pin::DC);
+        gpio_deinit(Pin::K0);
+        gpio_deinit(Pin::K1);
+        gpio_deinit(Pin::K2);
+        gpio_deinit(Pin::K3);
         gpio_deinit(Pin::RST);
         spi_deinit(spi1);
         queue_free(&freeQueue_);
@@ -169,15 +189,80 @@ namespace i8080_arcade
 
     uint8_t RPIoController::Read(uint16_t port)
     {
-        uint8_t ret = 0;
-
-        ret = i8080ArcadeIO_->ReadPort(port);
+        uint8_t ret = i8080ArcadeIO_->ReadPort(port);
 
         if (ret == 0)
         {
-            if (port == 1 || port == 2)
+            if (port == 1)
             {
-                // TODO: get button input
+                auto buttonPress = [](bool button, bool& lastButton)
+                {
+                    bool press = false;
+
+                    if ((button ^ lastButton) && button)
+                    {
+                        press = true;
+                    }
+
+                    lastButton = button;
+                    return press;
+                };
+
+
+                // Always force single player mode (0x04) (2P mode is not supported)
+                ret = 0x08 | 0x04;
+                ret |= buttonPress(!gpio_get(Pin::K1), lastK1_) * 0x01; // Credit
+
+                if (ships_ > 0)
+                {
+                    // We want button repeats during gameplay for player movement
+                    ret |= !gpio_get(Pin::K0) * 0x20; // 1P Left
+                    ret |= !gpio_get(Pin::K3) * 0x40; // 1P Right
+                    ret |= buttonPress(!gpio_get(Pin::K2), lastK2_) * 0x10; // 1P Fire
+
+                    if (ret & 0x01)
+                    {
+                        //ships_ = 0;
+                        // turn off credit
+                        ret &= ~0x01;
+                        //printf("Quitting mid game\n");
+                        // TODO: We are playing a game, we need to quit back to the attraction screen, we need to issue a quit event to pass back to the main
+                        // function so we can reset the machine
+                    }
+                }
+                else
+                {
+                    // When scrolling roms we DONT want button repeats
+                    ret |= buttonPress(!gpio_get(Pin::K0), lastK0_) * 0x20; // 1P Left
+                    ret |= buttonPress(!gpio_get(Pin::K3), lastK3_) * 0x40; // 1P Right
+
+                    if (ret & 0x01)
+                    {
+                        //printf("Game start\n");
+                        // We are starting a game, set the amount of ships (this could be also 4/5/6 if this demo supported setting the ship count)
+                        ships_ = 3;
+                    }
+
+                    if (ret & 0x20)
+                    {
+                        //printf("Move to the previous rom\n");
+                        // turn off move left
+                        ret &= ~0x20;
+                        // TODO: We want move to the previous rom, send previous rom event
+                    }
+
+                    if (ret & 0x40)
+                    {
+                        //printf("Move to the next rom\n");
+                        // turn off move right
+                        ret &= ~0x40;
+                        // TODO: We want move to the next rom, send next rom event
+                    }
+                }
+            }
+            else if (port == 2)
+            {
+                // Other options will run at defaults, ie; 3 ships with an extra ship every 1500 points
             }
         }
 
@@ -186,8 +271,25 @@ namespace i8080_arcade
 
     void RPIoController::Write(uint16_t port, uint8_t data)
     {
-        // audio is not supported
-        [[maybe_unused]] auto audio = i8080ArcadeIO_->WritePort(port, data);
+        // audio output is not supported, we use the audio to help track the state of the gameplay
+        auto audio = i8080ArcadeIO_->WritePort(port, data);
+
+        if(port == 3)
+        {
+            // port 3 bit 4 is extended play, need to increment the ships_ count by one
+            if((audio >> 4) & 0x01)
+            {
+                //printf("Extra ship!\n");
+                ++ships_;
+            }
+
+            // port 3 bit 2 is player killed, need to reduce the ships_ count by one
+            if((audio >> 2) & 0x01)
+            {
+                //printf("Player killed\n");
+                --ships_;
+            }
+        }
     }
 
     MachEmu::ISR RPIoController::ServiceInterrupts(uint64_t currTime, uint64_t cycles)
@@ -331,8 +433,8 @@ namespace i8080_arcade
 
         setRegion(0);
 
-	    //auto lastTime = get_absolute_time();
-	    //int fr = 0;
+        //auto lastTime = get_absolute_time();
+        //int fr = 0;
 
         while(1)
         {
