@@ -48,7 +48,11 @@ namespace i8080_arcade
             CS = 9,
             DC = 8,
             RST = 12,
-            BL = 13
+            BL = 13,
+            K0 = 15,
+            K1 = 17,
+            K2 = 2,
+            K3 = 3
         };
 
         /** Output device width
@@ -113,6 +117,27 @@ namespace i8080_arcade
             The pixels that will be rendered to the display.
         */
         std::unique_ptr<uint8_t> texture_;
+
+        /** The number of remaining ships
+
+            This counter is used to track when to move from gameplay mode to
+            attraction screen mode and vide versa.
+            When it is greater than 0, we are in gameplay mode and buttons 0
+            and 3 will be used to move the ship left and right. When it is
+            0 we are in attraction screen mode and these buttons will be used
+            to select which rom to load.
+        */
+        int ships_{};
+
+        /** Button state tracking
+
+            Store the previous state of the buttons to eliminate
+            repeated presses when the button is held down.
+        */
+        bool lastK0_{};
+        bool lastK1_{};
+        bool lastK2_{};
+        bool lastK3_{};
 
         /** LCD command
 
