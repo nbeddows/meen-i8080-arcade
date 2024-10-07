@@ -20,6 +20,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
+#include "i8080_arcade/MIA_Types.h"
 #include "meen/MachineFactory.h"
 
 static std::string gameRom = "space-invaders";
@@ -93,6 +94,10 @@ int main(int argc, char** argv)
 {
     std::string meenConfig;
     JsonDocument json;
+    auto event = i8080_arcade::MIA_Event::None;
+    std::array<std::string, 5> roms = { "space-invaders", "space-invaders-ii", "space-invaders-deluxe", "balloon-bomber", "lunar-rescue" };
+    int romIndex = 0;
+
 #ifdef ENABLE_MH_RP2040
     stdio_init_all();
     // Open the configuration file, see the README for an explanation of each configuration option
@@ -131,14 +136,6 @@ int main(int argc, char** argv)
         return -1;
     }
 
-    auto arcadeGame = software[gameRom];
-
-    if(arcadeGame == nullptr)
-    {
-        printf("The game space-invaders does not exist in the software section of the config file");
-        return -1;
-    }
-
     auto hardware = arcade["hardware"];
 
     if(hardware == nullptr)
@@ -159,61 +156,172 @@ int main(int argc, char** argv)
     auto machine = MachEmu::MakeMachine(meenConfig.c_str());
     // Create our custom i8080 arcade memory controller. Three video frames for triple buffering.
     auto memoryController = std::make_shared<i8080_arcade::MemoryController>(3);
+
+    auto loadRomAndMemLayout = [&](const std::string& romName)
+    {
+        const auto& arcadeGame = software[romName];
+
+        if (arcadeGame == nullptr)
+        {
+            printf("The rom %s does not exist in the software section of the config file\n", romName.c_str());
+            return -1;
+        }
+
 #ifdef ENABLE_MH_RP2040
-    // load roms/textures/(audio samples)
-    memoryController->LoadRoms(arcadeGame["memory"]["rom"]["file"]);
+        if (memoryController->LoadRoms(arcadeGame["memory"]["rom"]["file"]) < 0)
+#else
+        if (memoryController->LoadRoms(romFilePath, arcadeGame["memory"]["rom"]["file"]) < 0)
+#endif
+        {
+            printf("Memory controller failed to load rom %s\n", romName.c_str());
+        }
+
+        // Load the memory layout into the machine
+        serializeJson(software[gameRom]["memory"]/*arcadeGame["memory"]*/, meenConfig);
+
+        if (meenConfig.empty() == true)
+        {
+            printf("Parse error while serializing %s memory\n", romName.c_str());
+            return -1;
+        }
+
+        auto ec = machine->SetOptions(meenConfig.c_str());
+
+        if(ec)
+        {
+            printf("Failed to set %s memory layout: %s", romName.c_str(), ec.message().c_str());
+            return -1;
+        }
+
+        return 0;
+    };
+
+#ifdef ENABLE_MH_RP2040
     // Create our custom i8080 arcade I/O controller based on a specific configuration.
     auto ioController = std::make_shared<i8080_arcade::RPIoController>(memoryController, hardware["audio"], hardware["video"]);
 #else
-    // load roms/textures/(audio samples)
-    memoryController->LoadRoms(romFilePath, arcadeGame["memory"]["rom"]["file"]);
     // Create our custom i8080 arcade I/O controller based on a specific configuration.
     auto ioController = std::make_shared<i8080_arcade::SDLIoController>(memoryController, hardware["audio"], hardware["video"]);
     ioController->LoadAudioSamples(audioFilePath, software["audio"]);
 
     // Will be called from a different thread, this is a simple implementation which will overwrite the previous save file
-    machine->OnSave([](const char* json)
+    auto ec = machine->OnSave([](const char* json)
     {
+        std::error_code ec;
         // Need to make a copy of the json if you want to hold the json string longer than the scope of this function
-        std::filesystem::create_directory(saveFilePath);
-        std::ofstream fout((saveFilePath / gameRom).string() + ".json", std::ios::trunc);
-        fout.exceptions(fout.failbit);
-        fout.write(json, strlen(json));
+        std::filesystem::create_directory(saveFilePath, ec);
+        
+        if (!ec)
+        {
+            std::ofstream fout((saveFilePath / gameRom).string() + ".json", std::ios::trunc);
+
+            if (fout)
+            {
+                fout.write(json, strlen(json));
+            }
+        }
     });
 
     // Will be accessed from a different thread
     std::string loadJson;
     // Will be called from a different thread
-    machine->OnLoad([&loadJson]
+    ec = machine->OnLoad([&loadJson]
     {
+        const char* json = nullptr;
         std::ifstream fin((saveFilePath / gameRom).string() + ".json", std::ios::ate);
-        fin.exceptions(fin.failbit);
-        auto len = fin.tellg();
-        fin.seekg(0, std::ios::beg);
-        loadJson.resize(len);
-        fin.read(loadJson.data(), len);
-        return loadJson.c_str();
+
+        if(fin)
+        {
+            auto len = fin.tellg();
+            fin.seekg(0, std::ios::beg);
+            loadJson.resize(len);
+            fin.read(loadJson.data(), len);
+            json = loadJson.c_str();
+        }
+        
+        return json;
     });
 #endif // ENABLE_MH_RP2040
-    ioController->LoadVideoTextures(software["video"]);
-
-    // Load the memory layout into the machine
-    serializeJson(arcadeGame["memory"], meenConfig);
-
-    if(meenConfig.empty() == true)
+    auto ret = loadRomAndMemLayout(gameRom);
+    
+    if (ret < 0)
     {
-        printf("Parse error while serializing arcadeGame:memory\n");
-        return -1;
+        return ret;
     }
 
-    machine->SetOptions(meenConfig.c_str());
-    machine->SetMemoryController(memoryController);
-    machine->SetIoController(ioController);
-    // Run the machine asynchronously, the machine now owns the controllers and they should not be accessed
-    machine->Run(0x00);
-    // Run the io event loop until the 'q' key is pressed or the window is closed, or in the case of st7889vw top left button is pressed
-    ioController->EventLoop();
-    // Wait for the machine to finish, once complete the controllers can be accessed safely
-    machine->WaitForCompletion();
+    ret = ioController->LoadVideoTextures(software["video"]);
+
+    if (ret < 0)
+    {
+        printf("Failed to create rendering surfaces\n");
+        return ret;
+    }
+
+    ec = machine->SetMemoryController(memoryController);
+   
+    if (ec)
+    {
+        printf("Failed to set the memory controller: %s\n", ec.message().c_str());
+    }
+
+    ec = machine->SetIoController(ioController);
+
+    if (ec)
+    {
+        printf("Failed to set the io controller: %s\n", ec.message().c_str());
+    }
+
+    while(event != i8080_arcade::MIA_Event::Quit)
+    {
+        // Run the machine asynchronously, the machine now owns the controllers and they should not be accessed
+        machine->Run(0x00);
+        // Run the io event loop until the 'q' key is pressed or the window is closed, or in the case of st7889vw top left button is pressed
+        event = ioController->EventLoop();
+        // Wait for the machine to finish, once complete the controllers can be accessed safely
+        machine->WaitForCompletion();
+
+        switch (event)
+        {
+            case i8080_arcade::MIA_Event::Quit:
+            {
+                break;
+            }
+            case i8080_arcade::MIA_Event::Reset:
+            {
+                break;
+            }
+            case i8080_arcade::MIA_Event::NextRom:
+            {
+                romIndex = ++romIndex % 5; // 5 - total number of supported roms
+                gameRom = roms[romIndex];
+                ret = loadRomAndMemLayout(gameRom);
+                break;
+            }
+            case i8080_arcade::MIA_Event::PreviousRom:
+            {
+                --romIndex;
+                
+                if(romIndex < 0)
+                {
+                    romIndex = 4; // 4 - total number of supported roms (0 based, therefore 5 roms supported)
+                }
+
+                gameRom = roms[romIndex];
+                ret = loadRomAndMemLayout(gameRom);
+                break;
+            }
+            default:
+            {
+                printf("Unknown event: %d\n", event);
+                break;
+            }
+        }
+
+        if (ret < 0)
+        {
+            printf("Post event loop action failed, resetting the current rom\n");
+        }
+    }
+
     return 0;
 }
