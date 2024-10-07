@@ -208,7 +208,6 @@ namespace i8080_arcade
                     return press;
                 };
 
-
                 // Always force single player mode (0x04) (2P mode is not supported)
                 ret = 0x08 | 0x04;
                 ret |= buttonPress(!gpio_get(Pin::K1), lastK1_) * 0x01; // Credit
@@ -253,10 +252,27 @@ namespace i8080_arcade
 
                     if (ret & 0x40)
                     {
-                        //printf("Move to the next rom\n");
+                        printf("Move to the next rom\n");
                         // turn off move right
                         ret &= ~0x40;
-                        // TODO: We want move to the next rom, send next rom event
+
+                        VideoFrameWrapper* vfw;
+                        // We want to move to the next rom, block here so we don't drop it
+                        // Since we are moving on, blocking the cpu here for a possible short period is acceptable.
+                        queue_remove_blocking(&freeQueue_, static_cast<void*>(&vfw));
+
+                        if (vfw != nullptr)
+                        {
+                            // We need to quit the current running machine so we can switch to the next rom
+                            isr_ = MachEmu::ISR::Quit;
+                            vfw->event = MIA_Event::NextRom;
+                            int p = std::bit_cast<int>(vfw);
+                            queue_add_blocking(&videoFrameQueue_, static_cast<void*>(&p));
+                        }
+                        else
+                        {
+                            printf("Failed to remove event from the free queue\n");
+                        }
                     }
                 }
             }
@@ -279,14 +295,14 @@ namespace i8080_arcade
             // port 3 bit 4 is extended play, need to increment the ships_ count by one
             if((audio >> 4) & 0x01)
             {
-                //printf("Extra ship!\n");
+                printf("Extra ship!\n");
                 ++ships_;
             }
 
             // port 3 bit 2 is player killed, need to reduce the ships_ count by one
             if((audio >> 2) & 0x01)
             {
-                //printf("Player killed\n");
+                printf("Player killed\n");
                 --ships_;
             }
         }
@@ -294,16 +310,22 @@ namespace i8080_arcade
 
     MachEmu::ISR RPIoController::ServiceInterrupts(uint64_t currTime, uint64_t cycles)
     {
-        auto isr = MachEmu::ISR::NoInterrupt;
+        if (isr_ == MachEmu::ISR::Quit)
+        {
+            printf("Quit Machine\n");
+            isr_ = MachEmu::ISR::NoInterrupt;
+            return MachEmu::ISR::Quit;
+        }
 
         auto interrupt = i8080ArcadeIO_->GenerateInterrupt(currTime, cycles);
 
         switch(interrupt)
         {
             case 0:
+                isr_ = MachEmu::ISR::NoInterrupt;
                 break;
             case 1:
-                isr = MachEmu::ISR::One;
+                isr_ = MachEmu::ISR::One;
                 break;
             case 2:
             {
@@ -337,14 +359,14 @@ namespace i8080_arcade
                     printf("1 Video frame dropped, renderer too slow\n");
                 }
 
-                isr = MachEmu::ISR::Two;
+                isr_ = MachEmu::ISR::Two;
                 break;
             }
             default:
                 break;
         }
 
-        return isr;
+        return isr_;
     }
 
     std::array<uint8_t, 16> RPIoController::Uuid() const
@@ -385,8 +407,9 @@ namespace i8080_arcade
         RPIoController::WriteParam((Yend - 1) & 0xff);
     };
 
-    void RPIoController::EventLoop()
+    MIA_Event RPIoController::EventLoop()
     {
+        auto event = MIA_Event::None;
         auto arcadeWidth = i8080ArcadeIO_->GetVRAMWidth();
         auto arcadeHeight = i8080ArcadeIO_->GetVRAMHeight();
         auto compressedWidth = arcadeWidth >> 3;
@@ -394,7 +417,7 @@ namespace i8080_arcade
         auto heightOffset = (height_ - arcadeHeight) / 2;
         auto dst = std::bit_cast<uint16_t*>(texture_.get());
         VideoFrameWrapper* vfw = nullptr;
-	    meen_hw::MH_ResourcePool<std::array<uint8_t, 7168>>::ResourcePtr backBuffer;
+        meen_hw::MH_ResourcePool<std::array<uint8_t, 7168>>::ResourcePtr backBuffer;
 
         // Write 8 bits at a time
         spi_set_format(spi1, 8, SPI_CPOL_0, SPI_CPHA_0, SPI_MSB_FIRST);
@@ -436,14 +459,24 @@ namespace i8080_arcade
         //auto lastTime = get_absolute_time();
         //int fr = 0;
 
-        while(1)
+        while(event == MIA_Event::None)
         {
             queue_remove_blocking(&videoFrameQueue_, static_cast<void*>(&vfw));
             auto videoFrame = std::move(vfw->videoFrame);
+            event = vfw->event;
+            //printf("Loop: %d\n", event);
             // explicitly set to nullptr as there is no requirement on std::move to do this
             vfw->videoFrame = nullptr;
+            vfw->event = MIA_Event::None;
             auto p = std::bit_cast<int>(vfw);
             queue_add_blocking(&freeQueue_, static_cast<void*>(&p));
+
+            if(event != MIA_Event::None)
+            {
+                //videoFrame = nullptr;
+                //break;
+                continue;
+            }
 
             if (videoFrame != nullptr)
             {
@@ -525,5 +558,9 @@ namespace i8080_arcade
             //    fr = 0;
             //}
         }
+
+        printf("Event loop complete\n");
+
+        return event;
     }
 } // namespace i8080_arcade

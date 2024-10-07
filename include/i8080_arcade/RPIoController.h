@@ -29,6 +29,7 @@ SOFTWARE.
 
 #include "meen_hw/MH_Factory.h"
 #include "i8080_arcade/MemoryController.h"
+#include "i8080_arcade/MIA_Types.h"
 
 namespace i8080_arcade
 {
@@ -101,8 +102,10 @@ namespace i8080_arcade
 
             A convenience wrapper used to pass unique pointers through RP2040s C based queue api.
         */
+        // TODO: this needs to become an event structure holding an event type
         struct VideoFrameWrapper
         {
+            MIA_Event event;
             meen_hw::MH_ResourcePool<std::array<uint8_t, 7168>>::ResourcePtr videoFrame;
         };
 
@@ -110,7 +113,7 @@ namespace i8080_arcade
 
             @remark    these wrappers are solely accessed via queues to implement double buffering.
         */
-        VideoFrameWrapper videoFrameWrapper_[2];
+        VideoFrameWrapper videoFrameWrapper_[2]{};
 
         /** Video frame buffer
 
@@ -138,6 +141,16 @@ namespace i8080_arcade
         bool lastK1_{};
         bool lastK2_{};
         bool lastK3_{};
+
+        /** The current interrupt service routine
+
+            We need to be able to set the current isr to quit from the read method
+            when we want to stop the current machine and perform a specific action.
+            This will then be picked up in the ServiceInterrupts method. It does not
+            need to be atomic as the Read and ServiceInterrupt methods are called
+            from the same thread.
+        */
+        MachEmu::ISR isr_{ MachEmu::ISR::NoInterrupt };
 
         /** LCD command
 
@@ -230,8 +243,7 @@ namespace i8080_arcade
 
             Events include audio/video rendering, keyboard processing and window close.
         */
-        void EventLoop();
-
+        MIA_Event EventLoop();
     };
 } // namespace i8080_arcade
 #endif // RPIOCONTROLLER_H
