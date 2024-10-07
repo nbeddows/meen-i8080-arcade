@@ -31,6 +31,7 @@ SOFTWARE.
 
 #include "meen_hw/MH_Factory.h"
 #include "i8080_arcade/MemoryController.h"
+#include "i8080_arcade/MIA_Types.h"
 
 namespace i8080_arcade
 {
@@ -131,7 +132,8 @@ namespace i8080_arcade
 
 				@remark		This value can be set from a different thread, hence it is atomic.
 			*/
-			std::atomic_bool quit_{};
+			//std::atomic_bool quit_{};
+			std::atomic<MIA_Event> event_{};
 
 			/**	Load or save
 
@@ -145,6 +147,10 @@ namespace i8080_arcade
 				@remark		This value can be set from a different thread, hence it is atomic.
 			*/
 			std::atomic<MachEmu::ISR> loadSaveInterrupt_{ MachEmu::ISR::NoInterrupt };
+
+			Uint8 lastLA_{};
+			Uint8 lastRA_{};
+			Uint8 lastP_{};
 
 		public:
 			/** Initialisation constructor
@@ -200,8 +206,10 @@ namespace i8080_arcade
 				Process all incoming events.
 
 				Events include audio/video rendering, keyboard processing and window close.
+
+				@return The action to perform once the event loop is complete.
 			*/
-			void EventLoop();
+			MIA_Event EventLoop();
 
 			/** Load Audio Samples
 

@@ -200,7 +200,7 @@ namespace i8080_arcade
 	{
 		uint8_t ret = 0;
 
-		if (quit_ == false)
+		if(event_ == MIA_Event::None)
 		{
 			ret = i8080ArcadeIO_->ReadPort(port);
 
@@ -225,7 +225,7 @@ namespace i8080_arcade
 
 	void SDLIoController::Write(uint16_t port, uint8_t data)
 	{
-		if (quit_ == false)
+		if(event_ == MIA_Event::None)
 		{
 			auto audio = i8080ArcadeIO_->WritePort(port, data);
 
@@ -245,7 +245,7 @@ namespace i8080_arcade
 	{
 		auto isr = MachEmu::ISR::Quit;
 
-		if(quit_ == false)
+		if(event_ == MIA_Event::None)
 		{
 			auto interrupt = i8080ArcadeIO_->GenerateInterrupt(currTime, cycles);
 
@@ -297,6 +297,10 @@ namespace i8080_arcade
 				}
 			}
 		}
+		else
+		{
+			event_ = MIA_Event::None;
+		}
 
 		return isr;
 	}
@@ -306,20 +310,20 @@ namespace i8080_arcade
 		return{ 0x22, 0x61, 0xC9, 0x53, 0x9A, 0x36, 0x4B, 0xD3, 0xB9, 0x68, 0x47, 0x67, 0x6F, 0x52, 0x6D, 0x48 };
 	}
 
-	void SDLIoController::EventLoop()
+	MIA_Event SDLIoController::EventLoop()
 	{
 		SDL_Event e;
 		Uint8 lastR = 0;
 		Uint8 lastY = 0;
 		const auto state = SDL_GetKeyboardState(nullptr);
 
-		while (quit_ == false && SDL_WaitEvent(&e))
+		while (event_ == MIA_Event::None && SDL_WaitEvent(&e))
 		{
 			switch (e.type)
 			{
 				case SDL_QUIT:
 				{
-					quit_ = true;
+					event_ = MIA_Event::Quit;
 					break;
 				}
 				default:
@@ -415,7 +419,36 @@ namespace i8080_arcade
 								uint8_t port = reinterpret_cast<uint64_t>(e.user.data1);
 								auto p = static_cast<std::promise<uint8_t>*>(e.user.data2);
 								uint8_t value = 0;
-								quit_ = state[SDL_SCANCODE_Q];
+
+								auto buttonPress = [](Uint8 button, Uint8& lastButton)
+								{
+									bool press = false;
+
+									if ((button ^ lastButton) && button)
+									{
+										press = true;
+									}
+
+									lastButton = button;
+									return press;
+								};
+
+								if (state[SDL_SCANCODE_Q])
+								{
+									event_ = MIA_Event::Quit;
+								}
+								else if (buttonPress(state[SDL_SCANCODE_RIGHT], lastRA_))
+								{
+									event_ = MIA_Event::NextRom;
+								}
+								else if (buttonPress(state[SDL_SCANCODE_LEFT], lastLA_))
+								{
+									event_ = MIA_Event::PreviousRom;
+								}
+								else if (buttonPress(state[SDL_SCANCODE_P], lastP_))
+								{
+									event_ = MIA_Event::Reset;
+								}
 
 								if (port == 1)
 								{
@@ -458,5 +491,7 @@ namespace i8080_arcade
 				}
 			}
 		}
+
+		return event_;
 	}
 } // namespace i8080_arcade
