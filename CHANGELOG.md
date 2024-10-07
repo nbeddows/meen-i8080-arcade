@@ -1,6 +1,8 @@
 0.7.0
 * Added RP2040 support (no audio).
 * Added 16bpp video output support.
+* Added arrow key/button support
+  for run time rom selection.
 
 0.6.1 [04/08/24]
 * Added profiles for improved build support.
