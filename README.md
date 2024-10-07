@@ -280,8 +280,8 @@ These settings are fixed to the specified rom and should not be changed.
 
 ### Desktop Keyboard Controls
 
-`q`: Quit<br>
-`c`: Credit<br>
+`q`: quit<br>
+`c`: credit<br>
 `1`: 1P<br>
 `2`: 2P<br>
 `a`: 1P left<br>
@@ -291,15 +291,17 @@ These settings are fixed to the specified rom and should not be changed.
 `4`: 4 ships<br>
 `5`: 5 ships<br>
 `6`: 6 ships<br>
-`t`: Tilt<br>
-`e`: Extra ship at<br>
+`t`: tilt<br>
+`e`: extra ship at<br>
 `j`: 2P left<br>
 `k`: 2P fire<br>
 `l`: 2P right<br>
 `i`: Show coin info<br>
-`y`: Save game<br>
-`r`: Load game<br> 
-
+`y`: save game<br>
+`r`: load game<br>
+`p`: reset the current rom<br>
+`right arrow`: load the next rom from the config file<br>
+`left arrow`: load the previous rom from the config file<br>
 ### Embedded button controls
 
 Four buttons can be used to control a one player emulation. All game settings will be at defaults, this includes starting with 3 ships with an addtional
@@ -309,8 +311,8 @@ More buttons and/or logic can be added for a more complete emulation, 2 player s
 
 The pin layout used is the same as the [hardware lcd](https://www.waveshare.com/wiki/Pico-LCD-2) used for testing.
 
-`button 0`: when on the rom attraction screen, select the previous rom in the list of supported roms, when in gameplay mode, move the ship to the left.
-`button 1`: when on the rom attraction screen, add a credit and start a single player game, when in gameplay mode, quit and return to the attraction screen.
+`button 0`: when on the rom attraction screen, select the previous rom from the list of supported roms, when in gameplay mode, move the ship to the left.
+`button 1`: when on the rom attraction screen, add a credit and start a single player game, when in gameplay mode, quit and reset the current rom.
 `button 2`: when in gameplay mode, fire at the enemy.
 `button 3`: when on the rom attraction screen, select the next rom in the list of supported roms, when in gameplay mode, move the ship to the right.
 
