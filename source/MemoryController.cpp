@@ -34,6 +34,53 @@ extern uint8_t invadersFStart;
 extern uint8_t invadersFEnd;
 extern uint8_t invadersEStart;
 extern uint8_t invadersEEnd;
+
+extern uint8_t invdeluxHStart;
+extern uint8_t invdeluxHEnd;
+extern uint8_t invdeluxGStart;
+extern uint8_t invdeluxGEnd;
+extern uint8_t invdeluxFStart;
+extern uint8_t invdeluxFEnd;
+extern uint8_t invdeluxEStart;
+extern uint8_t invdeluxEEnd;
+extern uint8_t invdeluxDStart;
+extern uint8_t invdeluxDEnd;
+
+extern uint8_t lrescue1Start;
+extern uint8_t lrescue1End;
+extern uint8_t lrescue2Start;
+extern uint8_t lrescue2End;
+extern uint8_t lrescue3Start;
+extern uint8_t lrescue3End;
+extern uint8_t lrescue4Start;
+extern uint8_t lrescue4End;
+extern uint8_t lrescue5Start;
+extern uint8_t lrescue5End;
+extern uint8_t lrescue6Start;
+extern uint8_t lrescue6End;
+
+extern uint8_t pv01Start;
+extern uint8_t pv01End;
+extern uint8_t pv02Start;
+extern uint8_t pv02End;
+extern uint8_t pv03Start;
+extern uint8_t pv03End;
+extern uint8_t pv04Start;
+extern uint8_t pv04End;
+extern uint8_t pv05Start;
+extern uint8_t pv05End;
+
+extern uint8_t tn01Start;
+extern uint8_t tn01End;
+extern uint8_t tn02Start;
+extern uint8_t tn02End;
+extern uint8_t tn03Start;
+extern uint8_t tn03End;
+extern uint8_t tn04Start;
+extern uint8_t tn04End;
+extern uint8_t tn05Start;
+extern uint8_t tn05End;
+
 #else
 #include <fstream>
 #endif // ENABLE_MH_RP2040
