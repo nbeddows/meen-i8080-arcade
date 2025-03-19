@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2021-2024 Nicolas Beddows <nicolas.beddows@gmail.com>
+Copyright (c) 2021-2025 Nicolas Beddows <nicolas.beddows@gmail.com>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -24,13 +24,15 @@ SOFTWARE.
 #define SDLIOCONTROLLER_H
 
 #include <atomic>
+#define ARDUINOJSON_ENABLE_STRING_VIEW 1
 #include <ArduinoJson.h>
 #include <SDL.h>
 #include <SDL_mixer.h>
 #include <vector>
 
+#include "meen/IController.h"
 #include "meen_hw/MH_Factory.h"
-#include "i8080_arcade/MemoryController.h"
+#include "meen_hw/MH_ResourcePool.h"
 
 namespace i8080_arcade
 {
@@ -38,7 +40,7 @@ namespace i8080_arcade
 
 		A custom io controller targetting Space Invaders i8080 arcade hardware compatible ROMs.
 	*/
-	class SDLIoController final : public MachEmu::IController
+	class SDLIoController final : public meen::IController
 	{
 		private:
 			/** SDL Renderer
@@ -67,12 +69,6 @@ namespace i8080_arcade
 				The hardware emulator.
 			*/
 			std::unique_ptr<meen_hw::MH_II8080ArcadeIO> i8080ArcadeIO_;
-
-			/** i8080 arcade memory
-
-				Holds the underlying memory and vram frame pool.
-			*/
-			std::shared_ptr<MemoryController> memoryController_;
 
 			/** Audio samples
 
@@ -124,34 +120,50 @@ namespace i8080_arcade
 			*/
 			std::mutex videoFrameWrapperMutex_;
 
-			/** Exit control loop.
+			/** Prepare for shut down
 
-				A value of true will cause the Machine control loop to exit.
-				This can be set, for example, when the keyboard 'q' key is pressed.
+				A value of true will skip any future waits and return immediatley to the engine
+				(only used in the Read method).
 
 				@remark		This value can be set from a different thread, hence it is atomic.
 			*/
 			std::atomic_bool quit_{};
+
+			/** Load a game rom or the save state of the currently loaded game rom
+			
+				@remark		This value can be set from a different thread, hence it is atomic.
+			*/
+			std::atomic_bool loadSaveState_{};
 
 			/**	Load or save
 
 				A machine level interrupt which indicates whether or not the machine
 				should attempt to load a new state or save its current state.
 
-				MachEmu::ISR::NoInterrupt: don't load or save the state.
-				MachEmu::ISR::Load: attempt to load a new machine state.
-				MachEmu::ISR::Save: attempt to save the current machine state.
+				meen::ISR::NoInterrupt: don't load or save the state.
+				meen::ISR::Load: attempt to load a new machine state.
+				meen::ISR::Save: attempt to save the current machine state.
 
 				@remark		This value can be set from a different thread, hence it is atomic.
 			*/
-			std::atomic<MachEmu::ISR> loadSaveInterrupt_{ MachEmu::ISR::NoInterrupt };
+			std::atomic<meen::ISR> loadSaveInterrupt_{ meen::ISR::NoInterrupt };
+
+			/** Keep track of previous key presses to prevent repeat events from triggering
+
+				Key 'r' restores the currently loaded rom save state (if it exists)
+				Key 'u' loads the currently selected rom
+				Key 'y' save the currently selected roms state
+			*/
+			Uint8 lastR_{};
+			Uint8 lastU_{};
+			Uint8 lastY_{};
 
 		public:
 			/** Initialisation constructor
 
 				Creates an SDL specific i8080 arcade IO controller.
 			*/
-			SDLIoController(const std::shared_ptr<MemoryController>& memoryController, const JsonVariant& audioHardware, const JsonVariant& videoHardware);
+			SDLIoController(const JsonVariant& audioHardware, const JsonVariant& videoHardware);
 
 			/** Destructor
 
@@ -167,7 +179,7 @@ namespace i8080_arcade
 
 				@return	int		A bitfield indicating the action to take.
 			*/
-			uint8_t Read(uint16_t port) final;
+			uint8_t Read(uint16_t port, meen::IController* controller) final;
 
 			/** IController write override
 
@@ -176,7 +188,7 @@ namespace i8080_arcade
 				@param	port	The output device to write to.
 				@param	data	A bitfield indicating what data to write.
 			*/
-			void Write(uint16_t port, uint8_t data) final;
+			void Write(uint16_t port, uint8_t data, meen::IController* controller) final;
 
 			/** IController::ServiceInterrupts override
 
@@ -185,7 +197,7 @@ namespace i8080_arcade
 				@param	currTime	The current CPU run time in nanoseconds.
 				@param	cycles		The number of CPU cycles completed.
 			*/
-			MachEmu::ISR ServiceInterrupts(uint64_t currTime, uint64_t cycles) final;
+			meen::ISR ServiceInterrupts(uint64_t currTime, uint64_t cycles, meen::IController* controller) final;
 
 			/**	Uuid
 
@@ -195,13 +207,15 @@ namespace i8080_arcade
 			*/
 			std::array<uint8_t, 16> Uuid() const final;
 
-			/**	Main control loop
+			/**	Event handler
 
 				Process all incoming events.
 
 				Events include audio/video rendering, keyboard processing and window close.
+
+	            @return                 True to quit the machine, false otherwise.
 			*/
-			void EventLoop();
+			bool HandleEvent();
 
 			/** Load Audio Samples
 
@@ -210,9 +224,9 @@ namespace i8080_arcade
 				@param	audioFilePath	The audio samples root directory.
 				@param	audioSamples	JSON object representing the audio sample files.
 
-				@return			0 on success, -1 on failure.
+				@return					0 on success, -1 on failure.
 			*/
-			int LoadAudioSamples(const std::filesystem::path& audioFilePath, const JsonVariant& audioSamples);
+			int LoadAudioSamples(const JsonVariant& audioSamples);
 
 			/** Load Video Textures
 
@@ -220,9 +234,19 @@ namespace i8080_arcade
 
 				@param	videoTextures	JSON object describing the video texture.
 
-				@return			0 on success, -1 on failure.
+				@return					0 on success, -1 on failure.
 			*/
 			int LoadVideoTextures(const JsonVariant& videoTextures);
+
+			/** Load the selected rom or the save state of the currently selected rom
+			
+				@param	maxSize			The total number of roms in the rom list	
+
+				@return					A tuple holding two values:
+										bool - only valid when loading roms, true if the save file is to be loaded, false if the rom is to be loaded.
+										int - the index into the roms array for the rom to be loaded or saved
+			*/
+			std::tuple<bool, int> GetRomIndex(int maxSize);
 	};
 } // namespace i8080_arcade
 
