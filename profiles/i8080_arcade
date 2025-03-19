@@ -3,9 +3,9 @@ include({{ os }}-{{ arch }}-{{ compiler }}-{{ compiler_version }})
 &:with_{{ framework }}=True
 meen_hw/*:with_i8080_arcade=True
 {% if os == 'rp2040' %}
-  mach_emu/*:with_{{ os }}=True
-  mach_emu/*:fPIC=False
-  mach_emu/*:shared=False
+  meen/*:with_{{ os }}=True
+  meen/*:fPIC=False
+  meen/*:shared=False
   meen_hw/*:with_{{ os }}=True
   meen_hw/*:fPIC=False
   meen_hw/*:shared=False

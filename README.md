@@ -111,7 +111,7 @@ When cross compiling for arm you may need to add the arm development repositorie
 
 The following dependent packages will be (compiled if required and) installed:
 
-- mach_emu ^
+- meen ^
 - meen_hw ^
 - ArduinoJson
 - popl
@@ -209,7 +209,7 @@ It is divided into two main sections:
 
 These options should be fixed to the specfied values unless stated otherwise.
 
-##### MachEmu
+##### Meen
 
 The current settings for these options should be sufficient, changing them may have a negative impact on performance.
 
