@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2021-2024 Nicolas Beddows <nicolas.beddows@gmail.com>
+Copyright (c) 2021-2025 Nicolas Beddows <nicolas.beddows@gmail.com>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -27,10 +27,6 @@ SOFTWARE.
 #include <array>
 #include <memory>
 
-#ifndef ENABLE_MH_RP2040
-#include <filesystem>
-#endif // ENABLE_MH_RP2040
-
 #include "meen/Base.h"
 #include "meen/IController.h"
 #include "meen_hw/MH_ResourcePool.h"
@@ -42,7 +38,7 @@ namespace i8080_arcade
         A custom memory controller targetting Space Invaders arcade hardware compatible ROMs
         based on the st7789vw driver targetting the rp2040 microcontroller.
     */
-    class MemoryController final : public MachEmu::IController
+    class MemoryController final : public meen::IController
     {
     private:
         /** Memory size
@@ -63,7 +59,6 @@ namespace i8080_arcade
             A pool of recyclable video frames.
         */
         meen_hw::MH_ResourcePool<std::array<uint8_t, 7168>> framePool_;
-
 
     public:
         /** Constructor
@@ -93,34 +88,14 @@ namespace i8080_arcade
             @return         The current video ram as a recyclable resource.
         */
         meen_hw::MH_ResourcePool<std::array<uint8_t, 7168>>::ResourcePtr GetVideoFrame() const;
-#ifdef ENABLE_MH_RP2040
-        /** Load ROM file
 
-            Loads the specified rom files located on flash into memory
-            at the correct offset.
-
-            @param      files           The rom files to load.
-        */
-        int LoadRoms(const JsonVariant& files);
-#else
-        /** Load ROM file
-
-            Loads the specified rom files located at the given path into memory
-            at the correct offset.
-
-            @param      romFilePath     The path to the rom files (on local disk).
-
-            @param      files           The rom files to load.
-        */
-        int LoadRoms(const std::filesystem::path& romFilePath, const JsonVariant& files);
-#endif // ENABLE_MH_RP2040
         /** Read from controller
 
             Reads 8 bits of data from the specifed 16 bit memory address.
 
             @see IController::Read for further details.
         */
-        uint8_t Read(uint16_t address) final;
+        uint8_t Read(uint16_t address, meen::IController* controller) final;
 
         /** Write to controller
 
@@ -128,7 +103,7 @@ namespace i8080_arcade
 
             @see IController::Write for further details.
         */
-        void Write(uint16_t address, uint8_t value) final;
+        void Write(uint16_t address, uint8_t value, meen::IController* controller) final;
 
         /** Service memory interrupts
 
@@ -136,7 +111,7 @@ namespace i8080_arcade
 
             The function will always return ISR::NoInterrupt.
         */
-        MachEmu::ISR ServiceInterrupts(uint64_t currTime, uint64_t cycles) final;
+        meen::ISR ServiceInterrupts(uint64_t currTime, uint64_t cycles, meen::IController* controller) final;
 
         /** Uuid
 
