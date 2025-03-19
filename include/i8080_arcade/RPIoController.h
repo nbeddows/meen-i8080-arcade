@@ -228,9 +228,12 @@ namespace i8080_arcade
 
             Process all incoming events.
 
-            Events include audio/video rendering, keyboard processing and window close.
+            @return                 True to quit the machine, false otherwise.
+
+            @remark                 This method will always return false, ie; the loop
+                                    will run until the device is switched off.
         */
-        void EventLoop();
+        bool HandleEvent();
 
     };
 } // namespace i8080_arcade

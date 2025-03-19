@@ -292,9 +292,9 @@ namespace i8080_arcade
         }
     }
 
-    MachEmu::ISR RPIoController::ServiceInterrupts(uint64_t currTime, uint64_t cycles)
+    meen::ISR RPIoController::ServiceInterrupts(uint64_t currTime, uint64_t cycles)
     {
-        auto isr = MachEmu::ISR::NoInterrupt;
+        auto isr = meen::ISR::NoInterrupt;
 
         auto interrupt = i8080ArcadeIO_->GenerateInterrupt(currTime, cycles);
 
@@ -303,7 +303,7 @@ namespace i8080_arcade
             case 0:
                 break;
             case 1:
-                isr = MachEmu::ISR::One;
+                isr = meen::ISR::One;
                 break;
             case 2:
             {
@@ -337,7 +337,7 @@ namespace i8080_arcade
                     printf("1 Video frame dropped, renderer too slow\n");
                 }
 
-                isr = MachEmu::ISR::Two;
+                isr = meen::ISR::Two;
                 break;
             }
             default:
@@ -385,7 +385,7 @@ namespace i8080_arcade
         RPIoController::WriteParam((Yend - 1) & 0xff);
     };
 
-    void RPIoController::EventLoop()
+    bool RPIoController::HandleEvent()
     {
         auto arcadeWidth = i8080ArcadeIO_->GetVRAMWidth();
         auto arcadeHeight = i8080ArcadeIO_->GetVRAMHeight();
@@ -525,5 +525,7 @@ namespace i8080_arcade
             //    fr = 0;
             //}
         }
+        
+        return true;
     }
 } // namespace i8080_arcade
