@@ -1,7 +1,7 @@
 
 ### Introduction
 
-This is a binary distribution of an [emulated i8080 arcade machine](https://github.com/nbeddows/i8080-arcade) based on the Space Invaders Taito/Midway arcade hardware using [mach-emu](http://github.com/nbeddows/mach-emu/) and [meen-hw](http://github.com/nbeddows/meen-hw/).
+This is a binary distribution of an [emulated i8080 arcade machine](https://github.com/nbeddows/i8080-arcade) based on the Space Invaders Taito/Midway arcade hardware using [meen](http://github.com/nbeddows/mach-emu/) and [meen-hw](http://github.com/nbeddows/meen-hw/).
 
 I don't consider the emulation to be the most efficient, accurate or to be extensively tested, but I'm happy with where it is at.
 
@@ -26,7 +26,7 @@ A configuration file targeting the i8080 arcade hardware is provided in json for
 
 These options should be fixed to the specfied values unless stated otherwise.
 
-##### MachEmu
+##### Meen
 
 The current settings for these options should be sufficient, changing them may have a negative impact on performance.
 

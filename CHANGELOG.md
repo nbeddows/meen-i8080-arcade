@@ -1,6 +1,7 @@
 0.7.0
 * Added RP2040 support (no audio).
 * Added 16bpp video output support.
+* Updated to meen/2.0.0.
 
 0.6.1 [04/08/24]
 * Added profiles for improved build support.

@@ -9,7 +9,7 @@ class I8080ArcadeRecipe(ConanFile):
     default_options = {"with_sdl": False, "with_st7789vw": False}
 
     def requirements(self):
-        self.requires("mach_emu/2.0.0")
+        self.requires("meen/2.0.0")
         self.requires("meen_hw/0.3.0")
         self.requires("arduinojson/7.0.1")
 
@@ -37,7 +37,7 @@ class I8080ArcadeRecipe(ConanFile):
         tc = CMakeToolchain(self)
 
         tc.cache_variables["enable_sdl"] = self.options.get_safe("with_sdl", False)
-        tc.cache_variables["enable_rp2040"] = self.dependencies["mach_emu"].options.get_safe("with_rp2040", False)
+        tc.cache_variables["enable_rp2040"] = self.dependencies["meen"].options.get_safe("with_rp2040", False)
         tc.cache_variables["enable_st7789vw"] = self.options.get_safe("with_st7789vw", False)
         tc.variables["build_os"] = self.settings.os
         tc.variables["build_arch"] = self.settings.arch
@@ -45,12 +45,12 @@ class I8080ArcadeRecipe(ConanFile):
         tc.variables["runtime_dir"] = self.cpp_info.bindirs[0]
 
         if self.settings.os == "Windows":
-            tc.cache_variables["machEmuBinDir"] = self.dependencies["mach_emu"].cpp_info.bindirs[0].replace("\\", "/")
+            tc.cache_variables["meenBinDir"] = self.dependencies["meen"].cpp_info.bindirs[0].replace("\\", "/")
 
             if self.dependencies["meen_hw"].options.shared:
                 tc.cache_variables["meenHwBinDir"] = self.dependencies["meen_hw"].cpp_info.bindirs[0].replace("\\", "/")
 
-            if self.dependencies["mach_emu"].options.get_safe("with_zlib", False) and self.dependencies["zlib"].options.shared:
+            if self.dependencies["meen"].options.get_safe("with_zlib", False) and self.dependencies["zlib"].options.shared:
                 tc.cache_variables["zlibBinDir"] = self.dependencies["zlib"].cpp_info.bindirs[0].replace("\\", "/")
 
             if self.options.get_safe("with_sdl", False):
@@ -61,12 +61,12 @@ class I8080ArcadeRecipe(ConanFile):
                     tc.cache_variables["sdlMixerBinDir"] = self.dependencies["sdl_mixer"].cpp_info.bindirs[0].replace("\\", "/")
 
         else:
-            tc.cache_variables["machEmuBinDir"] = self.dependencies["mach_emu"].cpp_info.libdirs[0].replace("\\", "/")
+            tc.cache_variables["meenEmuBinDir"] = self.dependencies["meen"].cpp_info.libdirs[0].replace("\\", "/")
 
             if self.dependencies["meen_hw"].options.shared:
                 tc.cache_variables["meenHwBinDir"] = self.dependencies["meen_hw"].cpp_info.libdirs[0].replace("\\", "/")
 
-            if self.dependencies["mach_emu"].options.get_safe("with_zlib", False) and self.dependencies["zlib"].options.shared:
+            if self.dependencies["meen"].options.get_safe("with_zlib", False) and self.dependencies["zlib"].options.shared:
                 tc.cache_variables["zlibBinDir"] = self.dependencies["zlib"].cpp_info.libdirs[0].replace("\\", "/")
 
             if self.options.get_safe("with_sdl", False):

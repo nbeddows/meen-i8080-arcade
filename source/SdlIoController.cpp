@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2021-2024 Nicolas Beddows <nicolas.beddows@gmail.com>
+Copyright (c) 2021-2025 Nicolas Beddows <nicolas.beddows@gmail.com>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -25,11 +25,12 @@ SOFTWARE.
 #include <future>
 
 #include "i8080_arcade/SdlIoController.h"
+#include "i8080_arcade/MemoryController.h"
+#include "meen/Base.h"
 
 namespace i8080_arcade
 {
-    SDLIoController::SDLIoController(const std::shared_ptr<MemoryController>& memoryController, const JsonVariant& audioHardware, const JsonVariant& videoHardware)
-		: memoryController_{ memoryController }
+    SDLIoController::SDLIoController(const JsonVariant& audioHardware, const JsonVariant& videoHardware)
 	{
 		SDL_SetMainReady();
 
@@ -84,7 +85,7 @@ namespace i8080_arcade
 
 		SDL_SetEventFilter([](void* eventType, SDL_Event* e)
 		{
-			// Ignore all events other than ours.
+			// Ignore all events except ours.
 			if (reinterpret_cast<uint64_t>(eventType) == e->type || e->type == SDL_QUIT)
 			{
 				return 1;
@@ -124,19 +125,57 @@ namespace i8080_arcade
 		SDL_Quit();
 	}
 
-	int SDLIoController::LoadAudioSamples(const std::filesystem::path& audioFilePath, const JsonVariant& audio)
+	std::tuple<bool, int> SDLIoController::GetRomIndex(int maxSize)
 	{
-		for(const auto& file : audio["file"].as<JsonArray>())
-		{
-			auto name = file.as<std::string>();
-			auto mixChunk = Mix_LoadWAV((audioFilePath/name).string().c_str());
+		return std::tuple(loadSaveState_.exchange(false), 0);
+	}
 
-			if(name.empty() == false && mixChunk == nullptr)
+	int SDLIoController::LoadAudioSamples(const JsonVariant& audio)
+	{
+		auto scheme = audio["scheme"].as<std::string_view>();
+		auto directory = audio["directory"].as<std::string_view>();
+
+		auto addChunk = [&mixChunk = mixChunk_](std::string_view directory, std::string_view resource)
+		{
+			// if we want to add the additional '/' (so we don't have to put it in the config file)
+			// we need to check if the directory is empty first
+			auto chunk = Mix_LoadWAV((std::string(directory) + std::string(resource)).c_str());
+
+			if (resource.empty() == false && chunk == nullptr)
 			{
+				printf("Failed to create mix chunk\n");
 				return -1;
 			}
 
-			mixChunk_.emplace_back(mixChunk);
+			mixChunk.emplace_back(chunk);
+
+			return 0;
+		};
+
+		for(const auto& sample : audio["sample"].as<JsonArray>())
+		{
+			auto dir = directory;
+			auto resource = sample.as<std::string_view>();
+			
+			if (resource.starts_with("file://"))
+			{
+				resource.remove_prefix(strlen("file://"));
+				// A resource starting with a scheme specifies the exact location of that resource
+				dir = "";
+			}
+			else
+			{
+				if (scheme != "file://")
+				{
+					printf("Invalid uri scheme\n");
+					return -1;
+				}
+			}
+
+			if (addChunk(dir, resource) == -1)
+			{
+				return -1;
+			}
 		}
 
 		return 0;
@@ -196,25 +235,24 @@ namespace i8080_arcade
 		return 0;
 	}
 
-	uint8_t SDLIoController::Read(uint16_t port)
+	uint8_t SDLIoController::Read(uint16_t port, [[maybe_unused]] meen::IController* controller)
 	{
-		uint8_t ret = 0;
+		auto ret = i8080ArcadeIO_->ReadPort(port);
 
-		if (quit_ == false)
+		if (ret == 0)
 		{
-			ret = i8080ArcadeIO_->ReadPort(port);
-
-			if (ret == 0)
+			if (port == 1 || port == 2)
 			{
-				if (port == 1 || port == 2)
+				std::promise<uint8_t> p;
+				SDL_Event e{};
+				e.type = siEvent_;
+				e.user.code = EventCode::ReadInput;
+				e.user.data1 = reinterpret_cast<void*>(port);
+				e.user.data2 = reinterpret_cast<void*>(&p);
+				SDL_PushEvent(&e);					
+				
+				if (quit_ == false)
 				{
-					std::promise<uint8_t> p;
-					SDL_Event e{};
-					e.type = siEvent_;
-					e.user.code = EventCode::ReadInput;
-					e.user.data1 = reinterpret_cast<void*>(port);
-					e.user.data2 = reinterpret_cast<void*>(&p);
-					SDL_PushEvent(&e);
 					ret = p.get_future().get();
 				}
 			}
@@ -223,78 +261,73 @@ namespace i8080_arcade
 		return ret;
 	}
 
-	void SDLIoController::Write(uint16_t port, uint8_t data)
+	void SDLIoController::Write(uint16_t port, uint8_t data, [[maybe_unused]] meen::IController* controller)
 	{
-		if (quit_ == false)
-		{
-			auto audio = i8080ArcadeIO_->WritePort(port, data);
+		auto audio = i8080ArcadeIO_->WritePort(port, data);
 
-			if (audio > 0)
-			{
-				SDL_Event e{};
-				e.type = siEvent_;
-				e.user.code = EventCode::RenderAudio;
-				e.user.data1 = reinterpret_cast<void*>(port);
-				e.user.data2 = reinterpret_cast<void*>(audio);
-				SDL_PushEvent(&e);
-			}
+		if (audio > 0)
+		{
+			SDL_Event e{};
+			e.type = siEvent_;
+			e.user.code = EventCode::RenderAudio;
+			e.user.data1 = reinterpret_cast<void*>(port);
+			e.user.data2 = reinterpret_cast<void*>(audio);
+			SDL_PushEvent(&e);
 		}
 	}
 
-	MachEmu::ISR SDLIoController::ServiceInterrupts(uint64_t currTime, uint64_t cycles)
+	meen::ISR SDLIoController::ServiceInterrupts(uint64_t currTime, uint64_t cycles, meen::IController* memoryController)
 	{
-		auto isr = MachEmu::ISR::Quit;
+		meen::ISR isr{};
 
-		if(quit_ == false)
+		auto interrupt = i8080ArcadeIO_->GenerateInterrupt(currTime, cycles);
+
+		switch(interrupt)
 		{
-			auto interrupt = i8080ArcadeIO_->GenerateInterrupt(currTime, cycles);
-
-			switch(interrupt)
+			case 0:
 			{
-				case 0:
-				{
-					isr = loadSaveInterrupt_.exchange(MachEmu::ISR::NoInterrupt);
-					break;
-				}
-				case 1:
-				{
-					isr = MachEmu::ISR::One;
-					break;
-				}
-				case 2:
-				{
-					isr = MachEmu::ISR::Two;
-					VideoFrameWrapper* videoFrameWrapper = nullptr;
+				isr = loadSaveInterrupt_.exchange(meen::ISR::NoInterrupt);
+				break;
+			}
+			case 1:
+			{
+				isr = meen::ISR::One;
+				break;
+			}
+			case 2:
+			{
+				isr = meen::ISR::Two;
+				VideoFrameWrapper* videoFrameWrapper = nullptr; 
 
+				{
+					std::lock_guard<std::mutex> lg(videoFrameWrapperMutex_);
+
+					if(videoFrameWrapperPool_.empty() == false)
 					{
-						std::lock_guard<std::mutex> lg(videoFrameWrapperMutex_);
-
-						if(videoFrameWrapperPool_.empty() == false)
-						{
-							videoFrameWrapper = videoFrameWrapperPool_.back().release();
-						}
+						videoFrameWrapper = videoFrameWrapperPool_.back().release();
 					}
-
-					if(videoFrameWrapper != nullptr)
-					{
-						videoFrameWrapper->videoFrame = memoryController_->GetVideoFrame();
-					}
-
-					SDL_Event e{};
-					e.type = siEvent_;
-					e.user.code = EventCode::RenderVideo;
-					// Allow events where the vram is nullptr to be pushed so we can track
-					// dropped frames in the main thread.
-					e.user.data1 = videoFrameWrapper;
-					e.user.data2 = nullptr;
-					SDL_PushEvent(&e);
-					break;
 				}
-				default:
+
+				if(videoFrameWrapper != nullptr)
 				{
-					assert(interrupt >= 0 && interrupt <= 2);
-					break;
+					// GetVideoFrame accepts a parameter for rom select screen or game play, memory controller will generate the next rom select frame or game play frame
+					videoFrameWrapper->videoFrame = static_cast<MemoryController*>(memoryController)->GetVideoFrame();
 				}
+
+				SDL_Event e{};
+				e.type = siEvent_;
+				e.user.code = EventCode::RenderVideo;
+				// Allow events where the vram is nullptr to be pushed so we can track
+				// dropped frames in the main thread.
+				e.user.data1 = videoFrameWrapper;
+				e.user.data2 = nullptr;
+				SDL_PushEvent(&e);
+				break;
+			}
+			default:
+			{
+				assert(interrupt >= 0 && interrupt <= 2);
+				break;
 			}
 		}
 
@@ -306,20 +339,31 @@ namespace i8080_arcade
 		return{ 0x22, 0x61, 0xC9, 0x53, 0x9A, 0x36, 0x4B, 0xD3, 0xB9, 0x68, 0x47, 0x67, 0x6F, 0x52, 0x6D, 0x48 };
 	}
 
-	void SDLIoController::EventLoop()
+	bool SDLIoController::HandleEvent()
 	{
 		SDL_Event e;
-		Uint8 lastR = 0;
-		Uint8 lastY = 0;
+		bool quit = false;
 		const auto state = SDL_GetKeyboardState(nullptr);
 
-		while (quit_ == false && SDL_WaitEvent(&e))
+		if (SDL_WaitEvent(&e))
 		{
+			// Scan the keyboard for load and save requests
+			auto setInterrupt = [this](Uint8 key, Uint8 lastKey, meen::ISR isr, bool loadSaveState)
+			{
+				if (key ^ lastKey && key)
+				{
+					loadSaveInterrupt_ = isr;
+					loadSaveState_ = loadSaveState;
+				}
+
+				return key;
+			};
+
 			switch (e.type)
 			{
 				case SDL_QUIT:
 				{
-					quit_ = true;
+					quit_ = quit = true;
 					break;
 				}
 				default:
@@ -330,6 +374,22 @@ namespace i8080_arcade
 						{
 							case EventCode::RenderVideo:
 							{
+								quit = state[SDL_SCANCODE_Q];
+
+								if (quit == true)
+								{
+									quit_ = true;
+									
+									if (SDL_PollEvent(&e))
+									{
+										if (e.type == siEvent_ && e.user.code == EventCode::ReadInput)
+										{
+											static_cast<std::promise<uint8_t>*>(e.user.data2)->set_value(0);
+										}
+									}
+									break;
+								}
+
 								auto videoFrameWrapper = std::bit_cast<VideoFrameWrapper*>(e.user.data1);
 
 								if (videoFrameWrapper != nullptr)
@@ -373,20 +433,8 @@ namespace i8080_arcade
 								SDL_RenderCopy(renderer_, texture_, nullptr, nullptr);
 								SDL_RenderPresent(renderer_);
 
-								// Scan the keyboard for load and save requests, we'll lock this to
-								// the renderer, ie; check for these requests 60 times per second
-								auto setInterrupt = [this](Uint8 key, Uint8 lastKey, MachEmu::ISR isr)
-								{
-									if (key ^ lastKey && key)
-									{
-										loadSaveInterrupt_ = isr;
-									}
-
-									return key;
-								};
-
-								lastR = setInterrupt(state[SDL_SCANCODE_R], lastR, MachEmu::ISR::Load);
-								lastY = setInterrupt(state[SDL_SCANCODE_Y], lastY, MachEmu::ISR::Save);
+								// Check to see if the user wants to load a rom
+								lastR_ = setInterrupt(state[SDL_SCANCODE_U], lastR_, meen::ISR::Load, false);
 								break;
 							}
 							case EventCode::RenderAudio:
@@ -415,7 +463,12 @@ namespace i8080_arcade
 								uint8_t port = reinterpret_cast<uint64_t>(e.user.data1);
 								auto p = static_cast<std::promise<uint8_t>*>(e.user.data2);
 								uint8_t value = 0;
-								quit_ = state[SDL_SCANCODE_Q];
+
+								// We can only load from a save file or save if a rom is currently running (engine will generate an error otherwise)
+								// so we only allow the user to perform these operations when a rom is running only.
+								// (the ReadInput event is only triggered when a rom is running)
+								lastU_ = setInterrupt(state[SDL_SCANCODE_R], lastR_, meen::ISR::Load, true);
+								lastY_ = setInterrupt(state[SDL_SCANCODE_Y], lastY_, meen::ISR::Save, false);
 
 								if (port == 1)
 								{
@@ -458,5 +511,7 @@ namespace i8080_arcade
 				}
 			}
 		}
+
+		return quit;
 	}
 } // namespace i8080_arcade

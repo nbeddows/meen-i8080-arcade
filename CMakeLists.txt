@@ -26,6 +26,7 @@ if(${enable_rp2040} STREQUAL ON)
 endif()
 
 project(${project_name} VERSION 0.6.1 LANGUAGES C CXX ASM)
+set(CMAKE_CXX_STANDARD 23)
 
 if(${enable_rp2040} STREQUAL ON)
   add_executable(Pioasm IMPORTED)
@@ -74,13 +75,13 @@ if(NOT ${enable_rp2040} STREQUAL ON)
   set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${artifacts_dir}/${runtime_dir})
 endif()
 
-find_package(mach_emu REQUIRED)
+find_package(meen REQUIRED)
 find_package(meen_hw REQUIRED)
 find_package(ArduinoJson REQUIRED)
 
 set(${project_name}_source_files source/main.cpp source/MemoryController.cpp)
 set(${project_name}_include_files include/i8080_arcade/MemoryController.h)
-set(${project_name}_deps mach_emu::mach_emu meen_hw::meen_hw ArduinoJson)
+set(${project_name}_deps meen::meen meen_hw::meen_hw ArduinoJson)
 
 if(${build_os} STREQUAL "baremetal")
   if(${enable_rp2040} STREQUAL ON)
@@ -107,7 +108,7 @@ add_executable(${project_name}
 )
 
 if(DEFINED MSVC)
-    set_target_properties(${project_name} PROPERTIES VS_DEBUGGER_COMMAND_ARGUMENTS "\"--config-file=${CMAKE_SOURCE_DIR}/conf/config.json\" \"--rom-file-path=${CMAKE_SOURCE_DIR}/rom-files\" \"--audio-file-path=${CMAKE_SOURCE_DIR}/audio-files\" \"--save-file-path=${CMAKE_SOURCE_DIR}/save-files\"")
+    set_target_properties(${project_name} PROPERTIES VS_DEBUGGER_COMMAND_ARGUMENTS "\"--config-file=${CMAKE_SOURCE_DIR}/conf/config.json\" \"--save-file-path=${CMAKE_SOURCE_DIR}/save-files\"")
 endif()
 
 target_include_directories(${project_name} PRIVATE ${CMAKE_SOURCE_DIR}/include)
@@ -189,8 +190,8 @@ install(DIRECTORY "conf" DESTINATION .)
 install(DIRECTORY "audio-files" DESTINATION .)
 install(DIRECTORY "rom-files" DESTINATION .)
 
-if(DEFINED machEmuBinDir)
-    install(DIRECTORY ${machEmuBinDir}/ DESTINATION lib FILES_MATCHING PATTERN "*${soExt}*")
+if(DEFINED meenBinDir)
+    install(DIRECTORY ${meenBinDir}/ DESTINATION lib FILES_MATCHING PATTERN "*${soExt}*")
 endif()
 
 if(DEFINED meenHwBinDir)
