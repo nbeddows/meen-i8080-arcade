@@ -13,9 +13,6 @@ class I8080ArcadeRecipe(ConanFile):
         self.requires("meen_hw/0.3.0")
         self.requires("arduinojson/7.0.1")
 
-        if not self.settings.os == "baremetal":
-            self.requires("popl/1.3.0")
-
         if self.options.get_safe("with_sdl", False):
             self.requires("sdl/2.28.5")
             self.requires("sdl_mixer/2.8.0")

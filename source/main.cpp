@@ -35,53 +35,8 @@ extern char rpConfigEnd;
 #include <fstream>
 #include <filesystem>
 #include <memory>
-#include <popl.hpp>
 
 #include "i8080_arcade/SdlIoController.h"
-
-using namespace popl;
-
-static std::filesystem::path configFile;
-static std::filesystem::path saveFilePath;
-
-static int ParseCmdLine(int argc, char** argv)
-{
-	OptionParser op("Allowed options");
-	auto helpOpt = op.add<Switch>("h", "help", "produce this help message");
-	auto configFileOpt = op.add<Value<std::string>>("c", "config-file", "i8080 arcade configuration file", "conf/config.json");
-	auto saveFilePathOpt = op.add<Value<std::string>>("s", "save-file-path", "Path to the i8080 arcade save files directory", "save-files");
-	op.parse(argc, argv);
-	auto helpCount = helpOpt->count();
-
-    if (helpCount > 0)
-    {
-        switch(helpCount)
-        {
-            case 1:
-            {
-                std::cout << op << std::endl;
-                break;
-            }
-            case 2:
-            {
-                std::cout << op.help(Attribute::advanced) << std::endl;
-                break;
-            }
-            default:
-            {
-                std::cout << op.help(Attribute::expert) << std::endl;
-                break;
-            }
-        }
-
-        // print help then exit
-        return -1;
-    }
-
-    configFile = configFileOpt->value();
-    saveFilePath = saveFilePathOpt->value();
-    return 0;
-}
 #endif // ENABLE_MH_RP2040
 
 #define CHECK_ERROR(value, printErrorMsg)\
@@ -101,17 +56,25 @@ int main(int argc, char** argv)
     //cppcheck-suppress comparePointers
     auto e = deserializeJson(json, std::string(&rpConfigStart, &rpConfigEnd - &rpConfigStart));
 #else
-    if (ParseCmdLine(argc, argv) < 0)
-    {
-        // We return < 0 when we print the help, exit.
-        return 0;
-    }
+	std::string configFile = "conf/config.json";
+
+	if (argc > 1)
+	{
+		configFile = argv[1];
+	}
 
     // Open the configuration file, see the README for an explanation of each configuration option
     std::ifstream fin(configFile);
     auto e = deserializeJson(json, fin);
 #endif // ENABLE_MH_RP2040
-    CHECK_ERROR(e, printf("Parse error while deserializing json config file\n"));
+	CHECK_ERROR(e, printf("Parse error while deserializing json config file\n"));
+
+	std::string saveFilePath = "save-files"; 
+	
+	if (json["save-file-path"])
+	{
+		saveFilePath = json["save-file-path"].as<std::string>();
+	}
 
 	auto hardware = json["i8080-arcade"]["hardware"];
 	CHECK_ERROR(!hardware, printf("Invalid json config file format: hardware section not found\n"));
@@ -149,7 +112,7 @@ int main(int argc, char** argv)
 
 	// Will be called from a different thread if the 'runAsync' or 'saveAsync' options are set to true.
 	// This is a simple implementation which will overwrite the previous save file
-	machine->OnSave([roms = software["roms"]](const char* json, meen::IController* ioController)
+	machine->OnSave([roms = software["roms"], &saveFilePath](const char* json, meen::IController* ioController)
 	{
 		std::error_code ec;
 		std::filesystem::create_directory(saveFilePath, ec);
@@ -166,7 +129,7 @@ int main(int argc, char** argv)
 #endif // ENABLE_MH_RP2040
 		auto rom = roms.as<JsonArrayConst>()[romIndex];
 
-		std::ofstream fout((saveFilePath/rom["name"].as<std::string>()).string() + ".json", std::ios::trunc);
+		std::ofstream fout(saveFilePath + "/" + rom["name"].as<std::string>() + ".json", std::ios::trunc);
 
 		if (!fout.good())
 		{
@@ -178,7 +141,7 @@ int main(int argc, char** argv)
 	});
 
 	// Will be called from a different thread if the 'runAsync' or 'loadAsync' configuration options are set to true
-	machine->OnLoad([roms = software["roms"]](char* json, int* jsonLen, meen::IController* ioController)
+	machine->OnLoad([roms = software["roms"], &saveFilePath](char* json, int* jsonLen, meen::IController* ioController)
 	{
 #ifdef ENABLE_MH_RP2040
 		auto [loadSaveState, romIndex] = static_cast<i8080_arcade::RPIoController*>(ioController)->GetRomIndex(roms.size());
@@ -193,7 +156,7 @@ int main(int argc, char** argv)
 			// check for that here they could by storing the return value in a different variable and then
 			// compare that value to *jsonLen. When that variable is greater than or equal to *jsonLen then
 			// a truncation has occurred.
-			*jsonLen = snprintf(json, *jsonLen, "file://%s.json", (saveFilePath/rom["name"].as<std::string>()).string().c_str());
+			*jsonLen = snprintf(json, *jsonLen, "file://%s/%s.json", saveFilePath.c_str(), rom["name"].as<std::string>().c_str());
 		}
 		else
 		{

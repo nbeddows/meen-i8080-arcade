@@ -90,9 +90,6 @@ if(${build_os} STREQUAL "baremetal")
     set(${project_name}_deps ${${project_name}_deps} pico_stdlib hardware_spi hardware_gpio hardware_pwm)
   endif()
 else()
-  find_package(popl REQUIRED)
-  set(${project_name}_deps ${${project_name}_deps} popl::popl)
-
   if(${enable_sdl} STREQUAL ON)
     find_package(SDL2 REQUIRED)
     find_package(SDL2_mixer REQUIRED)
@@ -108,7 +105,7 @@ add_executable(${project_name}
 )
 
 if(DEFINED MSVC)
-    set_target_properties(${project_name} PROPERTIES VS_DEBUGGER_COMMAND_ARGUMENTS "\"--config-file=${CMAKE_SOURCE_DIR}/conf/config.json\" \"--save-file-path=${CMAKE_SOURCE_DIR}/save-files\"")
+    set_target_properties(${project_name} PROPERTIES VS_DEBUGGER_COMMAND_ARGUMENTS "\"${CMAKE_SOURCE_DIR}/conf/config.json\"")
 endif()
 
 target_include_directories(${project_name} PRIVATE ${CMAKE_SOURCE_DIR}/include)
