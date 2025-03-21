@@ -2,7 +2,7 @@
     "i8080-arcade": {
         "hardware": {
             "meen": {
-                "clockSamplingFreq":119.88,
+                "clockSamplingFreq":120,
                 "isrFreq":132,
                 "loadAsync":true,
                 "runAsync":true,
@@ -51,7 +51,7 @@
                 {
                     "name":"space-invaders",
                     "cpu":{
-                        "pc":256,
+                        "pc":0,
                         "sp":0
                     },
                     "memory": {
@@ -70,7 +70,7 @@
                 {
                     "name":"space-invaders-deluxe",
                     "cpu":{
-                        "pc":256,
+                        "pc":0,
                         "sp":0
                     },
                     "memory": {
@@ -90,7 +90,7 @@
                 {
                     "name":"space-invaders-ii",
                     "cpu":{
-                        "pc":256,
+                        "pc":0,
                         "sp":0
                     },
                     "memory": {
@@ -110,7 +110,7 @@
                 {
                     "name":"balloon-bomber",
                     "cpu":{
-                        "pc":256,
+                        "pc":0,
                         "sp":0
                     },
                     "memory": {
@@ -126,11 +126,11 @@
                             ]
                         }
                     }
-                },  
+                },
                 {
                     "name":"lunar-rescue",
                     "cpu":{
-                        "pc":256,
+                        "pc":0,
                         "sp":0
                     },
                     "memory": {
