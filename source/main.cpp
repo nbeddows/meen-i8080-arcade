@@ -123,11 +123,16 @@ int main(int argc, char** argv)
 	auto machine = meen::Make8080Machine();
 	CHECK_ERROR(!machine, printf("Failed to create i8080 machine\n"));
 
+	// Log any error messages generated
+	auto err = machine->OnError([](std::error_code ec, const char* fileName, const char* functionName, uint32_t line, uint32_t column, meen::IController* ioController)
+	{
+		printf("file: %s(%d:%d) `%s`: %s\n", fileName, line, column, functionName, ec.message().c_str());
+	});
+	CHECK_ERROR(err, printf("Failed to set the OnError handler: %s\n", err.message().c_str()));
+
 	// Set the hardware options
 	serializeJson(hardware["meen"], meenConfig);
-
-	auto err = machine->SetOptions(meenConfig.c_str());
-	CHECK_ERROR(err, printf("Failed to set machine options: %s\n", err.message().c_str()));
+	machine->SetOptions(meenConfig.c_str());
 
 	// Create our custom i8080 arcade I/O controller based on a specific configuration.
 #ifdef ENABLE_MH_RP2040
@@ -140,25 +145,27 @@ int main(int argc, char** argv)
 	ioController->LoadVideoTextures(software["video"]);
 #ifndef ENABLE_MH_RP2040
 	ioController->LoadAudioSamples(software["audio"]);
+#endif // ENABLE_MH_RP2040
 
 	// Will be called from a different thread if the 'runAsync' or 'saveAsync' options are set to true.
 	// This is a simple implementation which will overwrite the previous save file
-	err = machine->OnSave([roms = software["roms"]](const char* json, meen::IController* ioController)
+	machine->OnSave([roms = software["roms"]](const char* json, meen::IController* ioController)
 	{
 		std::error_code ec;
 		std::filesystem::create_directory(saveFilePath, ec);
+		
+		if (ec)
+		{
+			return meen::errc::invalid_argument;
+		}		
+
 #ifdef ENABLE_MH_RP2040
 		auto [unused, romIndex] = static_cast<i8080_arcade::RPIoController*>(ioController)->GetRomIndex(roms.size());
 #else
 		auto [unused, romIndex] = static_cast<i8080_arcade::SDLIoController*>(ioController)->GetRomIndex(roms.size());
 #endif // ENABLE_MH_RP2040
 		auto rom = roms.as<JsonArrayConst>()[romIndex];
-		
-		if (ec)
-		{
-			return meen::errc::invalid_argument;
-		}		
-		
+
 		std::ofstream fout((saveFilePath/rom["name"].as<std::string>()).string() + ".json", std::ios::trunc);
 
 		if (!fout.good())
@@ -169,13 +176,9 @@ int main(int argc, char** argv)
 		fout.write(json, strlen(json));
 		return meen::errc::no_error;
 	});
-	// A not implemented error is acceptable here
-	// if (err.value() != meen::errc::not_implemnted)
-	CHECK_ERROR(err, printf("Failed to register the OnSave handler: %s\n", err.message().c_str()));	
-#endif
 
 	// Will be called from a different thread if the 'runAsync' or 'loadAsync' configuration options are set to true
-	err = machine->OnLoad([roms = software["roms"]](char* json, int* jsonLen, meen::IController* ioController)
+	machine->OnLoad([roms = software["roms"]](char* json, int* jsonLen, meen::IController* ioController)
 	{
 #ifdef ENABLE_MH_RP2040
 		auto [loadSaveState, romIndex] = static_cast<i8080_arcade::RPIoController*>(ioController)->GetRomIndex(roms.size());
@@ -186,12 +189,11 @@ int main(int argc, char** argv)
 		
 		if (loadSaveState == true)
 		{
-			auto str = std::string("file://") + (saveFilePath/rom["name"].as<std::string>()).string() + ".json";
 			// The engine will generate a parse error if a truncation occurs, however, if one wanted to
-			// check for that here they could by comparing the length of str with *jsonLen. When the length
-			// of str is greater than *jsonLen then a truncation has occurred.
-			strncpy(json, str.c_str(), *jsonLen);
-			*jsonLen = str.length();
+			// check for that here they could by storing the return value in a different variable and then
+			// compare that value to *jsonLen. When that variable is greater than or equal to *jsonLen then
+			// a truncation has occurred.
+			*jsonLen = snprintf(json, *jsonLen, "file://%s.json", (saveFilePath/rom["name"].as<std::string>()).string().c_str());
 		}
 		else
 		{
@@ -204,10 +206,9 @@ int main(int argc, char** argv)
 
 		return meen::errc::no_error;
 	});
-	CHECK_ERROR(err, printf("Failed to register the OnLoad handler: %s\n", err.message().c_str()));
 
 	// Will always be called from the same thread from which IMachine::Run was called (in this case, the main thread)
-	err = machine->OnIdle([](meen::IController* ioController)
+	machine->OnIdle([](meen::IController* ioController)
 	{
 #ifdef ENABLE_MH_RP2040
 		return static_cast<i8080_arcade::RPIoController*>(ioController)->HandleEvent();
@@ -215,20 +216,17 @@ int main(int argc, char** argv)
 		return static_cast<i8080_arcade::SDLIoController*>(ioController)->HandleEvent();
 #endif // ENABLE_MH_RP2040
 	});
-	CHECK_ERROR(err, printf("Failed to register the OnIdle handler: %s\n", err.message().c_str()));
 
 	// Load our controllers into the machine.
-	err = machine->AttachIoController(meen::IControllerPtr(std::move(ioController)));
-	CHECK_ERROR(err, printf("Failed to attach io controller: %s\n", err.message().c_str()));
-
-	err = machine->AttachMemoryController(meen::IControllerPtr(new i8080_arcade::MemoryController()));
-	CHECK_ERROR(err, printf("Failed to attach memory controller: %s\n", err.message().c_str()));
-
+	machine->AttachIoController(meen::IControllerPtr(std::move(ioController)));
+	machine->AttachMemoryController(meen::IControllerPtr(new i8080_arcade::MemoryController()));
 	// Run the machine until the 'q' key is pressed or the window is closed (ie; the machine OnIdle handler returns true)
 	auto ex = machine->Run();
-	CHECK_ERROR(!ex, printf("Failed to run the machine: %s\n", ex.error().message().c_str()));
 
-	printf("Machine run time: %.2f seconds\n", ex.value() / 1000000000.0);
+	if (ex)
+	{
+		printf("Machine run time: %.2f seconds\n", ex.value() / 1000000000.0);
+	}
 
 	return 0;
 }
