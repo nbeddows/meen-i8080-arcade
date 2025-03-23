@@ -154,7 +154,7 @@ namespace i8080_arcade
 		{
 			auto dir = directory;
 			auto resource = sample.as<std::string>();
-			
+
 			if (resource.starts_with("file://"))
 			{
 				resource.erase(strlen("file://"));
@@ -191,7 +191,7 @@ namespace i8080_arcade
 		}
 
 		auto err = i8080ArcadeIO_->SetOptions(meenConfig.c_str());
-		
+
 		if(err)
 		{
 			return err;
@@ -243,8 +243,8 @@ namespace i8080_arcade
 				e.user.code = EventCode::ReadInput;
 				e.user.data1 = reinterpret_cast<void*>(port);
 				e.user.data2 = reinterpret_cast<void*>(&p);
-				SDL_PushEvent(&e);					
-				
+				SDL_PushEvent(&e);
+
 				if (quit_ == false)
 				{
 					ret = p.get_future().get();
@@ -291,7 +291,7 @@ namespace i8080_arcade
 			case 2:
 			{
 				isr = meen::ISR::Two;
-				VideoFrameWrapper* videoFrameWrapper = nullptr; 
+				VideoFrameWrapper* videoFrameWrapper = nullptr;
 
 				{
 					std::lock_guard<std::mutex> lg(videoFrameWrapperMutex_);
@@ -373,7 +373,7 @@ namespace i8080_arcade
 								if (quit == true)
 								{
 									quit_ = true;
-									
+
 									if (SDL_PollEvent(&e))
 									{
 										if (e.type == siEvent_ && e.user.code == EventCode::ReadInput)
@@ -511,7 +511,6 @@ namespace i8080_arcade
 
 	void SDLIoController::HandleError(std::string&& errorMsg)
 	{
-		printf(errorMsg.c_str());
+		printf("%s\n", errorMsg.c_str());
 	}
-
 } // namespace i8080_arcade

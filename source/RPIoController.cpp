@@ -204,7 +204,7 @@ namespace i8080_arcade
 
         if(meenConfig.empty() == true)
         {
-			return std::make_error_code (std::errc::io_error);
+            return std::make_error_code (std::errc::io_error);
         }
 
         i8080ArcadeIO_->SetOptions(meenConfig.c_str());
@@ -214,7 +214,7 @@ namespace i8080_arcade
 
         if (texture_ == nullptr)
         {
-			return std::make_error_code (std::errc::not_enough_memory);
+            return std::make_error_code (std::errc::not_enough_memory);
         }
 
         return std::error_code{};
@@ -339,10 +339,14 @@ namespace i8080_arcade
         switch(interrupt)
         {
             case 0:
+            {
                 break;
+            }
             case 1:
+            {
                 isr = meen::ISR::One;
                 break;
+            }
             case 2:
             {
                 VideoFrameWrapper* vfw;
@@ -379,7 +383,9 @@ namespace i8080_arcade
                 break;
             }
             default:
+            {
                 break;
+            }
         }
 
         return isr;
@@ -574,17 +580,17 @@ namespace i8080_arcade
         //    fr = 0;
         //}
         //}
-        
+
         return false;
     }
 
     void RPIoContorller::HandleError(std::string&& errorMsg)
-	{
-		printf(errorMsg.c_str());
-	}
+    {
+		printf("%s\n", errorMsg.c_str());
+    }
 
     std::tuple<bool, int> SDLIoController::GetRomIndex(int maxSize)
-	{
+    {
 		return std::tuple(false, 0);
-	}
+    }
 } // namespace i8080_arcade
