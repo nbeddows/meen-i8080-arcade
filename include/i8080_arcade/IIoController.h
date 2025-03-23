@@ -49,7 +49,7 @@ namespace i8080_arcade
 
 			These errors may come from meen or i8080-arcade itself.
 		*/
-		virtual void HandleError() = 0;
+		virtual void HandleError(std::string&& errorMsg) = 0;
 
 		/** Load Audio Samples
 
