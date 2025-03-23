@@ -86,8 +86,8 @@ int main(int argc, char** argv)
 #endif // ENABLE_MH_RP2040
 	CHECK_ERROR(e, printf("Parse error while deserializing json config file\n"));
 
-	std::string saveFilePath = "save-files"; 
-	
+	std::string saveFilePath = "save-files";
+
 	if (json["saveFilePath"])
 	{
 		saveFilePath = json["saveFilePath"].as<std::string>();
@@ -119,13 +119,16 @@ int main(int argc, char** argv)
 	// This is a simple implementation which will overwrite the previous save file
 	machine->OnSave([roms = software["roms"], &saveFilePath](const char* json, meen::IController* ioController)
 	{
+#ifdef ENABLE_MH_RP2040 
+		return meen::errc::not_implemented;
+#else
 		std::error_code ec;
 		std::filesystem::create_directory(saveFilePath, ec);
-		
+
 		if (ec)
 		{
 			return meen::errc::invalid_argument;
-		}		
+		}
 
 		auto [unused, romIndex] = static_cast<i8080_arcade::IIoController*>(ioController)->GetRomIndex(roms.size());
 		auto rom = roms.as<JsonArrayConst>()[romIndex];
@@ -139,6 +142,7 @@ int main(int argc, char** argv)
 
 		fout.write(json, strlen(json));
 		return meen::errc::no_error;
+#endif
 	});
 
 	// Will be called from a different thread if the 'runAsync' or 'loadAsync' configuration options are set to true
@@ -146,7 +150,7 @@ int main(int argc, char** argv)
 	{
 		auto [loadSaveState, romIndex] = static_cast<i8080_arcade::IIoController*>(ioController)->GetRomIndex(roms.size());
 		auto rom = roms.as<JsonArrayConst>()[romIndex];
-		
+
 		if (loadSaveState == true)
 		{
 			// The engine will generate a parse error if a truncation occurs, however, if one wanted to
@@ -174,7 +178,7 @@ int main(int argc, char** argv)
 	});
 
 	// Set the hardware options
-    std::string meenConfig;
+	std::string meenConfig;
 	serializeJson(hardware["meen"], meenConfig);
 	machine->SetOptions(meenConfig.c_str());
 
