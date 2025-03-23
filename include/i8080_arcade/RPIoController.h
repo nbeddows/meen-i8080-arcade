@@ -277,7 +277,7 @@ namespace i8080_arcade
 
             @param    errorMsg      The error message.
         */
-        void HandleError(std::sting&& errorMsg) final;
+        void HandleError(std::string&& errorMsg) final;
 
         /** Load the selected rom or the save state of the currently selected rom
 			
@@ -287,7 +287,7 @@ namespace i8080_arcade
                                      bool - only valid when loading roms, true if the save file is to be loaded, false if the rom is to be loaded.
                                      int - the index into the roms array for the rom to be loaded or saved
         */
-        std::tuple<bool, int> RPIoController::GetRomIndex(int maxSize)
+        std::tuple<bool, int> GetRomIndex(int maxSize) final;
     };
 } // namespace i8080_arcade
 #endif // RPIOCONTROLLER_H

@@ -353,7 +353,7 @@ namespace i8080_arcade
 
                 if (success == true)
                 {
-                    vfw->videoFrame = static_cast<MemoryController>(memoryController)->GetVideoFrame();
+                    vfw->videoFrame = static_cast<MemoryController*>(memoryController)->GetVideoFrame();
 
                     if(vfw->videoFrame != nullptr)
                     {
