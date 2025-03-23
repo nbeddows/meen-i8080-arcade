@@ -33,8 +33,7 @@ SOFTWARE.
 
 namespace i8080_arcade
 {
-    RPIoController::RPIoController(const std::shared_ptr<MemoryController>& memoryController, const JsonVariant& audioHardware, const JsonVariant& videoHardware)
-        : memoryController_{ memoryController }
+    RPIoController::RPIoController(const JsonVariant& audioHardware, const JsonVariant& videoHardware)
     {
         i8080ArcadeIO_ = meen_hw::MakeI8080ArcadeIO();
 
@@ -220,12 +219,12 @@ namespace i8080_arcade
         return std::error_code{};
     }
 
-    std::error_code RPIoContorller::LoadAudioSamples(const JsonVariant& audioSamples)
+    std::error_code RPIoController::LoadAudioSamples(const JsonVariant& audioSamples)
     {
         return std::make_error_code(std::errc::not_supported);
     }
 
-    uint8_t RPIoController::Read(uint16_t port)
+    uint8_t RPIoController::Read(uint16_t port, [[maybe_unused]] meen::IController* memoryController)
     {
         uint8_t ret = i8080ArcadeIO_->ReadPort(port);
 
@@ -307,7 +306,7 @@ namespace i8080_arcade
         return ret;
     }
 
-    void RPIoController::Write(uint16_t port, uint8_t data)
+    void RPIoController::Write(uint16_t port, uint8_t data, [[maybe_unused]] meen::IController* memoryController)
     {
         // audio output is not supported, we use the audio to help track the state of the gameplay
         auto audio = i8080ArcadeIO_->WritePort(port, data);
@@ -330,7 +329,7 @@ namespace i8080_arcade
         }
     }
 
-    meen::ISR RPIoController::ServiceInterrupts(uint64_t currTime, uint64_t cycles)
+    meen::ISR RPIoController::ServiceInterrupts(uint64_t currTime, uint64_t cycles, meen::IController* memoryController)
     {
         auto isr = meen::ISR::NoInterrupt;
 
@@ -354,7 +353,7 @@ namespace i8080_arcade
 
                 if (success == true)
                 {
-                    vfw->videoFrame = memoryController_->GetVideoFrame();
+                    vfw->videoFrame = static_cast<MemoryController>(memoryController)->GetVideoFrame();
 
                     if(vfw->videoFrame != nullptr)
                     {
@@ -584,13 +583,13 @@ namespace i8080_arcade
         return false;
     }
 
-    void RPIoContorller::HandleError(std::string&& errorMsg)
+    void RPIoController::HandleError(std::string&& errorMsg)
     {
-		printf("%s\n", errorMsg.c_str());
+        printf("%s\n", errorMsg.c_str());
     }
 
-    std::tuple<bool, int> SDLIoController::GetRomIndex(int maxSize)
+    std::tuple<bool, int> RPIoController::GetRomIndex(int maxSize)
     {
-		return std::tuple(false, 0);
+        return std::tuple(false, 0);
     }
 } // namespace i8080_arcade
