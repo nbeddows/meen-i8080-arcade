@@ -25,6 +25,16 @@ SOFTWARE.
 #include "i8080_arcade/MemoryController.h"
 
 #ifdef ENABLE_MH_RP2040
+/*
+ Spin forever on a set up error so the user has time to spin up
+ a minicom and check what it is!
+*/
+#define CHECK_ERROR(value, printErrorMsg)\
+while(value)\
+{\
+	printErrorMsg;\
+};\
+
 #include <pico/stdlib.h>
 
 #include "i8080_arcade/RPIoController.h"
@@ -32,6 +42,16 @@ SOFTWARE.
 extern char rpConfigStart;
 extern char rpConfigEnd;
 #else
+/*
+ Print out the error message and exit
+*/
+#define CHECK_ERROR(value, printErrorMsg)\
+if(value)\
+{\
+	printErrorMsg;\
+	return 0;\
+};\
+
 #include <fstream>
 #include <filesystem>
 #include <memory>
@@ -53,21 +73,14 @@ static i8080_arcade::IIoController* MakeIoController(const JsonVariant& audioHar
 #endif // ENABLE_MH_RP2040
 }
 
-#define CHECK_ERROR(value, printErrorMsg)\
-if(value)\
-{\
-	printErrorMsg;\
-	return 0;\
-}\
-
 int main(int argc, char** argv)
 {
     JsonDocument json;
 #ifdef ENABLE_MH_RP2040
-    stdio_init_all();
-    // Open the configuration file, see the README for an explanation of each configuration option
-    //cppcheck-suppress comparePointers
-    auto e = deserializeJson(json, std::string(&rpConfigStart, &rpConfigEnd - &rpConfigStart));
+	stdio_init_all();
+	// Open the configuration file, see the README for an explanation of each configuration option
+	//cppcheck-suppress comparePointers
+	auto e = deserializeJson(json, std::string(&rpConfigStart, &rpConfigEnd - &rpConfigStart));
 #else
 	std::ifstream fin;
 
@@ -75,7 +88,6 @@ int main(int argc, char** argv)
 	if (argc == 1)
 	{
 		fin.open("conf/config.json");
-
 	}
 	else
 	{
@@ -103,23 +115,58 @@ int main(int argc, char** argv)
 	auto machine = meen::Make8080Machine();
 	CHECK_ERROR(!machine, printf("Failed to create i8080 machine\n"));
 
+	// Create our custom i8080 arcade I/O controller based on a specific configuration.
+	auto ioController = MakeIoController(hardware["audio"], hardware["video"]);
+	CHECK_ERROR(!ioController, printf("Failed to create the i/o controller\n"));
+
+	// Create our custom i8080 arcade memory controller.
+	auto memoryController = MakeMemoryController();
+	CHECK_ERROR(!memoryController, printf("Failed to create the memory controller\n"));
+	
+	// Set up the custom controllers prior to configuring the machine.
+
+	auto err = ioController->LoadVideoTextures(software["video"]);
+	CHECK_ERROR(err, printf("Failed to load video textures: %s\n", err.message().c_str()));
+
+	err = ioController->LoadAudioSamples(software["audio"]);
+	CHECK_ERROR((err && err.value() != static_cast<int>(std::errc::not_supported)), printf("Failed to load audio samples: %s\n", err.message().c_str()));
+
+	// Configure the machine.
+
 	// Log any error messages generated, do this as early as possible for best meen error coverage
-	auto err = machine->OnError([](std::error_code ec, const char* fileName, const char* functionName, uint32_t line, uint32_t column, meen::IController* ioController)
+	err = machine->OnError([](std::error_code ec, const char* fileName, const char* functionName, uint32_t line, uint32_t column, meen::IController* ioController)
 	{
-		auto len = snprintf(nullptr, 0, "file: %s(%d:%d) `%s`: %s\n", fileName, line, column, functionName, ec.message().c_str());
+		auto len = snprintf(nullptr, 0, "file: %s(%u:%u) `%s`: %s\n", fileName, line, column, functionName, ec.message().c_str());
 		std::string errorMsg(len, '\0');
-		len = snprintf(errorMsg.data(), len, "file: %s(%d:%d) `%s`: %s\n", fileName, line, column, functionName, ec.message().c_str());
-		static_cast<i8080_arcade::IIoController*>(ioController)->HandleError(std::move(errorMsg));
+		len = snprintf(errorMsg.data(), len, "file: %s(%u:%u) `%s`: %s\n", fileName, line, column, functionName, ec.message().c_str());
+		
+		// It's possible for this to be nullptr if the io controller has been removed (should not happen in this demo,
+		// but we perform the check for correctness and print a warning message).
+		if (ioController != nullptr)
+		{
+			// We only pass around one type of controller, so this cast is safe.
+			static_cast<i8080_arcade::IIoController*>(ioController)->HandleError(std::move(errorMsg));
+		}
+		else
+		{
+			printf ("Warning: no io controller attached, error: %s", errorMsg.c_str());
+		}
 	});
 	// Need to manually check the error here as the method could fail before the handler is registered
 	CHECK_ERROR(err, printf("Failed to set the OnError handler: %s\n", err.message().c_str()));
-	// Beyond this point all meen generated errors will be picked up by our error handler
+	
+	// Beyond this point, all meen generated errors will be picked up by our error handler
+
+	// Load our controllers into the machine - do this immediately after the OnError handler has been registered
+	// so the io controller will be available in the OnError handler.
+	machine->AttachIoController(meen::IControllerPtr(std::move(ioController)));
+	machine->AttachMemoryController(meen::IControllerPtr(std::move(memoryController)));	
 
 	// Will be called from a different thread if the 'runAsync' or 'saveAsync' options are set to true.
 	// This is a simple implementation which will overwrite the previous save file
 	machine->OnSave([roms = software["roms"], &saveFilePath](const char* json, meen::IController* ioController)
 	{
-#ifdef ENABLE_MH_RP2040 
+#ifdef ENABLE_MH_RP2040
 		return meen::errc::not_implemented;
 #else
 		std::error_code ec;
@@ -182,19 +229,6 @@ int main(int argc, char** argv)
 	serializeJson(hardware["meen"], meenConfig);
 	machine->SetOptions(meenConfig.c_str());
 
-	// Create our custom i8080 arcade I/O controller based on a specific configuration.
-	auto ioController = MakeIoController(hardware["audio"], hardware["video"]);
-	CHECK_ERROR(!ioController, printf("Failed to create the i/o controller\n"));
-
-	err = ioController->LoadVideoTextures(software["video"]);
-	CHECK_ERROR(err, printf("Failed to load video textures: %s\n", err.message().c_str()));
-
-	err = ioController->LoadAudioSamples(software["audio"]);
-	CHECK_ERROR((err && err.value() != static_cast<int>(std::errc::not_supported)), printf("Failed to load audio samples: %s\n", err.message().c_str()));
-
-	// Load our controllers into the machine.
-	machine->AttachIoController(meen::IControllerPtr(std::move(ioController)));
-	machine->AttachMemoryController(meen::IControllerPtr(MakeMemoryController()));
 	// Run the machine until the 'q' key is pressed or the window is closed (ie; the machine OnIdle handler returns true)
 	auto ex = machine->Run();
 
