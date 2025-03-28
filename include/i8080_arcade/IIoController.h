@@ -48,6 +48,8 @@ namespace i8080_arcade
 			Process any generated errors
 
 			These errors may come from meen or i8080-arcade itself.
+
+			@param	errorMsg		The error message.
 		*/
 		virtual void HandleError(std::string&& errorMsg) = 0;
 
