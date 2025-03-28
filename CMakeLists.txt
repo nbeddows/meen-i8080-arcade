@@ -80,7 +80,7 @@ find_package(meen_hw REQUIRED)
 find_package(ArduinoJson REQUIRED)
 
 set(${project_name}_source_files source/main.cpp source/MemoryController.cpp)
-set(${project_name}_include_files include/i8080_arcade/MemoryController.h)
+set(${project_name}_include_files include/i8080_arcade/IIoController.h include/i8080_arcade/MemoryController.h)
 set(${project_name}_deps meen::meen meen_hw::meen_hw ArduinoJson)
 
 if(${build_os} STREQUAL "baremetal")

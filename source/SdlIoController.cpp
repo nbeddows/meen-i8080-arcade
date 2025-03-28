@@ -24,8 +24,8 @@ SOFTWARE.
 #include <bitset>
 #include <future>
 
-#include "i8080_arcade/SdlIoController.h"
 #include "i8080_arcade/MemoryController.h"
+#include "i8080_arcade/SdlIoController.h"
 #include "meen/Base.h"
 
 namespace i8080_arcade
@@ -44,7 +44,7 @@ namespace i8080_arcade
 								SDL_WINDOWPOS_UNDEFINED,
 								videoHardware["width"].as<int>(),
 								videoHardware["height"].as<int>(),
-								videoHardware["full-screen"].as<bool>() ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0);
+								videoHardware["fullScreen"].as<bool>() ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0);
 
 		if (window_ == nullptr)
 		{
@@ -71,7 +71,7 @@ namespace i8080_arcade
 			printf("Failed to create i8080 arcade hardware");
 		}
 
-		if (Mix_OpenAudio(audioHardware["sample-rate"].as<int>(), 8 /* format (mono) */, audioHardware["channels"].as<int>(), audioHardware["sample-size"].as<int>()) < 0)
+		if (Mix_OpenAudio(audioHardware["sampleRate"].as<int>(), 8 /* format (mono) */, audioHardware["channels"].as<int>(), audioHardware["sampleSize"].as<int>()) < 0)
 		{
 			printf("Failed to open SDL Mixer");
 		}
@@ -130,12 +130,12 @@ namespace i8080_arcade
 		return std::tuple(loadSaveState_.exchange(false), 0);
 	}
 
-	int SDLIoController::LoadAudioSamples(const JsonVariant& audio)
+	std::error_code SDLIoController::LoadAudioSamples(const JsonVariant& audio)
 	{
-		auto scheme = audio["scheme"].as<std::string_view>();
-		auto directory = audio["directory"].as<std::string_view>();
+		auto scheme = audio["scheme"].as<std::string>();
+		auto directory = audio["directory"].as<std::string>();
 
-		auto addChunk = [&mixChunk = mixChunk_](std::string_view directory, std::string_view resource)
+		auto addChunk = [&mixChunk = mixChunk_](const std::string& directory, const std::string& resource)
 		{
 			// if we want to add the additional '/' (so we don't have to put it in the config file)
 			// we need to check if the directory is empty first
@@ -143,23 +143,21 @@ namespace i8080_arcade
 
 			if (resource.empty() == false && chunk == nullptr)
 			{
-				printf("Failed to create mix chunk\n");
-				return -1;
+				return std::make_error_code (std::errc::no_such_file_or_directory);
 			}
 
 			mixChunk.emplace_back(chunk);
-
-			return 0;
+			return std::error_code{};
 		};
 
 		for(const auto& sample : audio["sample"].as<JsonArray>())
 		{
 			auto dir = directory;
-			auto resource = sample.as<std::string_view>();
-			
+			auto resource = sample.as<std::string>();
+
 			if (resource.starts_with("file://"))
 			{
-				resource.remove_prefix(strlen("file://"));
+				resource.erase(strlen("file://"));
 				// A resource starting with a scheme specifies the exact location of that resource
 				dir = "";
 			}
@@ -167,37 +165,36 @@ namespace i8080_arcade
 			{
 				if (scheme != "file://")
 				{
-					printf("Invalid uri scheme\n");
-					return -1;
+					return std::make_error_code (std::errc::not_supported);
 				}
 			}
 
-			if (addChunk(dir, resource) == -1)
+			auto err = addChunk(dir, resource);
+
+			if (err)
 			{
-				return -1;
+				return err;
 			}
 		}
 
-		return 0;
+		return std::error_code{};
 	}
 
-	int SDLIoController::LoadVideoTextures(const JsonVariant& videoTextures)
+	std::error_code SDLIoController::LoadVideoTextures(const JsonVariant& videoTextures)
 	{
 		std::string meenConfig;
 		serializeJson(videoTextures, meenConfig);
 
 		if(meenConfig.empty() == true)
 		{
-			printf("Parse error while serializing hardware:mach_emu\n");
-			return -1;
+			return std::make_error_code (std::errc::io_error);
 		}
 
 		auto err = i8080ArcadeIO_->SetOptions(meenConfig.c_str());
-		
+
 		if(err)
 		{
-			printf("Failed to set options: %s\n", err.message().c_str());
-			return -1;
+			return err;
 		}
 
 		auto pf = SDL_PIXELFORMAT_UNKNOWN;
@@ -213,14 +210,12 @@ namespace i8080_arcade
 					pf = SDL_PIXELFORMAT_RGB565;
 					break;
 				default:
-					printf("Invalid bpp: %d\n", videoTextures["bpp"].as<int>());
-					return -1;
+					return std::make_error_code (std::errc::not_supported);
 			}
 		}
 		else
 		{
-			printf("No valid bpp has been set\n");
-			return -1;
+			return std::make_error_code (std::errc::io_error);
 		}
 
 		SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "linear");
@@ -228,11 +223,10 @@ namespace i8080_arcade
 
 		if (texture_ == nullptr)
 		{
-			printf("Failed to allocate SDL texture\n");
-			return -1;
+			return std::make_error_code (std::errc::not_enough_memory);
 		}
 
-		return 0;
+		return std::error_code{};
 	}
 
 	uint8_t SDLIoController::Read(uint16_t port, [[maybe_unused]] meen::IController* controller)
@@ -249,8 +243,8 @@ namespace i8080_arcade
 				e.user.code = EventCode::ReadInput;
 				e.user.data1 = reinterpret_cast<void*>(port);
 				e.user.data2 = reinterpret_cast<void*>(&p);
-				SDL_PushEvent(&e);					
-				
+				SDL_PushEvent(&e);
+
 				if (quit_ == false)
 				{
 					ret = p.get_future().get();
@@ -297,7 +291,7 @@ namespace i8080_arcade
 			case 2:
 			{
 				isr = meen::ISR::Two;
-				VideoFrameWrapper* videoFrameWrapper = nullptr; 
+				VideoFrameWrapper* videoFrameWrapper = nullptr;
 
 				{
 					std::lock_guard<std::mutex> lg(videoFrameWrapperMutex_);
@@ -379,7 +373,7 @@ namespace i8080_arcade
 								if (quit == true)
 								{
 									quit_ = true;
-									
+
 									if (SDL_PollEvent(&e))
 									{
 										if (e.type == siEvent_ && e.user.code == EventCode::ReadInput)
@@ -513,5 +507,10 @@ namespace i8080_arcade
 		}
 
 		return quit;
+	}
+
+	void SDLIoController::HandleError(std::string&& errorMsg)
+	{
+		printf("%s\n", errorMsg.c_str());
 	}
 } // namespace i8080_arcade

@@ -1,5 +1,5 @@
 {
-    "i8080-arcade": {
+    "i8080Arcade": {
         "hardware": {
             "meen": {
                 "clockSamplingFreq":120,
@@ -11,12 +11,12 @@
             "video": {
                 "width":224,
                 "height":256,
-                "full-screen":false
+                "fullScreen":false
             },
             "audio": {
                 "channels":1,
-                "sample-rate":11025,
-                "sample-size":512
+                "sampleRate":11025,
+                "sampleSize":512
             }
         },
         "software": {
@@ -150,6 +150,6 @@
                 }
             ]
         },
-        "save-file-path":"save-files/"
+        "saveFilePath":"save-files/"
     }
 }

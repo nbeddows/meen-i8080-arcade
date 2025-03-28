@@ -1,8 +1,8 @@
 ### Introduction
 
-This demo project shows how to make use of the [meen](http://github.com/nbeddows/mach-emu/) and [meen_hw](http://github.com/nbeddows/meen-hw) packages to emulate an arcade machine, in this case, one based on the Space Invaders Taito/Midway arcade hardware. I don't consider the emulation to be the most efficient, accurate, or to be extensively tested, but I'm happy with where it is at.
+This demo project shows how to make use of the [meen](http://github.com/nbeddows/meen/) and [meen_hw](http://github.com/nbeddows/meen-hw) packages to emulate an arcade machine, in this case, one based on the Space Invaders Taito/Midway arcade hardware. I don't consider the emulation to be the most efficient, accurate, or to be extensively tested, but I'm happy with where it is at.
 
-This project has been tested against the following roms (which can be found elsewhere online) on the following platforms: Windows/Linux(x86_64), Linux(armv7hf, armv8), Pico RP2040(armv6-m):
+This project has been tested against the following roms (which can be found elsewhere online) with loading/saving game play state on the following platforms: Windows/Linux(x86_64), Linux(armv7hf, armv8), Pico RP2040(armv6-m):
 
 - Space Invaders.
 - Space Invaders Part II/Deluxe.
@@ -114,12 +114,11 @@ The following dependent packages will be (compiled if required and) installed:
 - meen ^
 - meen_hw ^
 - ArduinoJson
-- popl
 - sdl
 - sdl_mixer
 
-^ These packages are not currently hosted on a Conan server and require manual installation, see the section titled [Export a Conan package](https://github.com/nbeddows/mach-emu/blob/main/README.md).
-**NOTE**: mach_emu minimum version of 2.0.0 is required for rp2040 support which is currently under development and therefore must be installed from the mach_emu development branch.
+^ These packages are not currently hosted on a Conan server and require manual installation, see the section titled [Export a Conan package](https://github.com/nbeddows/meen/blob/main/README.md).
+**NOTE**: meen minimum version of 2.0.0 is required for rp2040 support.
 
 **3.** Run cmake to configure and generate the build system.
 
@@ -166,14 +165,7 @@ This example will assume you are deploying the UF2 file from a Raspberry Pi.
 
 Once the UF2 image has been uploaded the Space Invaders rom should start running on the display.
 
-The following command line options are available (not available for embedded targets, rp2040 for example):
-
-- `-h, --help`: display a help message listing all available command line options.
-- `-c, --config-file`: the configuration file to load (default: conf/config.json).
-- `-r, --rom-file-path`: the path to the rom files directory (default: rom-files).
-- `-a, --audio-file-path`: the path to the audio samples directory (default: audio-files).
-- `-s, --save-file-path`: the path to the save files directory (default: save-files).
-- `-g, --game`: the name of the i8080 arcade game to load as defined in the config file (default: space-invaders).
+The default path of the configuration file to load is `conf/config.json`. It can be overwritten by a command line argument specifying the new path to the configuration file (not available for embedded targets, rp2040 for example).
 
 #### Building a binary package
 
@@ -213,13 +205,13 @@ These options should be fixed to the specfied values unless stated otherwise.
 
 The current settings for these options should be sufficient, changing them may have a negative impact on performance.
 
-`clockResolution:1000000000 / 60 / 2` - i8080 arcade hardware runs at 60Hz with 2 interrupts per frame, set the machine clock resolution accordingly.<br>
-`isrFreq:0.9` - We require 4 interrupts, 2 for i8080-arcade and 2 machine level interrupts for loading and saving. Ideally we would lock the interrupt service routine frequency to the clock resolution ("isrFreq":1), however, we need to spare some time for checking for load and save requests, so we bump the isrFreq down by ten percent ("isrFreq":0.9). One could lower it further, this would make it more responsive (0.9 should be good enough). Increasing it above 1 would make it slower and not respond to load/save requests.<br>
+`clockSamplingFreq:120` - i8080 arcade hardware runs at 60Hz with 2 interrupts per frame.<br>
+`isrFreq:132` - We require 4 interrupts, 2 for i8080-arcade and 2 machine level interrupts for loading and saving. Ideally we would lock the interrupt service routine frequency to the clock sampling frequency ("isrFreq":120), however, we need to spare some time for checking for load and save requests, so we bump the isrFreq up by ten percent ("isrFreq":132). One could increase it further (increased host cpu usage), this would make it more responsive (132 should be good enough).<br>
 `loadAsync:true` - Load the machine state asynchronously.<br> 
 `runAsync:true` - Run the machine asynchronously from the io.<br>
 `saveAsync:true` - Save the machine state asynchronously.<br>
 
-**NOTE**: the RP IO Controller does not support saving (`saveAsync`) or loading (`loadAsync`) state.
+**NOTE**: the RP IO Controller does not support saving state.
 
 ##### Video
 
@@ -227,7 +219,7 @@ Video hardware options. These options can be changed for the desired output.
 
 `width:224` - The width of the screen. For non embedded platforms, the output will scale to fit. For embedded platforms, the value should be the width of your attached lcd panel<br>
 `height:256` - The height of the screen. For non embedded platforms, the output will scale to fit. For embedded platforms, the value should be the width of your attached lcd panel<br>
-`full-screen:false` - Window or full screen display. (Experimental)<br>
+`fullScreen:false` - Window or full screen display. (Experimental)<br>
 
 **NOTE**: the RP IO Controller does not support scaling or full-screen, the width and height parameters will be used to center the output on the display device.
 
@@ -236,8 +228,8 @@ Video hardware options. These options can be changed for the desired output.
 Audio hardware options. The current settings for these options should be sufficient.
 
 `channels:1` - The number of audio output channels.<br>
-`sample-rate:11025` - The audio output sample rate.<br>
-`sample-size:512` - The audio output sample size.<br>
+`sampleRate:11025` - The audio output sample rate.<br>
+`sampleSize:512` - The audio output sample size.<br>
 
 **NOTE**: these options can be changed if using custom audio samples.
 **NOTE**: the RP IO Controller does not support audio, these options have no affect.
@@ -251,7 +243,7 @@ These settings apply to the various arcade roms that can be loaded.
 These settings affect visual output and can be changed. They apply to all game roms loaded.
 
 `bpp:8` - Bits per pixel, supported values are 1 (experimental and not universally supported), 8 (rgb332) and 16 (rgb565).<br>
-`colour:white`: the forground colour (the background is always black), supported values are "white", "red", "green", "blue", "random" and a 16 bit custom hex value.<br>
+`colour:white` - the forground colour (the background is always black), supported values are "white", "red", "green", "blue", "random" and a 16 bit custom hex value.<br>
 `orientation:upright` - The window layout, "cocktail" for horizontal and "upright" for vertical.<br>
 
 **NOTE**: the RP IO Controller only supports cocktail orientation @ 16bpp.
@@ -268,15 +260,15 @@ These settings affect audio output. They can be changed if different audio sampl
 
 ##### Space Invaders/Space Invaders Deluxe/Space Invaders II/Balloon Bomber/Lunar Rescue
 
-These settings are fixed to the specified rom and should not be changed.
+These settings are fixed to the specified rom.
 
-`memory:rom:file:name` - The name of the rom file.<br>
-`memory:rom:file:offset` - The start of memory rom load offset.<br>
-`memory:rom:file:size` - The rom file size.<br>
-`memory:ram:block:offset` - The start of memory ram block offset.<br>
-`memory:ram:block:size` - The ram block size.<br>
-
-**NOTE**: the RP IO Controller does not support saving or loading, hence these settiings will have no affect.
+`roms:name` - The name of the rom. This is used as the name of the save state json file.<br>
+`roms:cpu:pc` - The meen cpu program counter. It **must** not be changed, doing so will yield undefined behaviour.<br>
+`roms:cpu:sp` - The meen cpu stack pointer. It **must** not be changed, doing so will yield undefined behaviour.<br>
+`memory:rom:scheme` - An optional parameter specifying the type of the rom resource to load, either `file://` or `json://`.<br>
+`memory:rom:directory` - An optional parameter specifying the path to the rom resource to load.<br>
+`memory:rom:[block]:bytes`: The rom resource to load. When the resource is fully qualified it will ignore the scheme and directory parameters.
+`memory:rom:[block]:offset`: The offset into memory where the rom will be loaded, this value **must** not be changed, doing so will yield undefined behaviour.<br>
 
 ### Desktop Keyboard Controls
 
@@ -298,7 +290,8 @@ These settings are fixed to the specified rom and should not be changed.
 `l`: 2P right<br>
 `i`: Show coin info<br>
 `y`: Save game<br>
-`r`: Load game<br> 
+`r`: Load save game<br>
+`u`: Load from rom<br>
 
 ### Embedded button controls
 

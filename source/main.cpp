@@ -25,6 +25,16 @@ SOFTWARE.
 #include "i8080_arcade/MemoryController.h"
 
 #ifdef ENABLE_MH_RP2040
+/*
+ Spin forever on a set up error so the user has time to spin up
+ a minicom and check what it is!
+*/
+#define CHECK_ERROR(value, printErrorMsg)\
+while(value)\
+{\
+	printErrorMsg;\
+};\
+
 #include <pico/stdlib.h>
 
 #include "i8080_arcade/RPIoController.h"
@@ -32,6 +42,16 @@ SOFTWARE.
 extern char rpConfigStart;
 extern char rpConfigEnd;
 #else
+/*
+ Print out the error message and exit
+*/
+#define CHECK_ERROR(value, printErrorMsg)\
+if(value)\
+{\
+	printErrorMsg;\
+	return 0;\
+};\
+
 #include <fstream>
 #include <filesystem>
 #include <memory>
@@ -39,94 +59,125 @@ extern char rpConfigEnd;
 #include "i8080_arcade/SdlIoController.h"
 #endif // ENABLE_MH_RP2040
 
-#define CHECK_ERROR(value, printErrorMsg)\
-if(value)\
-{\
-	printErrorMsg;\
-	return 0;\
-}\
+static i8080_arcade::MemoryController* MakeMemoryController()
+{
+	return new i8080_arcade::MemoryController();
+}
+
+static i8080_arcade::IIoController* MakeIoController(const JsonVariant& audioHardware, const JsonVariant& videoHardware)
+{
+#ifdef ENABLE_MH_RP2040
+	return new i8080_arcade::RPIoController(audioHardware, videoHardware);
+#else
+	return new i8080_arcade::SDLIoController(audioHardware, videoHardware);
+#endif // ENABLE_MH_RP2040
+}
 
 int main(int argc, char** argv)
 {
-    std::string meenConfig;
     JsonDocument json;
 #ifdef ENABLE_MH_RP2040
-    stdio_init_all();
-    // Open the configuration file, see the README for an explanation of each configuration option
-    //cppcheck-suppress comparePointers
-    auto e = deserializeJson(json, std::string(&rpConfigStart, &rpConfigEnd - &rpConfigStart));
+	stdio_init_all();
+	// Open the configuration file, see the README for an explanation of each configuration option
+	//cppcheck-suppress comparePointers
+	auto e = deserializeJson(json, std::string(&rpConfigStart, &rpConfigEnd - &rpConfigStart));
 #else
-	std::string configFile = "conf/config.json";
+	std::ifstream fin;
 
-	if (argc > 1)
+	// Open the configuration file, see the README for an explanation of each configuration option
+	if (argc == 1)
 	{
-		configFile = argv[1];
+		fin.open("conf/config.json");
+	}
+	else
+	{
+		fin.open(argv[1]);
 	}
 
-    // Open the configuration file, see the README for an explanation of each configuration option
-    std::ifstream fin(configFile);
     auto e = deserializeJson(json, fin);
 #endif // ENABLE_MH_RP2040
 	CHECK_ERROR(e, printf("Parse error while deserializing json config file\n"));
 
-	std::string saveFilePath = "save-files"; 
-	
-	if (json["save-file-path"])
+	std::string saveFilePath = "save-files";
+
+	if (json["saveFilePath"])
 	{
-		saveFilePath = json["save-file-path"].as<std::string>();
+		saveFilePath = json["saveFilePath"].as<std::string>();
 	}
 
-	auto hardware = json["i8080-arcade"]["hardware"];
+	auto hardware = json["i8080Arcade"]["hardware"];
 	CHECK_ERROR(!hardware, printf("Invalid json config file format: hardware section not found\n"));
 
-	auto software = json["i8080-arcade"]["software"];
+	auto software = json["i8080Arcade"]["software"];
 	CHECK_ERROR(!software, printf("Invalid json config file format: software section not found\n"));
 
 	// Create our custom i8080 arcade machine
 	auto machine = meen::Make8080Machine();
 	CHECK_ERROR(!machine, printf("Failed to create i8080 machine\n"));
 
-	// Log any error messages generated
-	auto err = machine->OnError([](std::error_code ec, const char* fileName, const char* functionName, uint32_t line, uint32_t column, meen::IController* ioController)
-	{
-		printf("file: %s(%d:%d) `%s`: %s\n", fileName, line, column, functionName, ec.message().c_str());
-	});
-	CHECK_ERROR(err, printf("Failed to set the OnError handler: %s\n", err.message().c_str()));
-
-	// Set the hardware options
-	serializeJson(hardware["meen"], meenConfig);
-	machine->SetOptions(meenConfig.c_str());
-
 	// Create our custom i8080 arcade I/O controller based on a specific configuration.
-#ifdef ENABLE_MH_RP2040
-	auto ioController = new i8080_arcade::RPIoController(hardware["audio"], hardware["video"]);
-#else
-	auto ioController = new i8080_arcade::SDLIoController(hardware["audio"], hardware["video"]);
-#endif
+	auto ioController = MakeIoController(hardware["audio"], hardware["video"]);
 	CHECK_ERROR(!ioController, printf("Failed to create the i/o controller\n"));
 
-	ioController->LoadVideoTextures(software["video"]);
-#ifndef ENABLE_MH_RP2040
-	ioController->LoadAudioSamples(software["audio"]);
-#endif // ENABLE_MH_RP2040
+	// Create our custom i8080 arcade memory controller.
+	auto memoryController = MakeMemoryController();
+	CHECK_ERROR(!memoryController, printf("Failed to create the memory controller\n"));
+	
+	// Set up the custom controllers prior to configuring the machine.
+
+	auto err = ioController->LoadVideoTextures(software["video"]);
+	CHECK_ERROR(err, printf("Failed to load video textures: %s\n", err.message().c_str()));
+
+	err = ioController->LoadAudioSamples(software["audio"]);
+	CHECK_ERROR((err && err.value() != static_cast<int>(std::errc::not_supported)), printf("Failed to load audio samples: %s\n", err.message().c_str()));
+
+	// Configure the machine.
+
+	// Log any error messages generated, do this as early as possible for best meen error coverage
+	err = machine->OnError([](std::error_code ec, const char* fileName, const char* functionName, uint32_t line, uint32_t column, meen::IController* ioController)
+	{
+		auto len = snprintf(nullptr, 0, "file: %s(%u:%u) `%s`: %s\n", fileName, line, column, functionName, ec.message().c_str());
+		std::string errorMsg(len, '\0');
+		len = snprintf(errorMsg.data(), len, "file: %s(%u:%u) `%s`: %s\n", fileName, line, column, functionName, ec.message().c_str());
+		
+		// It's possible for this to be nullptr if the io controller has been removed (should not happen in this demo,
+		// but we perform the check for correctness and print a warning message).
+		if (ioController != nullptr)
+		{
+			// We only pass around one type of controller, so this cast is safe.
+			static_cast<i8080_arcade::IIoController*>(ioController)->HandleError(std::move(errorMsg));
+		}
+		else
+		{
+			printf ("Warning: no io controller attached, error: %s", errorMsg.c_str());
+		}
+	});
+	// Need to manually check the error here as the method could fail before the handler is registered
+	CHECK_ERROR(err, printf("Failed to set the OnError handler: %s\n", err.message().c_str()));
+	
+	// Beyond this point, all meen generated errors will be picked up by our error handler
+
+	// Load our controllers into the machine - do this immediately after the OnError handler has been registered
+	// so the io controller will be available in the OnError handler.
+	machine->AttachIoController(meen::IControllerPtr(std::move(ioController)));
+	machine->AttachMemoryController(meen::IControllerPtr(std::move(memoryController)));	
 
 	// Will be called from a different thread if the 'runAsync' or 'saveAsync' options are set to true.
 	// This is a simple implementation which will overwrite the previous save file
 	machine->OnSave([roms = software["roms"], &saveFilePath](const char* json, meen::IController* ioController)
 	{
+#ifdef ENABLE_MH_RP2040
+		return meen::errc::not_implemented;
+#else
 		std::error_code ec;
 		std::filesystem::create_directory(saveFilePath, ec);
-		
+
 		if (ec)
 		{
 			return meen::errc::invalid_argument;
-		}		
+		}
 
-#ifdef ENABLE_MH_RP2040
-		auto [unused, romIndex] = static_cast<i8080_arcade::RPIoController*>(ioController)->GetRomIndex(roms.size());
-#else
-		auto [unused, romIndex] = static_cast<i8080_arcade::SDLIoController*>(ioController)->GetRomIndex(roms.size());
-#endif // ENABLE_MH_RP2040
+		auto [unused, romIndex] = static_cast<i8080_arcade::IIoController*>(ioController)->GetRomIndex(roms.size());
 		auto rom = roms.as<JsonArrayConst>()[romIndex];
 
 		std::ofstream fout(saveFilePath + "/" + rom["name"].as<std::string>() + ".json", std::ios::trunc);
@@ -138,18 +189,15 @@ int main(int argc, char** argv)
 
 		fout.write(json, strlen(json));
 		return meen::errc::no_error;
+#endif
 	});
 
 	// Will be called from a different thread if the 'runAsync' or 'loadAsync' configuration options are set to true
 	machine->OnLoad([roms = software["roms"], &saveFilePath](char* json, int* jsonLen, meen::IController* ioController)
 	{
-#ifdef ENABLE_MH_RP2040
-		auto [loadSaveState, romIndex] = static_cast<i8080_arcade::RPIoController*>(ioController)->GetRomIndex(roms.size());
-#else
-		auto [loadSaveState, romIndex] = static_cast<i8080_arcade::SDLIoController*>(ioController)->GetRomIndex(roms.size());
-#endif // ENABLE_MH_RP2040
+		auto [loadSaveState, romIndex] = static_cast<i8080_arcade::IIoController*>(ioController)->GetRomIndex(roms.size());
 		auto rom = roms.as<JsonArrayConst>()[romIndex];
-		
+
 		if (loadSaveState == true)
 		{
 			// The engine will generate a parse error if a truncation occurs, however, if one wanted to
@@ -173,16 +221,14 @@ int main(int argc, char** argv)
 	// Will always be called from the same thread from which IMachine::Run was called (in this case, the main thread)
 	machine->OnIdle([](meen::IController* ioController)
 	{
-#ifdef ENABLE_MH_RP2040
-		return static_cast<i8080_arcade::RPIoController*>(ioController)->HandleEvent();
-#else
-		return static_cast<i8080_arcade::SDLIoController*>(ioController)->HandleEvent();
-#endif // ENABLE_MH_RP2040
+		return static_cast<i8080_arcade::IIoController*>(ioController)->HandleEvent();
 	});
 
-	// Load our controllers into the machine.
-	machine->AttachIoController(meen::IControllerPtr(std::move(ioController)));
-	machine->AttachMemoryController(meen::IControllerPtr(new i8080_arcade::MemoryController()));
+	// Set the hardware options
+	std::string meenConfig;
+	serializeJson(hardware["meen"], meenConfig);
+	machine->SetOptions(meenConfig.c_str());
+
 	// Run the machine until the 'q' key is pressed or the window is closed (ie; the machine OnIdle handler returns true)
 	auto ex = machine->Run();
 

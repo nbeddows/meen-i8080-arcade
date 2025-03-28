@@ -58,7 +58,7 @@ class I8080ArcadeRecipe(ConanFile):
                     tc.cache_variables["sdlMixerBinDir"] = self.dependencies["sdl_mixer"].cpp_info.bindirs[0].replace("\\", "/")
 
         else:
-            tc.cache_variables["meenEmuBinDir"] = self.dependencies["meen"].cpp_info.libdirs[0].replace("\\", "/")
+            tc.cache_variables["meenBinDir"] = self.dependencies["meen"].cpp_info.libdirs[0].replace("\\", "/")
 
             if self.dependencies["meen_hw"].options.shared:
                 tc.cache_variables["meenHwBinDir"] = self.dependencies["meen_hw"].cpp_info.libdirs[0].replace("\\", "/")

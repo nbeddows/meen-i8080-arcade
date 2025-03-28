@@ -2,8 +2,13 @@
 * Added RP2040 support (no audio).
 * Added 16bpp video output support.
 * Updated to meen/2.0.0.
-* Moved all command line args to the config file.
+* Removed all command line arguments other than
+  the path to the config file (arguments now
+  defined in the config file).
+* One command line argument supported: the path
+  to the config file. 
 * Removed popl dependency.
+* Added IIoController base class.
 
 0.6.1 [04/08/24]
 * Added profiles for improved build support.

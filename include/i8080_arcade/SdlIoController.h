@@ -24,13 +24,11 @@ SOFTWARE.
 #define SDLIOCONTROLLER_H
 
 #include <atomic>
-#define ARDUINOJSON_ENABLE_STRING_VIEW 1
-#include <ArduinoJson.h>
 #include <SDL.h>
 #include <SDL_mixer.h>
 #include <vector>
 
-#include "meen/IController.h"
+#include "i8080_arcade/IIoController.h"
 #include "meen_hw/MH_Factory.h"
 #include "meen_hw/MH_ResourcePool.h"
 
@@ -40,7 +38,7 @@ namespace i8080_arcade
 
 		A custom io controller targetting Space Invaders i8080 arcade hardware compatible ROMs.
 	*/
-	class SDLIoController final : public meen::IController
+	class SDLIoController final : public IIoController
 	{
 		private:
 			/** SDL Renderer
@@ -215,18 +213,27 @@ namespace i8080_arcade
 
 	            @return                 True to quit the machine, false otherwise.
 			*/
-			bool HandleEvent();
+			bool HandleEvent() final;
+
+			/** Error handler
+
+            	Process any generated errors
+
+        		These errors may come from meen or i8080-arcade itself.
+
+				@param	errorMsg		The error message.
+			*/
+			void HandleError(std::string&& errorMsg) final;
 
 			/** Load Audio Samples
 
 				Use SDL Mixer to load the audio samples.
 
-				@param	audioFilePath	The audio samples root directory.
 				@param	audioSamples	JSON object representing the audio sample files.
 
-				@return					0 on success, -1 on failure.
+				@return					An error in the form of a std::error_code.
 			*/
-			int LoadAudioSamples(const JsonVariant& audioSamples);
+			std::error_code LoadAudioSamples(const JsonVariant& audioSamples) final;
 
 			/** Load Video Textures
 
@@ -234,9 +241,9 @@ namespace i8080_arcade
 
 				@param	videoTextures	JSON object describing the video texture.
 
-				@return					0 on success, -1 on failure.
+				@return					An error in the form of a std::error_code.
 			*/
-			int LoadVideoTextures(const JsonVariant& videoTextures);
+			std::error_code LoadVideoTextures(const JsonVariant& videoTextures) final;
 
 			/** Load the selected rom or the save state of the currently selected rom
 			
@@ -246,7 +253,7 @@ namespace i8080_arcade
 										bool - only valid when loading roms, true if the save file is to be loaded, false if the rom is to be loaded.
 										int - the index into the roms array for the rom to be loaded or saved
 			*/
-			std::tuple<bool, int> GetRomIndex(int maxSize);
+			std::tuple<bool, int> GetRomIndex(int maxSize) final;
 	};
 } // namespace i8080_arcade
 
