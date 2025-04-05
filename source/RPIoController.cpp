@@ -33,7 +33,8 @@ SOFTWARE.
 
 namespace i8080_arcade
 {
-    RPIoController::RPIoController(const JsonVariant& audioHardware, const JsonVariant& videoHardware)
+    RPIoController::RPIoController(bool runAsync, const JsonVariantConst audioHardware, const JsonVariantConst videoHardware)
+        : runAsync_{ runAsync }
     {
         i8080ArcadeIO_ = meen_hw::MakeI8080ArcadeIO();
 
@@ -128,7 +129,7 @@ namespace i8080_arcade
 
         // Write 8 bits at a time
         spi_set_format(spi1, 8, SPI_CPOL_0, SPI_CPHA_0, SPI_MSB_FIRST);
-        // Write to the whole display tp clear
+        // Write to the whole display to clear
         SetRegion(0, 0, width_, height_);
         // write to lcd ram
         WriteCmd(0X2C);
@@ -174,7 +175,7 @@ namespace i8080_arcade
         queue_free(&videoFrameQueue_);
     }
 
-    std::error_code RPIoController::LoadVideoTextures(const JsonVariant& videoTextures)
+    std::error_code RPIoController::LoadVideoTextures(const JsonVariantConst videoTextures)
     {
         int bpp = 16; // this needs to be updated to 12bpp for performance reasons
 
@@ -219,7 +220,7 @@ namespace i8080_arcade
         return std::error_code{};
     }
 
-    std::error_code RPIoController::LoadAudioSamples(const JsonVariant& audioSamples)
+    std::error_code RPIoController::LoadAudioSamples([[maybe_unused]] const JsonVariantConst audioSamples)
     {
         return std::make_error_code(std::errc::not_supported);
     }
@@ -433,55 +434,9 @@ namespace i8080_arcade
         auto arcadeWidth = i8080ArcadeIO_->GetVRAMWidth();
         auto arcadeHeight = i8080ArcadeIO_->GetVRAMHeight();
         auto compressedWidth = arcadeWidth >> 3;
-        //auto widthOffset = (width_ - arcadeWidth) / 2;
-        //auto heightOffset = (height_ - arcadeHeight) / 2;
         auto dst = std::bit_cast<uint16_t*>(texture_.get());
         VideoFrameWrapper* vfw = nullptr;
 
-	    //meen_hw::MH_ResourcePool<std::array<uint8_t, 7168>>::ResourcePtr backBuffer;
-
-        // Write 8 bits at a time
-        //spi_set_format(spi1, 8, SPI_CPOL_0, SPI_CPHA_0, SPI_MSB_FIRST);
-        // Write to the whole display tp clear
-        //SetRegion(0, 0, width_, height_);
-        // write to lcd ram
-        //WriteCmd(0X2C);
-        // Write 16 bits at a time
-        //spi_set_format(spi1, 16, SPI_CPOL_0, SPI_CPHA_0, SPI_MSB_FIRST);
-
-        //gpio_put(Pin::DC, 1);
-        //gpio_put(Pin::CS, 0);
-
-        // Clear the display
-        //for(int i = 0; i < height_; i++)
-        //{
-        //     for(int j = 0; j < width_; j++)
-        //     {
-        //         uint16_t p = 0x0000;
-        //         spi_write16_blocking(spi1, &p, 1);
-        //     }
-        //}
-
-        //auto setRegion = [wo = widthOffset, ho = heightOffset, w = width_, h = height_](int hIndex)
-        //{
-        //    gpio_put(Pin::CS, 1);
-            // Write 8 bits at a time
-        //    spi_set_format(spi1, 8, SPI_CPOL_0, SPI_CPHA_0, SPI_MSB_FIRST);
-            // Center the graphics on the display
-        //    RPIoController::SetRegion(wo, ho + hIndex, w - wo, h - ho);
-            // write to lcd ram
-        //    RPIoController::WriteCmd(0X2C);
-            // Write 16 bits at a time
-        //    spi_set_format(spi1, 16, SPI_CPOL_0, SPI_CPHA_0, SPI_MSB_FIRST);
-        //};
-
-        //setRegion(0);
-
-        //auto lastTime = get_absolute_time();
-        //int fr = 0;
-
-        //while(1)
-        //{
         queue_remove_blocking(&videoFrameQueue_, static_cast<void*>(&vfw));
         auto videoFrame = std::move(vfw->videoFrame);
         // explicitly set to nullptr as there is no requirement on std::move to do this
