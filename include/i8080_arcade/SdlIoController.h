@@ -156,12 +156,47 @@ namespace i8080_arcade
 			Uint8 lastU_{};
 			Uint8 lastY_{};
 
+			/** The running state
+			
+				True if meen is to run on a different thread to the main application,
+				false otherwise.
+			*/
+			bool runAsync_{};
+
+			/** Read input form the keyboard
+
+				@param	port	The emulated port to read from.
+				@param	state	The keyboard state.
+				
+				@return			A uint8_t bitwise combination informing the rom
+								of the user input.
+			*/
+			uint8_t ReadInputDevice(uint8_t port, const uint8_t* state);
+
+			/** Assign a load or save machine interrupt
+			
+				Peforms a check of the key once during a key press and release sequence.
+
+				@param	key				The press or release state of the key.
+				@param	lastKey			The previous press or release state of the key.
+				@param	isr				The interrupt to assign.
+				@param	loadSaveState	True if the current save state is to be loaded,
+										false otherwise.
+
+				@return					The current key state (the key parameter).
+			*/
+			Uint8 SetInterrupt(Uint8 key, Uint8 lastKey, meen::ISR isr, bool loadSaveState);
+
 		public:
 			/** Initialisation constructor
 
 				Creates an SDL specific i8080 arcade IO controller.
+
+				@param		runAsync		Run this io controller asynchronously.
+				@param		audioHardware	audio hardware configuration options.
+				@param		videoHardware	video hardware configuration options.
 			*/
-			SDLIoController(const JsonVariant& audioHardware, const JsonVariant& videoHardware);
+			SDLIoController(bool runAsync, const JsonVariantConst audioHardware, const JsonVariantConst videoHardware);
 
 			/** Destructor
 
@@ -175,7 +210,7 @@ namespace i8080_arcade
 
 				@param	port	The device to read from.
 
-				@return	int		A bitfield indicating the action to take.
+				@return			A bitfield indicating the action to take.
 			*/
 			uint8_t Read(uint16_t port, meen::IController* controller) final;
 
@@ -233,7 +268,7 @@ namespace i8080_arcade
 
 				@return					An error in the form of a std::error_code.
 			*/
-			std::error_code LoadAudioSamples(const JsonVariant& audioSamples) final;
+			std::error_code LoadAudioSamples(const JsonVariantConst audioSamples) final;
 
 			/** Load Video Textures
 
@@ -243,7 +278,7 @@ namespace i8080_arcade
 
 				@return					An error in the form of a std::error_code.
 			*/
-			std::error_code LoadVideoTextures(const JsonVariant& videoTextures) final;
+			std::error_code LoadVideoTextures(const JsonVariantConst videoTextures) final;
 
 			/** Load the selected rom or the save state of the currently selected rom
 			

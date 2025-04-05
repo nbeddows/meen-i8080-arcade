@@ -30,7 +30,8 @@ SOFTWARE.
 
 namespace i8080_arcade
 {
-    SDLIoController::SDLIoController(const JsonVariant& audioHardware, const JsonVariant& videoHardware)
+    SDLIoController::SDLIoController(bool runAsync, const JsonVariantConst audioHardware, const JsonVariantConst videoHardware)
+		: runAsync_{ runAsync }
 	{
 		SDL_SetMainReady();
 
@@ -130,7 +131,7 @@ namespace i8080_arcade
 		return std::tuple(loadSaveState_.exchange(false), 0);
 	}
 
-	std::error_code SDLIoController::LoadAudioSamples(const JsonVariant& audio)
+	std::error_code SDLIoController::LoadAudioSamples(const JsonVariantConst audio)
 	{
 		auto scheme = audio["scheme"].as<std::string>();
 		auto directory = audio["directory"].as<std::string>();
@@ -150,7 +151,7 @@ namespace i8080_arcade
 			return std::error_code{};
 		};
 
-		for(const auto& sample : audio["sample"].as<JsonArray>())
+		for(const auto& sample : audio["sample"].as<JsonArrayConst>())
 		{
 			auto dir = directory;
 			auto resource = sample.as<std::string>();
@@ -180,7 +181,7 @@ namespace i8080_arcade
 		return std::error_code{};
 	}
 
-	std::error_code SDLIoController::LoadVideoTextures(const JsonVariant& videoTextures)
+	std::error_code SDLIoController::LoadVideoTextures(const JsonVariantConst videoTextures)
 	{
 		std::string meenConfig;
 		serializeJson(videoTextures, meenConfig);
@@ -229,6 +230,58 @@ namespace i8080_arcade
 		return std::error_code{};
 	}
 
+	// Scan the keyboard for load and save requests
+	Uint8 SDLIoController::SetInterrupt(Uint8 key, Uint8 lastKey, meen::ISR isr, bool loadSaveState)
+	{
+		if (key ^ lastKey && key)
+		{
+			loadSaveInterrupt_ = isr;
+			loadSaveState_ = loadSaveState;
+		}
+
+		return key;
+	}
+
+	uint8_t SDLIoController::ReadInputDevice(uint8_t port, const uint8_t* state)
+	{
+		uint8_t value = 0;
+		// We can only load from a save file or save if a rom is currently running (engine will generate an error otherwise)
+		// so we only allow the user to perform these operations when a rom is running only.
+		// (either from the Read method directly (runAsync == false) or via the Read method generating a ReadInput event (runAsync == true)
+		lastR_ = SetInterrupt(state[SDL_SCANCODE_R], lastR_, meen::ISR::Load, true);
+		lastY_ = SetInterrupt(state[SDL_SCANCODE_Y], lastY_, meen::ISR::Save, false);
+
+		if (port == 1)
+		{
+			value = 0x08;
+			value |= (state[SDL_SCANCODE_C] * 0x01); // Credit
+			value |= (state[SDL_SCANCODE_1] * 0x04); // 1P
+			value |= (state[SDL_SCANCODE_2] * 0x02); // 2P
+			value |= (state[SDL_SCANCODE_A] * 0x20); // 1P Left
+			value |= (state[SDL_SCANCODE_S] * 0x10); // 1P Fire
+			value |= (state[SDL_SCANCODE_D] * 0x40); // 1P Right
+		}
+		else if (port == 2)
+		{
+			value |= (state[SDL_SCANCODE_3] * 0x00); // 3 Ships
+			value |= (state[SDL_SCANCODE_4] * 0x01); // 4 Ships
+			value |= (state[SDL_SCANCODE_5] * 0x02); // 5 Ships
+			value |= (state[SDL_SCANCODE_6] * 0x03); // 6 Ships
+			value |= (state[SDL_SCANCODE_T] * 0x04); // Tilt
+			value |= (state[SDL_SCANCODE_E] * 0x08); // Extra Ship at
+			value |= (state[SDL_SCANCODE_J] * 0x20); // 2P Left
+			value |= (state[SDL_SCANCODE_K] * 0x10); // 2P Fire
+			value |= (state[SDL_SCANCODE_L] * 0x40); // 2P Right
+			value |= (state[SDL_SCANCODE_I] * 0x80); // Show coin info
+		}
+		else
+		{
+			printf("Invalid Read Port: %d\n", port);
+		}
+
+		return value;
+	}
+
 	uint8_t SDLIoController::Read(uint16_t port, [[maybe_unused]] meen::IController* controller)
 	{
 		auto ret = i8080ArcadeIO_->ReadPort(port);
@@ -237,17 +290,28 @@ namespace i8080_arcade
 		{
 			if (port == 1 || port == 2)
 			{
-				std::promise<uint8_t> p;
-				SDL_Event e{};
-				e.type = siEvent_;
-				e.user.code = EventCode::ReadInput;
-				e.user.data1 = reinterpret_cast<void*>(port);
-				e.user.data2 = reinterpret_cast<void*>(&p);
-				SDL_PushEvent(&e);
-
-				if (quit_ == false)
+				if (runAsync_ == true)
 				{
-					ret = p.get_future().get();
+					// This block isn't ideal as it pushes a request to the main
+					// thread and waits for a result ... I don't think we can
+					// remove this and just perform the else case as I don't think
+					// it is safe to do so with SDL across threads.
+					std::promise<uint8_t> p;
+					SDL_Event e{};
+					e.type = siEvent_;
+					e.user.code = EventCode::ReadInput;
+					e.user.data1 = reinterpret_cast<void*>(port);
+					e.user.data2 = reinterpret_cast<void*>(&p);
+					SDL_PushEvent(&e);
+
+					if (quit_ == false)
+					{
+						ret = p.get_future().get();
+					}
+				}
+				else
+				{
+					ret = ReadInputDevice(port, SDL_GetKeyboardState(nullptr));
 				}
 			}
 		}
@@ -337,22 +401,20 @@ namespace i8080_arcade
 	{
 		SDL_Event e;
 		bool quit = false;
+		bool eventTriggered = false;
 		const auto state = SDL_GetKeyboardState(nullptr);
 
-		if (SDL_WaitEvent(&e))
+		if (runAsync_ == true)
 		{
-			// Scan the keyboard for load and save requests
-			auto setInterrupt = [this](Uint8 key, Uint8 lastKey, meen::ISR isr, bool loadSaveState)
-			{
-				if (key ^ lastKey && key)
-				{
-					loadSaveInterrupt_ = isr;
-					loadSaveState_ = loadSaveState;
-				}
+			eventTriggered = SDL_WaitEvent(&e);
+		}
+		else
+		{
+			eventTriggered = SDL_PollEvent(&e);
+		}
 
-				return key;
-			};
-
+		if (eventTriggered == true)
+		{
 			switch (e.type)
 			{
 				case SDL_QUIT:
@@ -374,12 +436,15 @@ namespace i8080_arcade
 								{
 									quit_ = true;
 
-									if (SDL_PollEvent(&e))
+									if (runAsync_ == true)
 									{
-										if (e.type == siEvent_ && e.user.code == EventCode::ReadInput)
+										if (SDL_PollEvent(&e))
 										{
-											static_cast<std::promise<uint8_t>*>(e.user.data2)->set_value(0);
-										}
+											if (e.type == siEvent_ && e.user.code == EventCode::ReadInput)
+											{
+												static_cast<std::promise<uint8_t>*>(e.user.data2)->set_value(0);
+											}
+										}	
 									}
 									break;
 								}
@@ -428,7 +493,7 @@ namespace i8080_arcade
 								SDL_RenderPresent(renderer_);
 
 								// Check to see if the user wants to load a rom
-								lastR_ = setInterrupt(state[SDL_SCANCODE_U], lastR_, meen::ISR::Load, false);
+								lastU_ = SetInterrupt(state[SDL_SCANCODE_U], lastU_, meen::ISR::Load, false);
 								break;
 							}
 							case EventCode::RenderAudio:
@@ -456,42 +521,7 @@ namespace i8080_arcade
 							{
 								uint8_t port = reinterpret_cast<uint64_t>(e.user.data1);
 								auto p = static_cast<std::promise<uint8_t>*>(e.user.data2);
-								uint8_t value = 0;
-
-								// We can only load from a save file or save if a rom is currently running (engine will generate an error otherwise)
-								// so we only allow the user to perform these operations when a rom is running only.
-								// (the ReadInput event is only triggered when a rom is running)
-								lastU_ = setInterrupt(state[SDL_SCANCODE_R], lastR_, meen::ISR::Load, true);
-								lastY_ = setInterrupt(state[SDL_SCANCODE_Y], lastY_, meen::ISR::Save, false);
-
-								if (port == 1)
-								{
-									value = 0x08;
-									value |= (state[SDL_SCANCODE_C] * 0x01); // Credit
-									value |= (state[SDL_SCANCODE_1] * 0x04); // 1P
-									value |= (state[SDL_SCANCODE_2] * 0x02); // 2P
-									value |= (state[SDL_SCANCODE_A] * 0x20); // 1P Left
-									value |= (state[SDL_SCANCODE_S] * 0x10); // 1P Fire
-									value |= (state[SDL_SCANCODE_D] * 0x40); // 1P Right
-								}
-								else if (port == 2)
-								{
-									value |= (state[SDL_SCANCODE_3] * 0x00); // 3 Ships
-									value |= (state[SDL_SCANCODE_4] * 0x01); // 4 Ships
-									value |= (state[SDL_SCANCODE_5] * 0x02); // 5 Ships
-									value |= (state[SDL_SCANCODE_6] * 0x03); // 6 Ships
-									value |= (state[SDL_SCANCODE_T] * 0x04); // Tilt
-									value |= (state[SDL_SCANCODE_E] * 0x08); // Extra Ship at
-									value |= (state[SDL_SCANCODE_J] * 0x20); // 2P Left
-									value |= (state[SDL_SCANCODE_K] * 0x10); // 2P Fire
-									value |= (state[SDL_SCANCODE_L] * 0x40); // 2P Right
-									value |= (state[SDL_SCANCODE_I] * 0x80); // Show coin info
-								}
-								else
-								{
-									printf("Invalid Read Port: %d\n", port);
-								}
-
+								auto value = ReadInputDevice(port, state);
 								p->set_value(value);
 								break;
 							}
