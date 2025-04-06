@@ -437,7 +437,18 @@ namespace i8080_arcade
         auto dst = std::bit_cast<uint16_t*>(texture_.get());
         VideoFrameWrapper* vfw = nullptr;
 
-        queue_remove_blocking(&videoFrameQueue_, static_cast<void*>(&vfw));
+        if (runAsync_ == true)
+        {
+            queue_remove_blocking(&videoFrameQueue_, static_cast<void*>(&vfw));
+        }
+        else
+        {
+            if (queue_try_remove(&videoFrameQueue_, static_cast<void*>(&vfw)) == false)
+            {
+                return false;
+            }
+        }
+
         auto videoFrame = std::move(vfw->videoFrame);
         // explicitly set to nullptr as there is no requirement on std::move to do this
         vfw->videoFrame = nullptr;
