@@ -212,6 +212,8 @@ The current settings for these options should be sufficient, changing them may h
 `saveAsync:true` - Save the machine state asynchronously.<br>
 
 **NOTE**: the RP IO Controller does not support saving state.
+**NOTE**: running in synchronous mode (`runAsync` = `false`) is supported for demonstration purposes, however, it should be left to `true` for performance reasons.
+**NOTE**: running in synchronous mode (`runAsync` = `false`) requires an increase in the `isrFreq` parameter.
 
 ##### Video
 

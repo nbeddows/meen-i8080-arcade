@@ -61,7 +61,7 @@ namespace i8080_arcade
 
 			@return					An error in the form of a std::error_code.
 		*/
-		virtual std::error_code LoadAudioSamples(const JsonVariant& audioSamples) = 0;
+		virtual std::error_code LoadAudioSamples(const JsonVariantConst audioSamples) = 0;
 
 		/** Load Video Textures
 
@@ -71,7 +71,7 @@ namespace i8080_arcade
 
 			@return					An error in the form of a std::error_code.
 		*/
-		virtual std::error_code LoadVideoTextures(const JsonVariant& videoTextures) = 0;
+		virtual std::error_code LoadVideoTextures(const JsonVariantConst videoTextures) = 0;
 
 		/** Load the selected rom or the save state of the currently selected rom
 			

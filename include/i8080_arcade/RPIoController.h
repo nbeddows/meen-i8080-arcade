@@ -98,7 +98,7 @@ namespace i8080_arcade
             This allows for a triple buffering system where the first frame is the frame
             being generated, the second frame is the frame being rendered, and the third
             frame, the back buffer, which is used to compare for scanline differences with the
-            frame being rendered. This allows for improved rendering performace by not rendering
+            frame being rendered. This allows for improved rendering performance by not rendering
             scanlines that are identical to the previous frame.
         */
         meen_hw::MH_ResourcePool<std::array<uint8_t, 7168>>::ResourcePtr backBuffer_;
@@ -163,6 +163,8 @@ namespace i8080_arcade
         bool lastK2_{};
         bool lastK3_{};
 
+        bool runAsync_{};
+
         /** LCD command
 
             Write a command to the LCD driver.
@@ -180,7 +182,7 @@ namespace i8080_arcade
 
         /** Ram write region
 
-            Define a region in display ram where pixels can be written to,
+            Define a region in display ram where pixels can be written to.
 
             @param    startX    the starting x coordinate of the blit region.
             @param    startY    the starting y coordinate of the blit region.
@@ -192,13 +194,18 @@ namespace i8080_arcade
     public:
         /** Initialisation constructor
 
-            Creates an SDL specific i8080 arcade IO controller.
+            Creates an RP2040 specific i8080 arcade IO controller.
+
+            @param		runAsync		Run this io controller asynchronously.
+            @param		audioHardware	audio hardware configuration options.
+            @param		videoHardware	video hardware configuration options.
+
         */
-        RPIoController(const JsonVariant& audioHardware, const JsonVariant& videoHardware);
+        RPIoController(bool runAsync, const JsonVariantConst audioHardware, const JsonVariantConst videoHardware);
 
         /** Destructor
 
-            Free the various required SDL objects.
+            Free the various required RP2040 objects.
         */
         ~RPIoController();
 
@@ -246,7 +253,7 @@ namespace i8080_arcade
 
 			@return					An error in the form of a std::error_code.
         */
-        std::error_code LoadVideoTextures(const JsonVariant& videoTextures) final;
+        std::error_code LoadVideoTextures(const JsonVariantConst videoTextures) final;
 
    		/** Load Audio Samples
 
@@ -256,7 +263,7 @@ namespace i8080_arcade
 
 			@return					An error in the form of a std::error_code.
 		*/
-        std::error_code LoadAudioSamples(const JsonVariant& audioSamples) final;
+        std::error_code LoadAudioSamples(const JsonVariantConst audioSamples) final;
 
         /** Main control loop
 

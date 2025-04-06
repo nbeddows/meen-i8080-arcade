@@ -61,21 +61,25 @@ if(value)\
 
 static i8080_arcade::MemoryController* MakeMemoryController()
 {
+#ifdef ENABLE_MH_RP2040
+	return new i8080_arcade::MemoryController(3); // 3 - Three frame for triple buffered rendering
+#else
 	return new i8080_arcade::MemoryController();
+#endif
 }
 
-static i8080_arcade::IIoController* MakeIoController(const JsonVariant& audioHardware, const JsonVariant& videoHardware)
+static i8080_arcade::IIoController* MakeIoController(bool runAsync, const JsonVariant& audioHardware, const JsonVariant& videoHardware)
 {
 #ifdef ENABLE_MH_RP2040
-	return new i8080_arcade::RPIoController(audioHardware, videoHardware);
+	return new i8080_arcade::RPIoController(runAsync, audioHardware, videoHardware);
 #else
-	return new i8080_arcade::SDLIoController(audioHardware, videoHardware);
+	return new i8080_arcade::SDLIoController(runAsync, audioHardware, videoHardware);
 #endif // ENABLE_MH_RP2040
 }
 
 int main(int argc, char** argv)
 {
-    JsonDocument json;
+	JsonDocument json;
 #ifdef ENABLE_MH_RP2040
 	stdio_init_all();
 	// Open the configuration file, see the README for an explanation of each configuration option
@@ -83,27 +87,14 @@ int main(int argc, char** argv)
 	auto e = deserializeJson(json, std::string(&rpConfigStart, &rpConfigEnd - &rpConfigStart));
 #else
 	std::ifstream fin;
-
+	auto configFilePath = argc == 1 ? "conf/config.json" : argv[1];
 	// Open the configuration file, see the README for an explanation of each configuration option
-	if (argc == 1)
-	{
-		fin.open("conf/config.json");
-	}
-	else
-	{
-		fin.open(argv[1]);
-	}
-
+	fin.open(configFilePath);
     auto e = deserializeJson(json, fin);
 #endif // ENABLE_MH_RP2040
 	CHECK_ERROR(e, printf("Parse error while deserializing json config file\n"));
 
-	std::string saveFilePath = "save-files";
-
-	if (json["saveFilePath"])
-	{
-		saveFilePath = json["saveFilePath"].as<std::string>();
-	}
+	std::string saveFilePath = json["saveFilePath"] ? json["saveFilePath"].as<std::string>() : "save-files";
 
 	auto hardware = json["i8080Arcade"]["hardware"];
 	CHECK_ERROR(!hardware, printf("Invalid json config file format: hardware section not found\n"));
@@ -111,12 +102,15 @@ int main(int argc, char** argv)
 	auto software = json["i8080Arcade"]["software"];
 	CHECK_ERROR(!software, printf("Invalid json config file format: software section not found\n"));
 
+	auto meen = hardware["meen"];
+	CHECK_ERROR(!meen, printf("Invalid json config file format: meen section not found\n"));
+
 	// Create our custom i8080 arcade machine
 	auto machine = meen::Make8080Machine();
 	CHECK_ERROR(!machine, printf("Failed to create i8080 machine\n"));
 
 	// Create our custom i8080 arcade I/O controller based on a specific configuration.
-	auto ioController = MakeIoController(hardware["audio"], hardware["video"]);
+	auto ioController = MakeIoController(meen["runAsync"], hardware["audio"], hardware["video"]);
 	CHECK_ERROR(!ioController, printf("Failed to create the i/o controller\n"));
 
 	// Create our custom i8080 arcade memory controller.
@@ -226,7 +220,7 @@ int main(int argc, char** argv)
 
 	// Set the hardware options
 	std::string meenConfig;
-	serializeJson(hardware["meen"], meenConfig);
+	serializeJson(meen, meenConfig);
 	machine->SetOptions(meenConfig.c_str());
 
 	// Run the machine until the 'q' key is pressed or the window is closed (ie; the machine OnIdle handler returns true)
