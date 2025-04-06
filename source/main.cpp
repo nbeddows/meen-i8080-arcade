@@ -62,9 +62,9 @@ if(value)\
 static i8080_arcade::MemoryController* MakeMemoryController()
 {
 #ifdef ENABLE_MH_RP2040
-	return new i8080_arcade::MemoryController();
+	return new i8080_arcade::MemoryController(3); // 3 - Three frame for triple buffered rendering
 #else
-	return new i8080_arcade::MemoryController(3);
+	return new i8080_arcade::MemoryController();
 #endif
 }
 
