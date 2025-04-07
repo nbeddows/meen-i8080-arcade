@@ -145,13 +145,13 @@ namespace i8080_arcade
         /** The number of remaining ships
 
             This counter is used to track when to move from gameplay mode to
-            attraction screen mode and vide versa.
+            attraction screen mode and vice versa.
             When it is greater than 0, we are in gameplay mode and buttons 0
             and 3 will be used to move the ship left and right. When it is
             0 we are in attraction screen mode and these buttons will be used
             to select which rom to load.
         */
-        int ships_{};
+        int ships_{ -1 };
 
         /** Button state tracking
 
@@ -184,12 +184,24 @@ namespace i8080_arcade
 
             Define a region in display ram where pixels can be written to.
 
-            @param    startX    the starting x coordinate of the blit region.
-            @param    startY    the starting y coordinate of the blit region.
-            @param    endX      the ending x coordinate of the blit region.
-            @param    endX      the ending x coordinate of the blit region.
+            @param    startX    The starting x coordinate of the blit region.
+            @param    startY    The starting y coordinate of the blit region.
+            @param    endX      The ending x coordinate of the blit region.
+            @param    endX      The ending x coordinate of the blit region.
         */
         static void SetRegion(uint16_t Xstart, uint16_t Ystart, uint16_t Xend, uint16_t Yend);
+
+        /** Single button press
+
+            Returns the state of tthe button (ignoring repeats).
+
+            bool    button        True of the button is currently pressed.
+            bool    lastButton    The prevos state of the button parameter.
+                                  True this is a button repeat, false otherwise.
+
+            return                True for a single press, false otherwise.
+        */
+        bool ButtonPress(bool button, bool& lastButton);
 
     public:
         /** Initialisation constructor

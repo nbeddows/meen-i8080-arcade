@@ -225,6 +225,19 @@ namespace i8080_arcade
         return std::make_error_code(std::errc::not_supported);
     }
 
+    bool RPIoController::ButtonPress(bool button, bool& lastButton)
+    {
+        bool press = false;
+
+        if ((button ^ lastButton) && button)
+        {
+            press = true;
+        }
+
+        lastButton = button;
+        return press;
+    }
+
     uint8_t RPIoController::Read(uint16_t port, [[maybe_unused]] meen::IController* memoryController)
     {
         uint8_t ret = i8080ArcadeIO_->ReadPort(port);
@@ -233,30 +246,16 @@ namespace i8080_arcade
         {
             if (port == 1)
             {
-                auto buttonPress = [](bool button, bool& lastButton)
-                {
-                    bool press = false;
-
-                    if ((button ^ lastButton) && button)
-                    {
-                        press = true;
-                    }
-
-                    lastButton = button;
-                    return press;
-                };
-
-
                 // Always force single player mode (0x04) (2P mode is not supported)
                 ret = 0x08 | 0x04;
-                ret |= buttonPress(!gpio_get(Pin::K1), lastK1_) * 0x01; // Credit
+                ret |= ButtonPress(!gpio_get(Pin::K1), lastK1_) * 0x01; // Credit
 
                 if (ships_ > 0)
                 {
                     // We want button repeats during gameplay for player movement
                     ret |= !gpio_get(Pin::K0) * 0x20; // 1P Left
                     ret |= !gpio_get(Pin::K3) * 0x40; // 1P Right
-                    ret |= buttonPress(!gpio_get(Pin::K2), lastK2_) * 0x10; // 1P Fire
+                    ret |= ButtonPress(!gpio_get(Pin::K2), lastK2_) * 0x10; // 1P Fire
 
                     if (ret & 0x01)
                     {
@@ -271,8 +270,8 @@ namespace i8080_arcade
                 else
                 {
                     // When scrolling roms we DONT want button repeats
-                    ret |= buttonPress(!gpio_get(Pin::K0), lastK0_) * 0x20; // 1P Left
-                    ret |= buttonPress(!gpio_get(Pin::K3), lastK3_) * 0x40; // 1P Right
+                    //ret |= ButtonPress(!gpio_get(Pin::K0), lastK0_) * 0x20; // 1P Left
+                    //ret |= ButtonPress(!gpio_get(Pin::K3), lastK3_) * 0x40; // 1P Right
 
                     if (ret & 0x01)
                     {
@@ -281,21 +280,21 @@ namespace i8080_arcade
                         ships_ = 3;
                     }
 
-                    if (ret & 0x20)
-                    {
+                    //if (ret & 0x20)
+                    //{
                         //printf("Move to the previous rom\n");
                         // turn off move left
-                        ret &= ~0x20;
+                    //    ret &= ~0x20;
                         // TODO: We want move to the previous rom, send previous rom event
-                    }
+                    //}
 
-                    if (ret & 0x40)
-                    {
+                    //if (ret & 0x40)
+                    //{
                         //printf("Move to the next rom\n");
                         // turn off move right
-                        ret &= ~0x40;
+                    //    ret &= ~0x40;
                         // TODO: We want move to the next rom, send next rom event
-                    }
+                    //}
                 }
             }
             else if (port == 2)
@@ -340,6 +339,16 @@ namespace i8080_arcade
         {
             case 0:
             {
+                if (ships_ = -1)
+                {
+                    // Check button 2 press to trigger a rom load interrupt
+                    if (ButtonPress (!gpio_get(Pin::K2), lastK2_))
+                    {
+                        printf("Load Interrupt\n");
+                        isr = meen::ISR::Load;
+                        ships_ = 0;
+                    }
+                }
                 break;
             }
             case 1:
