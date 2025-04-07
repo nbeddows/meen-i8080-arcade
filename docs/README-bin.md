@@ -12,6 +12,9 @@ This emulator has been tested against the following roms (which can be found els
 - Balloon Bomber (This one looks to have issues which go beyond the superficial that require further investigation).
 - Lunar Rescue.
 
+For supported desktop platforms The Simple Direct MediaLayer (SDL) is used to render the output and requires a keyboard for interaction (keyboard controls are documented towards the end of this document).
+For supported embedded platforms an st7789 based lcd screen is required for rendering the output (tested with 320x240) with a minimum of 4 buttons for interaction (button controls are documented towards the end of this document).
+
 ### Running the application
 
 A script is provided in the root directory which will configure the environment and run the i8080 arcade machine.
@@ -20,7 +23,9 @@ A script is provided in the root directory which will configure the environment 
 
 ### Configuration
 
-A configuration file targeting the i8080 arcade hardware is provided in json format. It is designed for flexibility and verbosity. It is divided into two main sections:
+A configuration file targeting the i8080 arcade hardware is provided in json format. It is designed for flexibility and verbosity.
+
+It is divided into two main sections:
 
 #### Hardware
 
@@ -30,29 +35,36 @@ These options should be fixed to the specfied values unless stated otherwise.
 
 The current settings for these options should be sufficient, changing them may have a negative impact on performance.
 
-`clockResolution:1000000000 / 60 / 2` - i8080 arcade hardware runs at 60Hz with 2 interrupts per frame, set the machine clock resolution accordingly.<br>
-`isrFreq:0.9` - We require 4 interrupts, 2 for i8080-arcade and 2 machine level interrupts for loading and saving. Ideally we would lock the interrupt service routine frequency to the clock resolution ("isrFreq":1), however, we need to spare some time for checking for load and save requests, so we bump the isrFreq down by ten percent ("isrFreq":0.9). One could lower it further, this would make it more responsive (0.9 should be good enough). Increasing it above 1 would make it slower and not respond to load/save requests.<br>
+`clockSamplingFreq:120` - i8080 arcade hardware runs at 60Hz with 2 interrupts per frame.<br>
+`isrFreq:132` - We require 4 interrupts, 2 for i8080-arcade and 2 machine level interrupts for loading and saving. Ideally we would lock the interrupt service routine frequency to the clock sampling frequency ("isrFreq":120), however, we need to spare some time for checking for load and save requests, so we bump the isrFreq up by ten percent ("isrFreq":132). One could increase it further (increased host cpu usage), this would make it more responsive (132 should be good enough).<br>
 `loadAsync:true` - Load the machine state asynchronously.<br> 
 `runAsync:true` - Run the machine asynchronously from the io.<br>
 `saveAsync:true` - Save the machine state asynchronously.<br>
+
+**NOTE**: the RP IO Controller does not support saving state.
+**NOTE**: running in synchronous mode (`runAsync` = `false`) is supported for demonstration purposes, however, it should be left to `true` for performance reasons.
+**NOTE**: running in synchronous mode (`runAsync` = `false`) requires an increase in the `isrFreq` parameter for improved responsiveness (240 recommended).
 
 ##### Video
 
 Video hardware options. These options can be changed for the desired output.
 
-`width:224` - The width of the screen.<br>
-`height:256` - The height of the screen.<br>
-`full-screen:false` - Window or full screen display.<br>
+`width:224` - The width of the screen. For non embedded platforms, the output will scale to fit. For embedded platforms, the value should be the width of your attached lcd panel<br>
+`height:256` - The height of the screen. For non embedded platforms, the output will scale to fit. For embedded platforms, the value should be the width of your attached lcd panel<br>
+`fullScreen:false` - Window or full screen display. (Experimental)<br>
+
+**NOTE**: the RP IO Controller does not support scaling or full-screen, the width and height parameters will be used to center the output on the display device.
 
 ##### Audio
 
 Audio hardware options. The current settings for these options should be sufficient.
 
 `channels:1` - The number of audio output channels.<br>
-`sample-rate:11025` - The audio output sample rate.<br>
-`sample-size:512` - The audio output sample size.<br>
+`sampleRate:11025` - The audio output sample rate.<br>
+`sampleSize:512` - The audio output sample size.<br>
 
 **NOTE**: these options can be changed if using custom audio samples.
+**NOTE**: the RP IO Controller does not support audio, these options have no affect.
 
 #### Software
 
@@ -62,9 +74,11 @@ These settings apply to the various arcade roms that can be loaded.
 
 These settings affect visual output and can be changed. They apply to all game roms loaded.
 
-`bpp:8` - Bits per pixel, supported values are 1 (currently not supported via the SDL IO controller) and 8.<br>
-`colour:white`: the forground colour (the background is always black), supported values are "white", "red", "green", "blue", "random" and an 8 bit custom hex value.<br>
+`bpp:8` - Bits per pixel, supported values are 1 (experimental and not universally supported), 8 (rgb332) and 16 (rgb565).<br>
+`colour:white` - The forground colour (the background is always black), supported values are "white", "red", "green", "blue", "random" and a 16 bit custom hex value.<br>
 `orientation:upright` - The window layout, "cocktail" for horizontal and "upright" for vertical.<br>
+
+**NOTE**: the RP IO Controller only supports cocktail orientation @ 16bpp.
 
 ##### Audio
 
@@ -73,39 +87,57 @@ These settings affect audio output. They can be changed if different audio sampl
 `audio:file` - The name of the audio sample to load (empty entries are ignored and **must** not be removed).<br>
 
 **NOTE**: the position of the audio files in the array **must** not be changed.<br>
-**NOTE**: if changing the audio files, the audio hardware properties may need to be updated (untested).
+**NOTE**: if changing the audio files, the audio hardware properties may need to be updated (untested).<br>
+**NOTE**: the RP IO Controller does not support audio, these setting have no affect.
 
 ##### Space Invaders/Space Invaders Deluxe/Space Invaders II/Balloon Bomber/Lunar Rescue
 
-These settings are fixed to the specified rom and should not be changed.
+These settings are fixed to the specified rom.
 
-`memory:rom:file:name` - The name of the rom file.<br>
-`memory:rom:file:offset` - The start of memory rom load offset.<br>
-`memory:rom:file:size` - The rom file size.<br>
-`memory:ram:block:offset` - The start of memory ram block offset.<br>
-`memory:ram:block:size` - The ram block size.<br>
+`roms:name` - The name of the rom. This is used as the name of the save state json file.<br>
+`roms:cpu:pc` - The meen cpu program counter. It **must** not be changed, doing so will yield undefined behaviour.<br>
+`roms:cpu:sp` - The meen cpu stack pointer. It **must** not be changed, doing so will yield undefined behaviour.<br>
+`memory:rom:scheme` - An optional parameter specifying the type of the rom resource to load, either `file://` or `json://`.<br>
+`memory:rom:directory` - An optional parameter specifying the path to the rom resource to load.<br>
+`memory:rom:[block]:bytes`: The rom resource to load. When the resource is fully qualified it will ignore the scheme and directory parameters.
+`memory:rom:[block]:offset`: The offset into memory where the rom will be loaded, this value **must** not be changed, doing so will yield undefined behaviour.<br>
 
-### Keyboard Controls
+### Desktop Keyboard Controls
 
 `q`: Quit<br>
 `c`: Credit<br>
-`1`, 1P<br>
+`1`: 1P<br>
 `2`: 2P<br>
-`a`: 1P Left<br>
-`s`: 1P Fire<br>
-`d`: 1P Right<br>
-`3`: 3 Ships<br>
-`4`: 4 Ships<br>
-`5`: 5 Ships<br>
-`6`: 6 Ships<br>
+`a`: 1P left<br>
+`s`: 1P fire<br>
+`d`: 1P right<br>
+`3`: 3 ships<br>
+`4`: 4 ships<br>
+`5`: 5 ships<br>
+`6`: 6 ships<br>
 `t`: Tilt<br>
 `e`: Extra ship at<br>
-`j`: 2P Left<br>
-`k`: 2P Fire<br>
-`l`: 2P Right<br>
+`j`: 2P left<br>
+`k`: 2P fire<br>
+`l`: 2P right<br>
 `i`: Show coin info<br>
 `y`: Save game<br>
-`r`: Load game<br> 
+`r`: Load save game<br>
+`u`: Load from rom<br>
+
+### Embedded button controls
+
+Four buttons can be used to control a one player emulation. All game settings will be at defaults, this includes starting with 3 ships with an addtional
+ship every 1500 points.
+
+More buttons and/or logic can be added for a more complete emulation, 2 player support for example (keeping it simple for demonstration purposes).
+
+The pin layout used is the same as the [hardware lcd](https://www.waveshare.com/wiki/Pico-LCD-2) used for testing.
+
+`button 0`: when on the rom attraction screen, select the previous rom in the list of supported roms, when in gameplay mode, move the ship to the left.<br>
+`button 1`: when on the rom attraction screen, add a credit and start a single player game, when in gameplay mode, quit and return to the attraction screen.<br>
+`button 2`: when in gameplay mode, fire at the enemy.<br>
+`button 3`: when on the rom attraction screen, select the next rom in the list of supported roms, when in gameplay mode, move the ship to the right.<br>
 
 ![space-invaders](docs/images/space-invaders.png) ![space-invaders-deluxe](docs/images/space-invaders-deluxe.png) ![lunar-rescue](docs/images/lunar-rescue.png) ![balloon-bomber](docs/images/balloon-bomber.png)
 
