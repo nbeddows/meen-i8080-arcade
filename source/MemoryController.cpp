@@ -21,22 +21,8 @@ SOFTWARE.
 */
 
 #include <algorithm>
-#include <cstring>
 
 #include "i8080_arcade/MemoryController.h"
-
-#ifdef ENABLE_MH_RP2040
-extern uint8_t invadersHStart;
-extern uint8_t invadersHEnd;
-extern uint8_t invadersGStart;
-extern uint8_t invadersGEnd;
-extern uint8_t invadersFStart;
-extern uint8_t invadersFEnd;
-extern uint8_t invadersEStart;
-extern uint8_t invadersEEnd;
-#else
-#include <fstream>
-#endif // ENABLE_MH_RP2040
 
 namespace i8080_arcade
 {
@@ -50,7 +36,7 @@ namespace i8080_arcade
             framePool_.AddResource(new std::array<uint8_t, 7168>);
         }
 
-        memset(memory_.get(), 0x00, memorySize_);
+        std::ranges::fill(memory_.get(), memory_.get() + memorySize_, 0x00);
     }
 
     meen_hw::MH_ResourcePool<std::array<uint8_t, 7168>>::ResourcePtr MemoryController::GetVideoFrame() const
@@ -59,7 +45,7 @@ namespace i8080_arcade
 
         if(frame != nullptr)
         {
-            std::copy_n(memory_.get() + 0x2400, frame->size(), frame->begin());
+            std::ranges::copy_n(memory_.get() + 0x2400, frame->size(), frame->begin());
         }
 
         return frame;
