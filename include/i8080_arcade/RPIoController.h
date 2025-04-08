@@ -140,7 +140,7 @@ namespace i8080_arcade
 
             The pixels that will be rendered to the display.
         */
-        std::unique_ptr<uint8_t> texture_;
+        std::vector<uint8_t> texture_;
 
         /** The number of remaining ships
 
@@ -299,8 +299,8 @@ namespace i8080_arcade
         void HandleError(std::string&& errorMsg) final;
 
         /** Load the selected rom or the save state of the currently selected rom
-			
-        @param    maxSize            The total number of roms in the rom list	
+
+        @param    maxSize            The total number of roms in the rom list
 
         @return                      A tuple holding two values:
                                      bool - only valid when loading roms, true if the save file is to be loaded, false if the rom is to be loaded.
