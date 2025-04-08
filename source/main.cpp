@@ -98,26 +98,31 @@ int main(int argc, char** argv)
 	auto machine = meen::Make8080Machine();
 	CHECK_ERROR(!machine, printf("Failed to create i8080 machine\n"));
 
-	// Configure everything in a block so that all locals are destroyed upon block exit 
+	// Configure everything in a block so that all locals are destroyed upon block exit
 	{
 		JsonDocument json;
-	#ifdef ENABLE_MH_RP2040
-		const std::unordered_map<std::string_view, uintptr_t> romNameToAddr
+#ifdef ENABLE_MH_RP2040
+		auto toPair = [](uint8_t* s, uint8_t* e)
 		{
-			{ "invaders-e.bin", std::bit_cast<uintptr_t>(&invadersEStart) }, { "invaders-f.bin", std::bit_cast<uintptr_t>(&invadersFStart) }, { "invaders-g.bin", std::bit_cast<uintptr_t>(&invadersGStart) }, { "invaders-h.bin", std::bit_cast<uintptr_t>(&invadersHStart) }
+			return std::pair<uintptr_t, uintptr_t>(std::bit_cast<uintptr_t>(s), e - s);
+		};
+
+		const std::unordered_map<std::string_view, std::pair<uintptr_t, uint16_t>> romNameToAddr
+		{
+			{ "invaders-e.bin", toPair(&invadersEStart, &invadersEEnd) }, { "invaders-f.bin", toPair(&invadersFStart, &invadersFEnd) }, { "invaders-g.bin", toPair(&invadersGStart, &invadersGEnd) }, { "invaders-h.bin", toPair(&invadersHStart, &invadersHEnd) }
 		};
 
 		stdio_init_all();
 		// Open the configuration file, see the README for an explanation of each configuration option
 		//cppcheck-suppress comparePointers
 		auto e = deserializeJson(json, std::string_view(&rpConfigStart, &rpConfigEnd - &rpConfigStart));
-	#else
+#else
 		std::ifstream fin;
 		auto configFilePath = argc == 1 ? "conf/config.json" : argv[1];
 		// Open the configuration file, see the README for an explanation of each configuration option
 		fin.open(configFilePath);
 		auto e = deserializeJson(json, fin);
-	#endif // ENABLE_MH_RP2040
+#endif // ENABLE_MH_RP2040
 		CHECK_ERROR(e, printf("Parse error while deserializing json config file\n"));
 
 		saveFilePath = json["saveFilePath"] ? json["saveFilePath"].as<std::string>() : "save-files";
@@ -134,8 +139,8 @@ int main(int argc, char** argv)
 			CHECK_ERROR(!r["memory"]["rom"], printf("No rom found in config file memory\n"));
 			CHECK_ERROR(!r["memory"]["rom"]["block"], printf("No rom block found in config file memory\n"));
 
-	// For baremetal platforms we need to update the config file so it loads from flash rather than a file
-	#ifdef ENABLE_MH_RP2040
+// For baremetal platforms we need to update the config file so it loads from flash rather than a file
+#ifdef ENABLE_MH_RP2040
 			auto&& rom = r["memory"]["rom"];
 			// Update the scheme
 			rom["scheme"] = "mem://";
@@ -145,10 +150,10 @@ int main(int argc, char** argv)
 				// Check the names of the roms and set the correct rom address accordingly
 				auto name = block["bytes"].as<std::string_view>();
 				CHECK_ERROR(!romNameToAddr.contains(name), printf("The memory rom block is missing bytes: %s\n", std::string(name).c_str()));
-				block["bytes"] = std::to_string(romNameToAddr.at(name));
+				block["bytes"] = std::to_string(romNameToAddr.at(name).first);
+				block["size"] = romNameToAddr.at(name).second;
 			}
-	#endif // ENABLE_MH_RP2040
-
+#endif // ENABLE_MH_RP2040
 			// Cache all rom strings in a vector of pairs with first being the rom name
 			// and the second being the rom config json.
 			std::string str;
@@ -211,7 +216,7 @@ int main(int argc, char** argv)
 
 		// Will be called from a different thread if the 'runAsync' or 'saveAsync' options are set to true.
 		// This is a simple implementation which will overwrite the previous save file
-	#ifndef ENABLE_MH_RP2040
+#ifndef ENABLE_MH_RP2040
 		machine->OnSave([&jsonRoms, &saveFilePath](const char* json, meen::IController* ioController)
 		{
 			std::error_code ec;
@@ -233,7 +238,7 @@ int main(int argc, char** argv)
 			fout.write(json, strlen(json));
 			return meen::errc::no_error;
 		});
-	#endif // ENABLE_MH_RP2040
+#endif // ENABLE_MH_RP2040
 		// Will be called from a different thread if the 'runAsync' or 'loadAsync' configuration options are set to true
 		machine->OnLoad([&jsonRoms, &saveFilePath](char* json, int* jsonLen, meen::IController* ioController)
 		{
@@ -241,15 +246,15 @@ int main(int argc, char** argv)
 
 			if (loadSaveState == true)
 			{
-	#ifdef ENABLE_MH_RP2040
+#ifdef ENABLE_MH_RP2040
 				return meen::errc::not_implemented;
-	#else
+#else
 				// The engine will generate a parse error if a truncation occurs, however, if one wanted to
 				// check for that here they could by storing the return value in a different variable and then
 				// compare that value to *jsonLen. When that variable is greater than or equal to *jsonLen then
 				// a truncation has occurred.
 				*jsonLen = snprintf(json, *jsonLen, "file://%s/%s.json", saveFilePath.c_str(), jsonRoms[romIndex].first.c_str());
-	#endif // ENABLE_MH_RP2040
+#endif // ENABLE_MH_RP2040
 			}
 			else
 			{
