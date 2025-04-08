@@ -23,6 +23,7 @@ SOFTWARE.
 #ifndef MEMORYCONTROLLER_H
 #define MEMORYCONTROLLER_H
 
+#define ARDUINOJSON_ENABLE_STRING_VIEW 1
 #include <ArduinoJson.h>
 #include <array>
 #include <memory>

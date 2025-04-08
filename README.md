@@ -213,7 +213,7 @@ The current settings for these options should be sufficient, changing them may h
 
 **NOTE**: the RP IO Controller does not support saving state.
 **NOTE**: running in synchronous mode (`runAsync` = `false`) is supported for demonstration purposes, however, it should be left to `true` for performance reasons.
-**NOTE**: running in synchronous mode (`runAsync` = `false`) requires an increase in the `isrFreq` parameter.
+**NOTE**: running in synchronous mode (`runAsync` = `false`) requires an increase in the `isrFreq` parameter for improved responsiveness (240 recommended).
 
 ##### Video
 
@@ -245,7 +245,7 @@ These settings apply to the various arcade roms that can be loaded.
 These settings affect visual output and can be changed. They apply to all game roms loaded.
 
 `bpp:8` - Bits per pixel, supported values are 1 (experimental and not universally supported), 8 (rgb332) and 16 (rgb565).<br>
-`colour:white` - the forground colour (the background is always black), supported values are "white", "red", "green", "blue", "random" and a 16 bit custom hex value.<br>
+`colour:white` - The forground colour (the background is always black), supported values are "white", "red", "green", "blue", "random" and a 16 bit custom hex value.<br>
 `orientation:upright` - The window layout, "cocktail" for horizontal and "upright" for vertical.<br>
 
 **NOTE**: the RP IO Controller only supports cocktail orientation @ 16bpp.

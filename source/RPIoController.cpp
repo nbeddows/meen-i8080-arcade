@@ -51,16 +51,14 @@ namespace i8080_arcade
         widthOffset_ = (width_ - i8080ArcadeIO_->GetVRAMWidth()) / 2;
         heightOffset_ = (height_ - i8080ArcadeIO_->GetVRAMHeight()) / 2;
 
-        queue_init(&videoFrameQueue_, sizeof(int), 2);
-        queue_init(&freeQueue_, sizeof(int), 2);
+        queue_init(&videoFrameQueue_, sizeof(uintptr_t), 2);
+        queue_init(&freeQueue_, sizeof(uintptr_t), 2);
 
         for(int i = 0; i < 2; i++)
         {
-            int p = std::bit_cast<int>(&videoFrameWrapper_[i]);
+            auto p = std::bit_cast<uintptr_t>(&videoFrameWrapper_[i]);
             queue_add_blocking(&freeQueue_, static_cast<void*>(&p));
         }
-
-        static_assert(sizeof(VideoFrameWrapper*) == sizeof(int));
 
         stdio_init_all();
         spi_init(spi1, 62.5 * 1000000);
@@ -208,21 +206,27 @@ namespace i8080_arcade
         }
 
         i8080ArcadeIO_->SetOptions(meenConfig.c_str());
-
         // We decompress and write one scanline at a time to lcd ram
-        texture_ = std::make_unique<uint8_t>((i8080ArcadeIO_->GetVRAMWidth() * bpp) / 8); // 8 - bits per pixel
-
-        if (texture_ == nullptr)
-        {
-            return std::make_error_code (std::errc::not_enough_memory);
-        }
-
+        texture_.resize((i8080ArcadeIO_->GetVRAMWidth() * bpp) / 8); // 8 - bits per pixel
         return std::error_code{};
     }
 
     std::error_code RPIoController::LoadAudioSamples([[maybe_unused]] const JsonVariantConst audioSamples)
     {
         return std::make_error_code(std::errc::not_supported);
+    }
+
+    bool RPIoController::ButtonPress(bool button, bool& lastButton)
+    {
+        bool press = false;
+
+        if ((button ^ lastButton) && button)
+        {
+            press = true;
+        }
+
+        lastButton = button;
+        return press;
     }
 
     uint8_t RPIoController::Read(uint16_t port, [[maybe_unused]] meen::IController* memoryController)
@@ -233,30 +237,16 @@ namespace i8080_arcade
         {
             if (port == 1)
             {
-                auto buttonPress = [](bool button, bool& lastButton)
-                {
-                    bool press = false;
-
-                    if ((button ^ lastButton) && button)
-                    {
-                        press = true;
-                    }
-
-                    lastButton = button;
-                    return press;
-                };
-
-
                 // Always force single player mode (0x04) (2P mode is not supported)
                 ret = 0x08 | 0x04;
-                ret |= buttonPress(!gpio_get(Pin::K1), lastK1_) * 0x01; // Credit
+                ret |= ButtonPress(!gpio_get(Pin::K1), lastK1_) * 0x01; // Credit
 
                 if (ships_ > 0)
                 {
                     // We want button repeats during gameplay for player movement
                     ret |= !gpio_get(Pin::K0) * 0x20; // 1P Left
                     ret |= !gpio_get(Pin::K3) * 0x40; // 1P Right
-                    ret |= buttonPress(!gpio_get(Pin::K2), lastK2_) * 0x10; // 1P Fire
+                    ret |= ButtonPress(!gpio_get(Pin::K2), lastK2_) * 0x10; // 1P Fire
 
                     if (ret & 0x01)
                     {
@@ -271,8 +261,8 @@ namespace i8080_arcade
                 else
                 {
                     // When scrolling roms we DONT want button repeats
-                    ret |= buttonPress(!gpio_get(Pin::K0), lastK0_) * 0x20; // 1P Left
-                    ret |= buttonPress(!gpio_get(Pin::K3), lastK3_) * 0x40; // 1P Right
+                    ret |= ButtonPress(!gpio_get(Pin::K0), lastK0_) * 0x20;
+                    ret |= ButtonPress(!gpio_get(Pin::K3), lastK3_) * 0x40;
 
                     if (ret & 0x01)
                     {
@@ -333,13 +323,21 @@ namespace i8080_arcade
     meen::ISR RPIoController::ServiceInterrupts(uint64_t currTime, uint64_t cycles, meen::IController* memoryController)
     {
         auto isr = meen::ISR::NoInterrupt;
-
         auto interrupt = i8080ArcadeIO_->GenerateInterrupt(currTime, cycles);
 
         switch(interrupt)
         {
             case 0:
             {
+                if (ships_ == -1)
+                {
+                    // Check button 2 press to trigger a rom load interrupt
+                    if (ButtonPress (!gpio_get(Pin::K2), lastK2_))
+                    {
+                        isr = meen::ISR::Load;
+                        ships_ = 0;
+                    }
+                }
                 break;
             }
             case 1:
@@ -358,7 +356,7 @@ namespace i8080_arcade
 
                     if(vfw->videoFrame != nullptr)
                     {
-                        int p = std::bit_cast<int>(vfw);
+                        auto p = std::bit_cast<uintptr_t>(vfw);
                         success = queue_try_add(&videoFrameQueue_, static_cast<void*>(&p));
 
                         if(success == false)
@@ -431,10 +429,6 @@ namespace i8080_arcade
 
     bool RPIoController::HandleEvent()
     {
-        auto arcadeWidth = i8080ArcadeIO_->GetVRAMWidth();
-        auto arcadeHeight = i8080ArcadeIO_->GetVRAMHeight();
-        auto compressedWidth = arcadeWidth >> 3;
-        auto dst = std::bit_cast<uint16_t*>(texture_.get());
         VideoFrameWrapper* vfw = nullptr;
 
         if (runAsync_ == true)
@@ -452,11 +446,17 @@ namespace i8080_arcade
         auto videoFrame = std::move(vfw->videoFrame);
         // explicitly set to nullptr as there is no requirement on std::move to do this
         vfw->videoFrame = nullptr;
-        auto p = std::bit_cast<int>(vfw);
+        auto p = std::bit_cast<uintptr_t>(vfw);
         queue_add_blocking(&freeQueue_, static_cast<void*>(&p));
 
         if (videoFrame != nullptr)
         {
+            auto arcadeWidth = i8080ArcadeIO_->GetVRAMWidth();
+            auto arcadeHeight = i8080ArcadeIO_->GetVRAMHeight();
+            auto compressedWidth = arcadeWidth >> 3;
+            auto dst = texture_.data();
+            auto dstSize = texture_.size();
+            auto dst16 = std::bit_cast<uint16_t*>(dst);
             auto vf = videoFrame.get()->data();
             uint8_t* bb = nullptr;
 
@@ -499,22 +499,22 @@ namespace i8080_arcade
                         }
 
                         // Blit and render the current scanline
-                        i8080ArcadeIO_->BlitVRAM(std::span(texture_.get(), 512), 512, std::span(vf, compressedWidth));
-                        spi_write16_blocking(spi1, dst, arcadeWidth);
+                        i8080ArcadeIO_->BlitVRAM(std::span(dst, dstSize), dstSize, std::span(vf, compressedWidth));
+                        spi_write16_blocking(spi1, dst16, arcadeWidth);
 
                         // Update the last scanline index
                         //lastScanline = i;
                     }
-//                      else
-//                          this scanline is the same as its counterpart in the previous frame, no need to render this scanline
+//                  else
+//                      this scanline is the same as its counterpart in the previous frame, no need to render this scanline
 
                     // Move to the next scanline in the back buffer
                     bb += compressedWidth;
                 }
                 else
                 {
-                    i8080ArcadeIO_->BlitVRAM(std::span(texture_.get(), 512), 512, std::span(vf, compressedWidth));
-                    spi_write16_blocking(spi1, dst, arcadeWidth);
+                    i8080ArcadeIO_->BlitVRAM(std::span(dst, dstSize), dstSize, std::span(vf, compressedWidth));
+                    spi_write16_blocking(spi1, dst16, arcadeWidth);
                 }
 
                 // Move to the next scanline in the front buffer
