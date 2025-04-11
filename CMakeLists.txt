@@ -1,4 +1,4 @@
-# Copyright (c) 2021-2024 Nicolas Beddows <nicolas.beddows@gmail.com>
+# Copyright (c) 2021-2025 Nicolas Beddows <nicolas.beddows@gmail.com>
 
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -19,7 +19,7 @@
 # SOFTWARE.
 
 cmake_minimum_required (VERSION 3.25)
-set(project_name i8080-arcade)
+set(project_name meen-i8080-arcade)
 
 if(${enable_rp2040} STREQUAL ON)
   include ($ENV{PICO_SDK_PATH}/external/pico_sdk_import.cmake)
@@ -80,7 +80,11 @@ find_package(meen_hw REQUIRED)
 find_package(ArduinoJson REQUIRED)
 
 set(${project_name}_source_files source/main.cpp source/MemoryController.cpp)
-set(${project_name}_include_files include/i8080_arcade/IIoController.h include/i8080_arcade/MemoryController.h)
+set(${project_name}_include_files
+  include/i8080_arcade/IIoController.h
+  include/i8080_arcade/MemoryController.h
+  include/i8080_arcade/TextRenderer.h
+)
 set(${project_name}_deps meen::meen meen_hw::meen_hw ArduinoJson)
 
 if(${build_os} STREQUAL "baremetal")
@@ -140,7 +144,6 @@ if(${build_os} STREQUAL "baremetal")
   endif()
 else()
   if(${enable_sdl} STREQUAL ON)
-    #target_compile_definitions(${project_name} PRIVATE ENABLE_MH_SDL2)
     target_compile_definitions(${project_name} PRIVATE SDL_MAIN_HANDLED)
   endif()
 
