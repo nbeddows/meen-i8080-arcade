@@ -70,7 +70,7 @@ namespace i8080_arcade
         switch (font)
         {
             case GlyphRenderer::Font::I8080ArcadeRegular8x8:
-            {    
+            {
                 font_.assign(
                 {
                 //    /         0             1         2             3             4         5             6
@@ -86,7 +86,7 @@ namespace i8080_arcade
                 //    W         X             Y         Z
                     0xFE041804FE000000, 0x0000C0201E20C000 ,0x0000000000000000
                 });
-            
+
                 asciiBase_ = static_cast<uint8_t>('/');
                 break;
             }
@@ -98,7 +98,7 @@ namespace i8080_arcade
 
         return std::error_code{};
     }
-    
+
     std::error_code GlyphRenderer::SetJustification (GlyphRenderer::Justification justification)
     {
         if(justification == GlyphRenderer::Justification::Right)
@@ -167,7 +167,7 @@ namespace i8080_arcade
                 Configure();
             }
         }
-           
+
         return err;
     }
 
@@ -270,7 +270,7 @@ namespace i8080_arcade
         {
             errc = centreTxt(centreTxtIndex);
         }
-    
+
         for (auto c : text_)
         {
             if (errc)
@@ -303,7 +303,7 @@ namespace i8080_arcade
                     lineIndex += newLines;
                     newLines = 0;
                 }
-                
+
                 // Our font only supports upper case - unknown characters will blit a space (clear to black)
                 uint64_t glyph = unpackGlyph(c);
 

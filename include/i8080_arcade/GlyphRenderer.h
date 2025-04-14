@@ -38,7 +38,7 @@ namespace i8080_arcade
     {
         public:
             /** A collection of built in fonts
-            
+
                 All fonts are monospace.
             */
             enum class Font
@@ -78,12 +78,12 @@ namespace i8080_arcade
 
                 @remark     Setting a negative rowbytes will cause the Blit method to return std::errc::invalid_argument
                 @remark     Setting a rowBytes value of 0 will cause the Blit method to return success
-                            immediatley without performing any action. 
+                            immediatley without performing any action.
             */
             explicit GlyphRenderer(int rowBytes);
 
             /** Set anchor point
- 
+
                 The position on the blittable surface from which the glyphs will be rendered.
 
                 @param  anchorPoint     The desired anchor point.
@@ -95,7 +95,7 @@ namespace i8080_arcade
             std::error_code SetAnchorPoint(int anchorPoint);
 
             /** Set Font
-            
+
                 The monospace font to use, see the Font enumeration for more details.
 
                 @param  font            The desired font to render the glyphs in.
@@ -125,7 +125,7 @@ namespace i8080_arcade
             void SetText(std::string_view text);
 
             /** Glyph lines height
-                
+
                 @return     The number of lines (the height of the lines in bytes) of the glyphs represented by the string passed to the SetText method.
             */
             int GetWidth() const;
@@ -185,7 +185,7 @@ namespace i8080_arcade
 
         private:
             /** Font compression ratio
-            
+
                 We only use 5 bytes of the 8 so we pack the rest so we don't waste space
                 (8 glyphs per 5 64bit numbers (5/8).
             */
@@ -196,15 +196,15 @@ namespace i8080_arcade
                 This is set via the SetFont method.
             */
             std::vector<uint64_t> font_;
-        
+
             /** The base character for indexing puropses
-            
+
                 This value is dependent on the font in use.
             */
             uint8_t asciiBase_{};
-            
+
             /** Glyph alignment
-            
+
                 This is set via the Justification method.
 
                 @remark Justification is relative to the anchor point
@@ -212,7 +212,7 @@ namespace i8080_arcade
             Justification justification_{};
 
             /** Render text
-            
+
                 This is set via the SetText method.
             */
             std::string text_;
@@ -224,13 +224,13 @@ namespace i8080_arcade
             std::vector<int> txtHeight_;
 
             /** Bytes per row
-               
+
                The number of bytes per row in the blittable surface iterator passed to the Blit method.
             */
             int rowBytes_{};
 
             /** Total glyph lines
-            
+
                 The total number of lines in the string passed to the SetText method.
 
                 @remark this is equivalent to the total number of bytes.
@@ -238,19 +238,19 @@ namespace i8080_arcade
             int maxTxtWidth_{};
 
             /** Maximum glyph line width
- 
+
                 The maximum number of bytes in a line of glyphs.
             */
             int maxTxtHeight_{};
 
             /** The point from which text is rendered
-            
+
                 Set via the AnchorPoint method.
             */
             int anchorPoint_{};
 
             /** Recalcuate the required metadata of the text set via the SetText method
-                
+
                 This will update the values obtained from the GetWidth and GetHeight methods.
             */
             void Configure();
