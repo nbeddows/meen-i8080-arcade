@@ -79,11 +79,15 @@ find_package(meen REQUIRED)
 find_package(meen_hw REQUIRED)
 find_package(ArduinoJson REQUIRED)
 
-set(${project_name}_source_files source/main.cpp source/MemoryController.cpp)
+set(${project_name}_source_files
+  source/GlyphRenderer.cpp
+  source/main.cpp
+  source/MemoryController.cpp  
+)
 set(${project_name}_include_files
+  include/i8080_arcade/GlyphRenderer.h
   include/i8080_arcade/IIoController.h
   include/i8080_arcade/MemoryController.h
-  include/i8080_arcade/TextRenderer.h
 )
 set(${project_name}_deps meen::meen meen_hw::meen_hw ArduinoJson)
 
