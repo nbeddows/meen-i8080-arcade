@@ -23,6 +23,7 @@ SOFTWARE.
 #ifndef GLYPHRENDERER_H
 #define GLYPHRENDERER_H
 
+#include <cstdint>
 #include <string_view>
 #include <system_error>
 #include <vector>
