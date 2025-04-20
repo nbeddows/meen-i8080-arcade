@@ -23,6 +23,8 @@ SOFTWARE.
 #ifndef SDLIOCONTROLLER_H
 #define SDLIOCONTROLLER_H
 
+#define ARDUINOJSON_ENABLE_STRING_VIEW 1
+#include <ArduinoJson.h>
 #include <atomic>
 #include <SDL.h>
 #include <SDL_mixer.h>
@@ -54,6 +56,13 @@ namespace i8080_arcade
 			*/
 			//cppcheck-suppress unusedStructMember
 			SDL_Texture* texture_{};
+
+			/** Blitting rectangle.
+			
+				The destination bounding box within the SDL window to blit the video texture.
+			*/
+			//cppcheck-suppress unusedStructMember
+			SDL_Rect dstRect_{};
 
 			/** SDL_Window
 
@@ -102,7 +111,7 @@ namespace i8080_arcade
 			*/
 			struct VideoFrameWrapper
 			{
-				meen_hw::MH_ResourcePool<std::array<uint8_t, 7168>>::ResourcePtr videoFrame;
+				meen_hw::MH_ResourcePool<std::vector<uint8_t>>::ResourcePtr videoFrame;
 			};
 
 			/** videoFrameWrapperPool_
@@ -162,6 +171,12 @@ namespace i8080_arcade
 				false otherwise.
 			*/
 			bool runAsync_{};
+
+			/** The current screen
+			
+				See the Screen enumeration for further details.
+			*/
+			Screen screen_{};
 
 			/** Read input form the keyboard
 
@@ -278,7 +293,7 @@ namespace i8080_arcade
 
 				@return					An error in the form of a std::error_code.
 			*/
-			std::error_code LoadVideoTextures(const JsonVariantConst videoTextures) final;
+			std::error_code LoadVideoTextures(const JsonVariantConst videoTextures, int frameWidth, int frameHeight) final;
 
 			/** Load the selected rom or the save state of the currently selected rom
 			
