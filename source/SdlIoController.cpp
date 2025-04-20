@@ -543,7 +543,7 @@ namespace i8080_arcade
 
 										if (SDL_LockTexture(texture_, nullptr, std::bit_cast<void**>(&dst), &rowBytes) == 0)
 										{
-											i8080ArcadeIO_->BlitVRAM(std::span(dst, dstRect_.h * rowBytes), dstRect_.w, rowBytes, std::span(*videoFrame), 34); // 32 - needs to be MemoryController::frameWidth
+											i8080ArcadeIO_->BlitVRAM(std::span(dst, dstRect_.h * rowBytes), dstRect_.w, rowBytes, std::span(*videoFrame), MemoryController::frameWidth);
 											SDL_UnlockTexture(texture_);
 										}
 										else
