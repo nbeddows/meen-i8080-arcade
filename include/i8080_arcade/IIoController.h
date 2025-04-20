@@ -33,6 +33,19 @@ namespace i8080_arcade
 {
     struct IIoController : public meen::IController
     {
+		/** Game play screens
+
+			The phases of the i8080 arcade emulator.
+
+			@remark			Addtional screens to add could include Highscore for example.
+			@remark			The i8080 arcade emulator starts on the RomSelect screen, its position should not be changed.
+		*/
+		enum Screen
+		{
+			RomSelect,		/**< The rom select screen where the user can select a rom to load. */
+			Gameplay		/**< The emulated game play for the selected rom that was loaded in the rom select screen. */
+		};
+
         /**	Event handler
 
 			Process all incoming events.
@@ -68,10 +81,12 @@ namespace i8080_arcade
 			Create the video texture that will be rendered to the screen.
 
 			@param	videoTextures	JSON object describing the video texture.
+			@param	frameWidth		The width in pixels of the memory controller video frame.
+			@param	frameHeight		The height in pixels of the memory controller video frame.
 
 			@return					An error in the form of a std::error_code.
 		*/
-		virtual std::error_code LoadVideoTextures(const JsonVariantConst videoTextures) = 0;
+		virtual std::error_code LoadVideoTextures(const JsonVariantConst videoTextures, int frameWidth, int frameHeight) = 0;
 
 		/** Load the selected rom or the save state of the currently selected rom
 			
