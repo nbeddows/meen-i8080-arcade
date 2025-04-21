@@ -51,6 +51,7 @@ namespace i8080_arcade
 
         glyphRenderer_ = GlyphRenderer(frameWidth);
         //glyphRenderer_.SetText("   BALLOON BOMBER   \n\n\n   LUNAR RESCUE   \n\n\n   TAITO   \n\n   SPACE INVADERS II   \n\n\n   MIDWAY   \n\n   SPACE INVADERS II   \n\n\n   SPACE INVADERS   ");
+        // todo: need to pass in the rom names from the config file in order to generated the render text
         glyphRenderer_.SetText(" BALLOON BOMBER \n\n\n LUNAR RESCUE \n\n\n TAITO \n\n SPACE INVADERS II \n\n\n MIDWAY \n\n SPACE INVADERS II \n\n\n SPACE INVADERS ");
         glyphRenderer_.SetJustification(GlyphRenderer::Justification::Centre);
         glyphRenderer_.SetFont(GlyphRenderer::Font::I8080ArcadeRegular8x8);
