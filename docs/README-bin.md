@@ -3,7 +3,8 @@
 
 This is a binary distribution of an [emulated i8080 arcade machine](https://github.com/nbeddows/i8080-arcade) based on the Space Invaders Taito/Midway arcade hardware using [meen](http://github.com/nbeddows/mach-emu/) and [meen-hw](http://github.com/nbeddows/meen-hw/).
 
-I don't consider the emulation to be the most efficient, accurate or to be extensively tested, but I'm happy with where it is at.
+It adds the following addtional graphical components to the emulation:
+- a rom selection screen allowing the user to use the up and down arrow keys followed by the enter key to load a supported rom (defined in the config file).  
 
 This emulator has been tested against the following roms (which can be found elsewhere online):
 
@@ -14,6 +15,8 @@ This emulator has been tested against the following roms (which can be found els
 
 For supported desktop platforms The Simple Direct MediaLayer (SDL) is used to render the output and requires a keyboard for interaction (keyboard controls are documented towards the end of this document).
 For supported embedded platforms an st7789 based lcd screen is required for rendering the output (tested with 320x240) with a minimum of 4 buttons for interaction (button controls are documented towards the end of this document).
+
+I don't consider the emulation to be the most efficient, accurate or to be extensively tested, but I'm happy with where it is at.
 
 ### Running the application
 
@@ -124,6 +127,7 @@ These settings are fixed to the specified rom.
 `y`: Save game<br>
 `r`: Load save game<br>
 `u`: Load from rom<br>
+`esc`: Return to the rom selection screen<br> 
 
 ### Embedded button controls
 

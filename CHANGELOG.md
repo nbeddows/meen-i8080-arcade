@@ -12,6 +12,7 @@
 * Added single threaded support (`runAsync`,
   `loadAsync` and `saveAsync` options can
   be false) for demonstration purposes.
+* Added a rom selection screen.
 
 0.6.1 [04/08/24]
 * Added profiles for improved build support.
