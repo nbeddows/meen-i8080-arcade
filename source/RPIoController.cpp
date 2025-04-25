@@ -47,10 +47,6 @@ namespace i8080_arcade
         width_ = videoHardware["width"].as<int>();
         height_ = videoHardware["height"].as<int>();
 
-        // Used to center the video ram on the display
-        widthOffset_ = (width_ - i8080ArcadeIO_->GetVRAMWidth()) / 2;
-        heightOffset_ = (height_ - i8080ArcadeIO_->GetVRAMHeight()) / 2;
-
         queue_init(&videoFrameQueue_, sizeof(uintptr_t), 2);
         queue_init(&freeQueue_, sizeof(uintptr_t), 2);
 
@@ -60,7 +56,6 @@ namespace i8080_arcade
             queue_add_blocking(&freeQueue_, static_cast<void*>(&p));
         }
 
-        stdio_init_all();
         spi_init(spi1, 62.5 * 1000000);
 
         gpio_set_function(Pin::CLK, GPIO_FUNC_SPI);
@@ -173,7 +168,7 @@ namespace i8080_arcade
         queue_free(&videoFrameQueue_);
     }
 
-    std::error_code RPIoController::LoadVideoTextures(const JsonVariantConst videoTextures)
+    std::error_code RPIoController::LoadVideoTextures(const JsonVariantConst videoTextures, int textureWidth, int textureHeight)
     {
         int bpp = 16; // this needs to be updated to 12bpp for performance reasons
 
@@ -207,7 +202,13 @@ namespace i8080_arcade
 
         i8080ArcadeIO_->SetOptions(meenConfig.c_str());
         // We decompress and write one scanline at a time to lcd ram
-        texture_.resize((i8080ArcadeIO_->GetVRAMWidth() * bpp) / 8); // 8 - bits per pixel
+        texture_.resize((textureWidth * bpp) / 8); // 8 - bits per pixel
+        // Used to center the video ram on the display
+        widthOffset_ = (width_ - textureWidth) / 2;
+        heightOffset_ = (height_ - textureHeight) / 2;
+        textureWidth_ = textureWidth;
+        textureHeight_ = textureHeight;
+
         return std::error_code{};
     }
 
@@ -237,54 +238,62 @@ namespace i8080_arcade
         {
             if (port == 1)
             {
-                // Always force single player mode (0x04) (2P mode is not supported)
+                // The 4th bit is always set (0x08).
+                // This demo moves straight to a 1P game as soon as a credit is entered (no 2P support),
+                // therefore we always set it (0x04) (it will be ignored if no credits exist)
                 ret = 0x08 | 0x04;
-                ret |= ButtonPress(!gpio_get(Pin::K1), lastK1_) * 0x01; // Credit
 
-                if (ships_ > 0)
+                if (ButtonPress(!gpio_get(Pin::K1), lastK1_))
                 {
-                    // We want button repeats during gameplay for player movement
-                    ret |= !gpio_get(Pin::K0) * 0x20; // 1P Left
-                    ret |= !gpio_get(Pin::K3) * 0x40; // 1P Right
-                    ret |= ButtonPress(!gpio_get(Pin::K2), lastK2_) * 0x10; // 1P Fire
+// todo: all frame buffers need to be returned to the memory controller so they can be cleared
+#if 0
+                    backBuffer_ = nullptr;
+                    VideoFrameWrapper* vfw = nullptr;
+                    queue_try_remove(&videoFrameQueue_, static_cast<void*>(&vfw));
 
-                    if (ret & 0x01)
+                    if (vfw != nullptr)
                     {
-                        //ships_ = 0;
-                        // turn off credit
-                        ret &= ~0x01;
-                        //printf("Quitting mid game\n");
-                        // TODO: We are playing a game, we need to quit back to the attraction screen, we need to issue a quit event to pass back to the main
-                        // function so we can reset the machine
+                        printf("Cancel frames\n");
+
+                        while(vfw != nullptr)
+                        {
+                            printf("Return frame to pool\n");
+                            auto videoFrame = std::move(vfw->videoFrame);
+                            // explicitly set to nullptr as there is no requirement on std::move to do this
+                            vfw->videoFrame = nullptr;
+                            auto p = std::bit_cast<uintptr_t>(vfw);
+                            queue_add_blocking(&freeQueue_, static_cast<void*>(&p));
+
+                            vfw = nullptr;
+                            queue_try_remove(&videoFrameQueue_, static_cast<void*>(&vfw));
+                        }
+
+                        printf("End cancel frames\n");
                     }
+#endif
+                    screen_ = Screen::RomSelect;
+                    // Clear the memmory so the loaded rom code is not executed during the rom select screen.
+                    static_cast<MemoryController*>(memoryController)->Clear();
                 }
                 else
                 {
-                    // When scrolling roms we DONT want button repeats
-                    ret |= ButtonPress(!gpio_get(Pin::K0), lastK0_) * 0x20;
-                    ret |= ButtonPress(!gpio_get(Pin::K3), lastK3_) * 0x40;
-
-                    if (ret & 0x01)
+                    if (ships_ > 0)
                     {
-                        //printf("Game start\n");
-                        // We are starting a game, set the amount of ships (this could be also 4/5/6 if this demo supported setting the ship count)
-                        ships_ = 3;
+                        // We want button repeats during gameplay for player movement
+                        ret |= !gpio_get(Pin::K0) * 0x20; // 1P Left
+                        ret |= !gpio_get(Pin::K3) * 0x40; // 1P Right
+                        ret |= ButtonPress(!gpio_get(Pin::K2), lastK2_) * 0x10; // 1P Fire
                     }
-
-                    if (ret & 0x20)
+                    else
                     {
-                        //printf("Move to the previous rom\n");
-                        // turn off move left
-                        ret &= ~0x20;
-                        // TODO: We want move to the previous rom, send previous rom event
-                    }
-
-                    if (ret & 0x40)
-                    {
-                        //printf("Move to the next rom\n");
-                        // turn off move right
-                        ret &= ~0x40;
-                        // TODO: We want move to the next rom, send next rom event
+                        if (ButtonPress(!gpio_get(Pin::K0), lastK0_))
+                        {
+                            // Add a credit
+                            ret |= 0x01;
+                            // Move straight to a 1P game.
+                            // Set the amount of ships (this could be also 4/5/6 if this demo supported setting the ship count)
+                            ships_ = 3;
+                        }
                     }
                 }
             }
@@ -329,12 +338,13 @@ namespace i8080_arcade
         {
             case 0:
             {
-                if (ships_ == -1)
+                if (screen_ == Screen::RomSelect)
                 {
                     // Check button 2 press to trigger a rom load interrupt
-                    if (ButtonPress (!gpio_get(Pin::K2), lastK2_))
+                    if (ButtonPress (!gpio_get(Pin::K2), lastK2_)) // we may need to set a callbcak on the pin since the press could be missed
                     {
                         isr = meen::ISR::Load;
+                        screen_ = Screen::Gameplay;
                         ships_ = 0;
                     }
                 }
@@ -352,7 +362,7 @@ namespace i8080_arcade
 
                 if (success == true)
                 {
-                    vfw->videoFrame = static_cast<MemoryController*>(memoryController)->GetVideoFrame();
+                    vfw->videoFrame = static_cast<MemoryController*>(memoryController)->GetVideoFrame(screen_);
 
                     if(vfw->videoFrame != nullptr)
                     {
@@ -451,9 +461,7 @@ namespace i8080_arcade
 
         if (videoFrame != nullptr)
         {
-            auto arcadeWidth = i8080ArcadeIO_->GetVRAMWidth();
-            auto arcadeHeight = i8080ArcadeIO_->GetVRAMHeight();
-            auto compressedWidth = arcadeWidth >> 3;
+            auto compressedWidth = textureWidth_ >> 3;
             auto dst = texture_.data();
             auto dstSize = texture_.size();
             auto dst16 = std::bit_cast<uint16_t*>(dst);
@@ -468,7 +476,7 @@ namespace i8080_arcade
             gpio_put(Pin::DC, 1);
             gpio_put(Pin::CS, 0);
 
-            for(int i = 0/*, lastScanline = 0*/; i < arcadeHeight; i++)
+            for(int i = 0/*, lastScanline = 0*/; i < textureHeight_; i++)
             {
                 // Blit a scanline at a time for performance reasons
 
@@ -499,8 +507,8 @@ namespace i8080_arcade
                         }
 
                         // Blit and render the current scanline
-                        i8080ArcadeIO_->BlitVRAM(std::span(dst, dstSize), dstSize, std::span(vf, compressedWidth));
-                        spi_write16_blocking(spi1, dst16, arcadeWidth);
+                        i8080ArcadeIO_->BlitVRAM(std::span(dst, dstSize), textureWidth_, dstSize, std::span(vf, compressedWidth), MemoryController::frameWidth);
+                        spi_write16_blocking(spi1, dst16, textureWidth_);
 
                         // Update the last scanline index
                         //lastScanline = i;
@@ -513,8 +521,8 @@ namespace i8080_arcade
                 }
                 else
                 {
-                    i8080ArcadeIO_->BlitVRAM(std::span(dst, dstSize), dstSize, std::span(vf, compressedWidth));
-                    spi_write16_blocking(spi1, dst16, arcadeWidth);
+                    i8080ArcadeIO_->BlitVRAM(std::span(dst, dstSize), textureWidth_, dstSize, std::span(vf, compressedWidth), MemoryController::frameWidth);
+                    spi_write16_blocking(spi1, dst16, textureWidth_);
                 }
 
                 // Move to the next scanline in the front buffer
