@@ -84,8 +84,8 @@ namespace i8080_arcade
                     *p1 = rpm & 0xFF;
 
                     // This will keep the remaining pixels in the frame buffer
-                    //*p0 |= lpm;
-                    //*p1 |= rpm;
+                    // *p0 |= lpm;
+                    // *p1 |= rpm;
                 }
             };
 
@@ -98,7 +98,7 @@ namespace i8080_arcade
             {
                 if (vramWidth_ == frameWidth)
                 {
-                    std::ranges::copy_n(memory_.begin() + vramOffset_, vramWidth_ * vramHeight_, frame->begin());
+                    std::ranges::copy_n(memory_.begin() + vramOffset_, vramSize_, frame->begin());
                 }
                 else
                 {
@@ -140,7 +140,7 @@ namespace i8080_arcade
         do
         {
             frame = framePool_.GetResource();
-            
+
             if (frame == nullptr)
             {
                 empty = true;

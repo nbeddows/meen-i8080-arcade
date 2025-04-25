@@ -98,7 +98,7 @@ namespace i8080_arcade
             @param  screen  The screen to render.
 
             @return         The current video ram as a recyclable resource.
-            
+
             @todo           The screen parameter needs to be the Screen enum defined in IIOController.h.
                             Its definition needs to be moved to something like Types.h and the header
                             needs to be included in this file.
@@ -106,7 +106,7 @@ namespace i8080_arcade
         meen_hw::MH_ResourcePool<std::vector<uint8_t>>::ResourcePtr GetVideoFrame(int screen) const;
 
         /** Clear the memory
-        
+
             Wipe the all the memory and frame pool frame buffers to 0.
         */
         void Clear();
@@ -156,19 +156,19 @@ namespace i8080_arcade
             The 1bpp width in bytes of the vram that resides in memory.
         */
         static constexpr int vramWidth_{ 32 };
-        
+
         /** The height of the vram
  
-            The vram that resides in memory in pixels.       
+            The vram that resides in memory in pixels.
         */
         static constexpr int vramHeight_{ 224 };
 
         /** VRAM size
-            
+
             The total size in bytes.
         */
         static constexpr int vramSize_{ vramWidth_ * vramHeight_ };
-        
+
         /** VRAM memory offset
 
             The offset into memory at which the beginning of the vram resides.

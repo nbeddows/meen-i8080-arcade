@@ -58,7 +58,7 @@ namespace i8080_arcade
 			SDL_Texture* texture_{};
 
 			/** Blitting rectangle.
-			
+
 				The destination bounding box within the SDL window to blit the video texture.
 			*/
 			//cppcheck-suppress unusedStructMember
@@ -137,7 +137,7 @@ namespace i8080_arcade
 			std::atomic_bool quit_{};
 
 			/** Load a game rom or the save state of the currently loaded game rom
-			
+
 				@remark		This value can be set from a different thread, hence it is atomic.
 			*/
 			std::atomic_bool loadSaveState_{};
@@ -166,14 +166,14 @@ namespace i8080_arcade
 			Uint8 lastY_{};
 
 			/** The running state
-			
+
 				True if meen is to run on a different thread to the main application,
 				false otherwise.
 			*/
 			bool runAsync_{};
 
 			/** The current screen
-			
+
 				See the Screen enumeration for further details.
 			*/
 			Screen screen_{};
@@ -182,14 +182,14 @@ namespace i8080_arcade
 
 				@param	port	The emulated port to read from.
 				@param	state	The keyboard state.
-				
+
 				@return			A uint8_t bitwise combination informing the rom
 								of the user input.
 			*/
 			uint8_t ReadInputDevice(uint8_t port, const uint8_t* state);
 
 			/** Assign a load or save machine interrupt
-			
+
 				Peforms a check of the key once during a key press and release sequence.
 
 				@param	key				The press or release state of the key.
@@ -296,8 +296,8 @@ namespace i8080_arcade
 			std::error_code LoadVideoTextures(const JsonVariantConst videoTextures, int frameWidth, int frameHeight) final;
 
 			/** Load the selected rom or the save state of the currently selected rom
-			
-				@param	maxSize			The total number of roms in the rom list	
+
+				@param	maxSize			The total number of roms in the rom list
 
 				@return					A tuple holding two values:
 										bool - only valid when loading roms, true if the save file is to be loaded, false if the rom is to be loaded.

@@ -182,7 +182,7 @@ int main(int argc, char** argv)
 		// Set up the custom controllers prior to configuring the machine.
 
 		// The memory controller width and height is in the native i8080 arcade pixel format (1bpp cocktail) so we need to multiply it by 8 to get the total pixel width
-		// in order to create a compatible sdl texture
+		// in order to create a compatible texture
 		auto err = ioController->LoadVideoTextures(software["video"], i8080_arcade::MemoryController::frameWidth << 3, i8080_arcade::MemoryController::frameHeight);
 		CHECK_ERROR(err, printf("Failed to load video textures: %s\n", err.message().c_str()));
 

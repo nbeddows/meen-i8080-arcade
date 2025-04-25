@@ -516,7 +516,7 @@ namespace i8080_arcade
 											{
 												static_cast<std::promise<uint8_t>*>(e.user.data2)->set_value(0);
 											}
-										}	
+										}
 									}
 									break;
 								}
@@ -582,6 +582,17 @@ namespace i8080_arcade
 
 								for (int i = 0; i < 8; i++)
 								{
+									/*
+										todo: if the audio is ufo, we need to loop it rather than playing the sample again.
+											  this should fix the stall in single threaded mode
+
+										if audio.test(i) is ufo and ufo not playing
+											mix play channel (repeat the sample)
+
+										if audio.test(i) != ufo and ufo playing
+											mix play channel (stop the sample)
+									*/
+
 									if (audio.test(i) == true)
 									{
 										[[maybe_unused]] auto busy = Mix_PlayChannel(-1 /* use the next available channel */, mixChunk_[i + offset], 0 /* don't loop (play it once) */);
@@ -595,7 +606,7 @@ namespace i8080_arcade
 							case EventCode::ReadInput:
 							{
 								uint8_t port = reinterpret_cast<uint64_t>(e.user.data1);
-								auto p = static_cast<std::promise<uint16_t>*>(e.user.data2);								
+								auto p = static_cast<std::promise<uint16_t>*>(e.user.data2);
 								state[SDL_SCANCODE_ESCAPE] ? p->set_value(0x100) :  p->set_value(ReadInputDevice(port, state));
 								break;
 							}
