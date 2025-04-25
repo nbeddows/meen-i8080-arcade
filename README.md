@@ -1,6 +1,9 @@
 ### Introduction
 
-This demo project shows how to make use of the [meen](http://github.com/nbeddows/meen/) and [meen_hw](http://github.com/nbeddows/meen-hw) packages to emulate an arcade machine, in this case, one based on the Space Invaders Taito/Midway arcade hardware. I don't consider the emulation to be the most efficient, accurate, or to be extensively tested, but I'm happy with where it is at.
+This demo project shows how to make use of the [meen](http://github.com/nbeddows/meen/) and [meen_hw](http://github.com/nbeddows/meen-hw) packages to emulate an arcade machine, in this case, one based on the Space Invaders Taito/Midway arcade hardware.
+
+It adds the following addtional graphical components to the emulation:
+- a rom selection screen allowing the user to use the up and down arrow keys followed by the enter key to load a supported rom (defined in the config file).  
 
 This project has been tested against the following roms (which can be found elsewhere online) with loading/saving game play state on the following platforms: Windows/Linux(x86_64), Linux(armv7hf, armv8), Pico RP2040(armv6-m):
 
@@ -11,6 +14,8 @@ This project has been tested against the following roms (which can be found else
 
 For supported desktop platforms The Simple Direct MediaLayer (SDL) is used to render the output and requires a keyboard for interaction (keyboard controls are documented towards the end of this document).
 For supported embedded platforms an st7789 based lcd screen is requried for rendering the output (tested with 320x240) with a minimum of 4 buttons for interaction (button controls are documented towards the end of this document).
+
+I don't consider the emulation to be the most efficient, accurate, or to be extensively tested, but I'm happy with where it is at.
 
 ### Compilation
 
@@ -219,8 +224,8 @@ The current settings for these options should be sufficient, changing them may h
 
 Video hardware options. These options can be changed for the desired output.
 
-`width:224` - The width of the screen. For non embedded platforms, the output will scale to fit. For embedded platforms, the value should be the width of your attached lcd panel<br>
-`height:256` - The height of the screen. For non embedded platforms, the output will scale to fit. For embedded platforms, the value should be the width of your attached lcd panel<br>
+`width:224` - The width of the screen in pixels. For non embedded platforms, the output will scale to fit. For embedded platforms, the value should be the width of your attached lcd panel<br>
+`height:256` - The height of the screen in pixels. For non embedded platforms, the output will scale to fit. For embedded platforms, the value should be the width of your attached lcd panel<br>
 `fullScreen:false` - Window or full screen display. (Experimental)<br>
 
 **NOTE**: the RP IO Controller does not support scaling or full-screen, the width and height parameters will be used to center the output on the display device.
@@ -294,6 +299,7 @@ These settings are fixed to the specified rom.
 `y`: Save game<br>
 `r`: Load save game<br>
 `u`: Load from rom<br>
+`esc`: Return to the rom selection screen<br> 
 
 ### Embedded button controls
 

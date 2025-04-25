@@ -133,10 +133,10 @@ namespace i8080_arcade
 
 	std::error_code SDLIoController::LoadAudioSamples(const JsonVariantConst audio)
 	{
-		auto scheme = audio["scheme"].as<std::string>();
-		auto directory = audio["directory"].as<std::string>();
+		auto scheme = audio["scheme"].as<std::string_view>();
+		auto directory = audio["directory"].as<std::string_view>();
 
-		auto addChunk = [&mixChunk = mixChunk_](const std::string& directory, const std::string& resource)
+		auto addChunk = [&mixChunk = mixChunk_](std::string_view directory, std::string_view resource)
 		{
 			// if we want to add the additional '/' (so we don't have to put it in the config file)
 			// we need to check if the directory is empty first
@@ -154,11 +154,11 @@ namespace i8080_arcade
 		for(const auto& sample : audio["sample"].as<JsonArrayConst>())
 		{
 			auto dir = directory;
-			auto resource = sample.as<std::string>();
+			auto resource = sample.as<std::string_view>();
 
 			if (resource.starts_with("file://"))
 			{
-				resource.erase(strlen("file://"));
+				resource.remove_prefix(strlen("file://"));
 				// A resource starting with a scheme specifies the exact location of that resource
 				dir = "";
 			}
@@ -181,8 +181,10 @@ namespace i8080_arcade
 		return std::error_code{};
 	}
 
-	std::error_code SDLIoController::LoadVideoTextures(const JsonVariantConst videoTextures)
+	std::error_code SDLIoController::LoadVideoTextures(const JsonVariantConst videoTextures, int textureWidth, int textureHeight)
 	{
+		int windowWidth = 0;
+		int windowHeight = 0;
 		std::string meenConfig;
 		serializeJson(videoTextures, meenConfig);
 
@@ -219,14 +221,29 @@ namespace i8080_arcade
 			return std::make_error_code (std::errc::io_error);
 		}
 
+		// swap width/height based on orientation
+		if (videoTextures["orientation"].as<std::string>() == "upright")
+		{
+			textureWidth ^= textureHeight ^= textureWidth ^= textureHeight;
+		}
+
 		SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "linear");
-		texture_ = SDL_CreateTexture(renderer_, pf, SDL_TEXTUREACCESS_STREAMING, i8080ArcadeIO_->GetVRAMWidth(), i8080ArcadeIO_->GetVRAMHeight());
+		texture_ = SDL_CreateTexture(renderer_, pf, SDL_TEXTUREACCESS_STREAMING, textureWidth, textureHeight);
 
 		if (texture_ == nullptr)
 		{
 			return std::make_error_code (std::errc::not_enough_memory);
 		}
 
+		if (SDL_QueryTexture(texture_, nullptr, nullptr, &dstRect_.w, &dstRect_.h) < 0)
+		{
+			return std::make_error_code(std::errc::not_enough_memory);
+		}
+
+		// Position the destination blitting rectangle in the middle of the screen.
+		SDL_GetWindowSize(window_, &windowWidth, &windowHeight);
+		dstRect_.x = (windowWidth - dstRect_.w) / 2;
+		dstRect_.y = (windowHeight - dstRect_.h) / 2;
 		return std::error_code{};
 	}
 
@@ -296,7 +313,7 @@ namespace i8080_arcade
 					// thread and waits for a result ... I don't think we can
 					// remove this and just perform the else case as I don't think
 					// it is safe to do so with SDL across threads.
-					std::promise<uint8_t> p;
+					std::promise<uint16_t> p;
 					SDL_Event e{};
 					e.type = siEvent_;
 					e.user.code = EventCode::ReadInput;
@@ -306,12 +323,55 @@ namespace i8080_arcade
 
 					if (quit_ == false)
 					{
-						ret = p.get_future().get();
+						auto val = p.get_future().get();
+
+						if (val <= 0xFF)
+						{
+							ret = static_cast<uint8_t>(val);
+						}
+						else
+						{
+							screen_ = Screen::RomSelect;
+							// Clear the memory controller ram and frame buffers
+							static_cast<MemoryController*>(controller)->Clear();
+						}
 					}
 				}
 				else
 				{
-					ret = ReadInputDevice(port, SDL_GetKeyboardState(nullptr));
+					auto kbState = SDL_GetKeyboardState(nullptr);
+
+					if (kbState[SDL_SCANCODE_ESCAPE] == false)
+					{
+						ret = ReadInputDevice(port, kbState);
+					}
+					else
+					{
+						SDL_Event e;
+
+						// In single threaded mode we need to abort the current frame to be rendered and return the wrapper
+						// and its frame to their respective pools so that the frame can be cleared.
+						if (SDL_PollEvent(&e))
+						{
+							if (e.type == siEvent_ && e.user.code == EventCode::RenderVideo)
+							{
+								auto videoFrameWrapper = std::bit_cast<VideoFrameWrapper*>(e.user.data1);
+
+								if (videoFrameWrapper != nullptr)
+								{
+									auto videoFrame = std::move(videoFrameWrapper->videoFrame);
+									// We are single threaded, so we don't need to lock this.
+									videoFrameWrapperPool_.push_back(std::unique_ptr<VideoFrameWrapper>(videoFrameWrapper));
+								}
+							}
+						}
+
+						screen_ = Screen::RomSelect;
+						// Clear the memory controller ram and frame buffers
+						static_cast<MemoryController*>(controller)->Clear();
+
+						// todo: for the RPIoController we need to clear the back buffer
+					}
 				}
 			}
 		}
@@ -345,6 +405,19 @@ namespace i8080_arcade
 			case 0:
 			{
 				isr = loadSaveInterrupt_.exchange(meen::ISR::NoInterrupt);
+
+				if (isr == meen::ISR::Load && screen_ == Screen::RomSelect)
+				{
+					if (loadSaveState_ == false)
+					{
+						// We are loading a rom, move to the game play screen
+						screen_ = Screen::Gameplay;
+					}
+				}
+				else if (loadSaveState_ == false)
+				{
+					isr = meen::ISR::NoInterrupt;
+				}
 				break;
 			}
 			case 1:
@@ -368,8 +441,7 @@ namespace i8080_arcade
 
 				if(videoFrameWrapper != nullptr)
 				{
-					// GetVideoFrame accepts a parameter for rom select screen or game play, memory controller will generate the next rom select frame or game play frame
-					videoFrameWrapper->videoFrame = static_cast<MemoryController*>(memoryController)->GetVideoFrame();
+					videoFrameWrapper->videoFrame = static_cast<MemoryController*>(memoryController)->GetVideoFrame(screen_);
 				}
 
 				SDL_Event e{};
@@ -444,7 +516,7 @@ namespace i8080_arcade
 											{
 												static_cast<std::promise<uint8_t>*>(e.user.data2)->set_value(0);
 											}
-										}	
+										}
 									}
 									break;
 								}
@@ -471,7 +543,7 @@ namespace i8080_arcade
 
 										if (SDL_LockTexture(texture_, nullptr, std::bit_cast<void**>(&dst), &rowBytes) == 0)
 										{
-											i8080ArcadeIO_->BlitVRAM(std::span(dst, i8080ArcadeIO_->GetVRAMHeight() * rowBytes), rowBytes, std::span(*videoFrame));
+											i8080ArcadeIO_->BlitVRAM(std::span(dst, dstRect_.h * rowBytes), dstRect_.w, rowBytes, std::span(*videoFrame), MemoryController::frameWidth);
 											SDL_UnlockTexture(texture_);
 										}
 										else
@@ -489,10 +561,13 @@ namespace i8080_arcade
 									printf("Wrapper empty, video frame dropped\n");
 								}
 
-								SDL_RenderCopy(renderer_, texture_, nullptr, nullptr);
+								SDL_RenderCopy(renderer_, texture_, nullptr, &dstRect_);
 								SDL_RenderPresent(renderer_);
 
-								// Check to see if the user wants to load a rom
+								// Check to see if the user wants to load a rom.
+								// This will only be acknowledged in ServiceInterrupts if screen_ is RomSelect,
+								// we could check screen_ for RomSelect here, but that would mean select_ would have
+								// to be atomic.
 								lastU_ = SetInterrupt(state[SDL_SCANCODE_U], lastU_, meen::ISR::Load, false);
 								break;
 							}
@@ -507,6 +582,17 @@ namespace i8080_arcade
 
 								for (int i = 0; i < 8; i++)
 								{
+									/*
+										todo: if the audio is ufo, we need to loop it rather than playing the sample again.
+											  this should fix the stall in single threaded mode
+
+										if audio.test(i) is ufo and ufo not playing
+											mix play channel (repeat the sample)
+
+										if audio.test(i) != ufo and ufo playing
+											mix play channel (stop the sample)
+									*/
+
 									if (audio.test(i) == true)
 									{
 										[[maybe_unused]] auto busy = Mix_PlayChannel(-1 /* use the next available channel */, mixChunk_[i + offset], 0 /* don't loop (play it once) */);
@@ -520,9 +606,8 @@ namespace i8080_arcade
 							case EventCode::ReadInput:
 							{
 								uint8_t port = reinterpret_cast<uint64_t>(e.user.data1);
-								auto p = static_cast<std::promise<uint8_t>*>(e.user.data2);
-								auto value = ReadInputDevice(port, state);
-								p->set_value(value);
+								auto p = static_cast<std::promise<uint16_t>*>(e.user.data2);
+								state[SDL_SCANCODE_ESCAPE] ? p->set_value(0x100) :  p->set_value(ReadInputDevice(port, state));
 								break;
 							}
 							default:

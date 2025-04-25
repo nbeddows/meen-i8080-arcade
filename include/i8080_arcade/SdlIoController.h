@@ -23,6 +23,8 @@ SOFTWARE.
 #ifndef SDLIOCONTROLLER_H
 #define SDLIOCONTROLLER_H
 
+#define ARDUINOJSON_ENABLE_STRING_VIEW 1
+#include <ArduinoJson.h>
 #include <atomic>
 #include <SDL.h>
 #include <SDL_mixer.h>
@@ -54,6 +56,13 @@ namespace i8080_arcade
 			*/
 			//cppcheck-suppress unusedStructMember
 			SDL_Texture* texture_{};
+
+			/** Blitting rectangle.
+
+				The destination bounding box within the SDL window to blit the video texture.
+			*/
+			//cppcheck-suppress unusedStructMember
+			SDL_Rect dstRect_{};
 
 			/** SDL_Window
 
@@ -102,7 +111,7 @@ namespace i8080_arcade
 			*/
 			struct VideoFrameWrapper
 			{
-				meen_hw::MH_ResourcePool<std::array<uint8_t, 7168>>::ResourcePtr videoFrame;
+				meen_hw::MH_ResourcePool<std::vector<uint8_t>>::ResourcePtr videoFrame;
 			};
 
 			/** videoFrameWrapperPool_
@@ -128,7 +137,7 @@ namespace i8080_arcade
 			std::atomic_bool quit_{};
 
 			/** Load a game rom or the save state of the currently loaded game rom
-			
+
 				@remark		This value can be set from a different thread, hence it is atomic.
 			*/
 			std::atomic_bool loadSaveState_{};
@@ -157,24 +166,30 @@ namespace i8080_arcade
 			Uint8 lastY_{};
 
 			/** The running state
-			
+
 				True if meen is to run on a different thread to the main application,
 				false otherwise.
 			*/
 			bool runAsync_{};
 
+			/** The current screen
+
+				See the Screen enumeration for further details.
+			*/
+			Screen screen_{};
+
 			/** Read input form the keyboard
 
 				@param	port	The emulated port to read from.
 				@param	state	The keyboard state.
-				
+
 				@return			A uint8_t bitwise combination informing the rom
 								of the user input.
 			*/
 			uint8_t ReadInputDevice(uint8_t port, const uint8_t* state);
 
 			/** Assign a load or save machine interrupt
-			
+
 				Peforms a check of the key once during a key press and release sequence.
 
 				@param	key				The press or release state of the key.
@@ -278,11 +293,11 @@ namespace i8080_arcade
 
 				@return					An error in the form of a std::error_code.
 			*/
-			std::error_code LoadVideoTextures(const JsonVariantConst videoTextures) final;
+			std::error_code LoadVideoTextures(const JsonVariantConst videoTextures, int frameWidth, int frameHeight) final;
 
 			/** Load the selected rom or the save state of the currently selected rom
-			
-				@param	maxSize			The total number of roms in the rom list	
+
+				@param	maxSize			The total number of roms in the rom list
 
 				@return					A tuple holding two values:
 										bool - only valid when loading roms, true if the save file is to be loaded, false if the rom is to be loaded.

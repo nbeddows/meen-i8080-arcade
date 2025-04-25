@@ -85,11 +85,15 @@ namespace i8080_arcade
         /** Centre height offset
 
             The difference in pixels of the height of the attached lcd panel and the height
-            of the i8080 arcahde video hardware.
+            of the i8080 arcade video hardware.
 
             This is used to centre the output frame on the lcd panel.
         */
         int heightOffset_{};
+
+        // The width/height of the memory controller frame buffers
+        int textureWidth_{};
+        int textureHeight_{};
 
         /** The previous video frame
 
@@ -101,7 +105,7 @@ namespace i8080_arcade
             frame being rendered. This allows for improved rendering performance by not rendering
             scanlines that are identical to the previous frame.
         */
-        meen_hw::MH_ResourcePool<std::array<uint8_t, 7168>>::ResourcePtr backBuffer_;
+        meen_hw::MH_ResourcePool<std::vector<uint8_t>>::ResourcePtr backBuffer_;
 
         /** i8080_arcade
 
@@ -127,7 +131,7 @@ namespace i8080_arcade
         */
         struct VideoFrameWrapper
         {
-            meen_hw::MH_ResourcePool<std::array<uint8_t, 7168>>::ResourcePtr videoFrame;
+            meen_hw::MH_ResourcePool<std::vector<uint8_t>>::ResourcePtr videoFrame;
         };
 
         /** An array of resourcePtr wrappers for use with RP2040s C based queue api
@@ -151,7 +155,7 @@ namespace i8080_arcade
             0 we are in attraction screen mode and these buttons will be used
             to select which rom to load.
         */
-        int ships_{ -1 };
+        int ships_{};
 
         /** Button state tracking
 
@@ -164,6 +168,12 @@ namespace i8080_arcade
         bool lastK3_{};
 
         bool runAsync_{};
+
+        /** The current screen
+
+            See the Screen enumeration for further details.
+        */
+        Screen screen_{};
 
         /** LCD command
 
@@ -262,10 +272,12 @@ namespace i8080_arcade
             Create the video texture that will be rendered to the screen.
 
             @param  videoTextures   JSON object describing the video texture.
+            @param  textureWidth    The width of the videc texture in pixels.
+            @param  textureHeight   The height of the video texture in pixels.
 
 			@return					An error in the form of a std::error_code.
         */
-        std::error_code LoadVideoTextures(const JsonVariantConst videoTextures) final;
+        std::error_code LoadVideoTextures(const JsonVariantConst videoTextures, int textureWidth, int textureHeight) final;
 
    		/** Load Audio Samples
 
