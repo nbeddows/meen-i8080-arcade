@@ -62,11 +62,11 @@ This project uses [CMake (minimum version 3.23)](https://cmake.org/) for its bui
 - `conan config install -sf profiles -tf profiles https://github.com/nbeddows/meen-conan-config.git --args "--branch v0.1.0"`
 
 **2.** Install dependencies:
-- Windows msvc x86_64 build and host: `conan install . --build=missing --profile:build=Windows-x86_64-msvc-193 --profile:host=profiles/Windows-x86_64-msvc-193-sdl`.
-- Linux x86_64 build and host: `conan install . --build=missing --profile:build=Linux-x86_64-gcc-13 --profile:host=profiles/Linux-x86_64-gcc-13-sdl`.
-- Linux x86_64 build, Linux armv7hf host: `conan install . --build=missing -profile:build=Linux-x86_64-gcc-13 -profile:host=profiles/Linux-armv7hf-gcc-13-sdl`.
-- Linux x86_64 build, Linux armv8 host: `conan install . --build=missing -profile:build=Linux-x86_64-gcc-13 -profile:host=profiles/Linux-armv8-gcc-13-sdl`.
-- Linux x86_64 build, RP2040 microcontroller (baremetal armv6-m) host: `conan install . --build=missing -profile:build=Linux-x86_64-gcc-13 -profile:host=profiles/rp2040-armv6-gcc-13-st7789vw`.<br>
+- Windows msvc x86_64 build and host: `conan install . --build=missing --profile:all=profiles/Windows-x86_64-msvc-193-sdl`.
+- Linux x86_64 build and host: `conan install . --build=missing --profile:all=profiles/Linux-x86_64-gcc-13-sdl`.
+- Linux x86_64 build, Linux armv7hf host: `conan install . --build=missing --profile:build=Linux-x86_64-gcc-13 --profile:host=profiles/Linux-armv7hf-gcc-13-sdl`.
+- Linux x86_64 build, Linux armv8 host: `conan install . --build=missing --profile:build=Linux-x86_64-gcc-13 --profile:host=profiles/Linux-armv8-gcc-13-sdl`.
+- Linux x86_64 build, RP2040 microcontroller (baremetal armv6-m) host: `conan install . --build=missing --profile:build=Linux-x86_64-gcc-13 --profile:host=profiles/rp2040-armv6-gcc-13-st7789vw`.<br>
 
 **NOTE**: when performing a cross compile using a host profile you must install the requisite toolchain of the target architecture, [see pre-requisites](#pre-requisites).
 
@@ -224,8 +224,8 @@ The current settings for these options should be sufficient, changing them may h
 
 Video hardware options. These options can be changed for the desired output.
 
-`width:224` - The width of the screen in pixels. For non embedded platforms, the output will scale to fit. For embedded platforms, the value should be the width of your attached lcd panel<br>
-`height:256` - The height of the screen in pixels. For non embedded platforms, the output will scale to fit. For embedded platforms, the value should be the width of your attached lcd panel<br>
+`width:320` - The width of the screen in pixels. For upright orientation, the minimum support width of the display is 240, for cocktail, 320.<br>
+`height:240` - The height of the screen in pixels. For upright orientation, the minimum supported height of the display is 320, for cocktail, 240.<br>
 `fullScreen:false` - Window or full screen display. (Experimental)<br>
 
 **NOTE**: the RP IO Controller does not support scaling or full-screen, the width and height parameters will be used to center the output on the display device.
@@ -249,9 +249,9 @@ These settings apply to the various arcade roms that can be loaded.
 
 These settings affect visual output and can be changed. They apply to all game roms loaded.
 
-`bpp:8` - Bits per pixel, supported values are 1 (experimental and not universally supported), 8 (rgb332) and 16 (rgb565).<br>
+`bpp:16` - Bits per pixel, supported values are 1 (experimental and not universally supported), 8 (rgb332) and 16 (rgb565).<br>
 `colour:white` - The forground colour (the background is always black), supported values are "white", "red", "green", "blue", "random" and a 16 bit custom hex value.<br>
-`orientation:upright` - The window layout, "cocktail" for horizontal and "upright" for vertical.<br>
+`orientation:cocktail` - The window layout, "cocktail" for horizontal and "upright" for vertical.<br>
 
 **NOTE**: the RP IO Controller only supports cocktail orientation @ 16bpp.
 
@@ -277,10 +277,12 @@ These settings are fixed to the specified rom.
 `memory:rom:[block]:bytes`: The rom resource to load. When the resource is fully qualified it will ignore the scheme and directory parameters.
 `memory:rom:[block]:offset`: The offset into memory where the rom will be loaded, this value **must** not be changed, doing so will yield undefined behaviour.<br>
 
+**NOTE**: The rom name is used for the entry in the rom selection screen. It **must** not have any new line characters and **must** only contain characters defined in the supported font defined in `GlyphRenderer.cpp`. The maximum number of characters supported per entry is 26 ((the vram width (224) / the supported font width (8)) - 2 spaces (one is prepended and one is appeneded to the name)). 
+
 ### Desktop Keyboard Controls
 
-`q`: Quit<br>
-`c`: Credit<br>
+`q`: quit<br>
+`c`: credit<br>
 `1`: 1P<br>
 `2`: 2P<br>
 `a`: 1P left<br>
@@ -290,16 +292,18 @@ These settings are fixed to the specified rom.
 `4`: 4 ships<br>
 `5`: 5 ships<br>
 `6`: 6 ships<br>
-`t`: Tilt<br>
-`e`: Extra ship at<br>
+`t`: tilt<br>
+`e`: extra ship at<br>
 `j`: 2P left<br>
 `k`: 2P fire<br>
 `l`: 2P right<br>
-`i`: Show coin info<br>
-`y`: Save game<br>
-`r`: Load save game<br>
-`u`: Load from rom<br>
-`esc`: Return to the rom selection screen<br> 
+`i`: show coin info<br>
+`y`: save game<br>
+`r`: load save game<br>
+`up`: move to the prevous rom<br>
+`down`: move to the next rom<br>
+`enter`: load the selected rom<br>
+`esc`: return to the rom selection screen<br> 
 
 ### Embedded button controls
 
@@ -310,10 +314,10 @@ More buttons and/or logic can be added for a more complete emulation, 2 player s
 
 The pin layout used is the same as the [hardware lcd](https://www.waveshare.com/wiki/Pico-LCD-2) used for testing.
 
-`button 0`: when on the rom attraction screen, select the previous rom in the list of supported roms, when in gameplay mode, move the ship to the left.
-`button 1`: when on the rom attraction screen, add a credit and start a single player game, when in gameplay mode, quit and return to the attraction screen.
-`button 2`: when in gameplay mode, fire at the enemy.
-`button 3`: when on the rom attraction screen, select the next rom in the list of supported roms, when in gameplay mode, move the ship to the right.
+`button 0`: when on the loaded roms attraction screen, start a 1P game, when in gameplay mode, move the ship to the left.
+`button 1`: when in gameplay mode, quit and return to the rom selection screen.
+`button 2`: when on the rom selection screen, select the previous rom in the list of supported roms, when in gameplay mode, fire at the enemy.
+`button 3`: when on the rom selection screen, select the next rom in the list of supported roms, when in gameplay mode, move the ship to the right.
 
 ![space-invaders](docs/images/space-invaders.png) ![space-invaders-deluxe](docs/images/space-invaders-deluxe.png) ![lunar-rescue](docs/images/lunar-rescue.png) ![balloon-bomber](docs/images/balloon-bomber.png)
 
