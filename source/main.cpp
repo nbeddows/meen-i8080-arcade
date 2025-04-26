@@ -50,6 +50,52 @@ extern uint8_t invadersFEnd;
 extern uint8_t invadersEStart;
 extern uint8_t invadersEEnd;
 
+extern uint8_t invdeluxHStart;
+extern uint8_t invdeluxHEnd;
+extern uint8_t invdeluxGStart;
+extern uint8_t invdeluxGEnd;
+extern uint8_t invdeluxFStart;
+extern uint8_t invdeluxFEnd;
+extern uint8_t invdeluxEStart;
+extern uint8_t invdeluxEEnd;
+extern uint8_t invdeluxDStart;
+extern uint8_t invdeluxDEnd;
+
+extern uint8_t pv01Start;
+extern uint8_t pv01End;
+extern uint8_t pv02Start;
+extern uint8_t pv02End;
+extern uint8_t pv03Start;
+extern uint8_t pv03End;
+extern uint8_t pv04Start;
+extern uint8_t pv04End;
+extern uint8_t pv05Start;
+extern uint8_t pv05End;
+
+extern uint8_t tn01Start;
+extern uint8_t tn01End;
+extern uint8_t tn02Start;
+extern uint8_t tn02End;
+extern uint8_t tn03Start;
+extern uint8_t tn03End;
+extern uint8_t tn04Start;
+extern uint8_t tn04End;
+extern uint8_t tn05Start;
+extern uint8_t tn05End;
+
+extern uint8_t lrescue1Start;
+extern uint8_t lrescue1End;
+extern uint8_t lrescue2Start;
+extern uint8_t lrescue2End;
+extern uint8_t lrescue3Start;
+extern uint8_t lrescue3End;
+extern uint8_t lrescue4Start;
+extern uint8_t lrescue4End;
+extern uint8_t lrescue5Start;
+extern uint8_t lrescue5End;
+extern uint8_t lrescue6Start;
+extern uint8_t lrescue6End;
+
 extern char rpConfigStart;
 extern char rpConfigEnd;
 #else
@@ -113,7 +159,11 @@ int main(int argc, char** argv)
 
 		const std::unordered_map<std::string_view, std::pair<uintptr_t, uint16_t>> romNameToAddr
 		{
-			{ "invaders-e.bin", toPair(&invadersEStart, &invadersEEnd) }, { "invaders-f.bin", toPair(&invadersFStart, &invadersFEnd) }, { "invaders-g.bin", toPair(&invadersGStart, &invadersGEnd) }, { "invaders-h.bin", toPair(&invadersHStart, &invadersHEnd) }
+			{ "invaders-e.bin", toPair(&invadersEStart, &invadersEEnd) }, { "invaders-f.bin", toPair(&invadersFStart, &invadersFEnd) }, { "invaders-g.bin", toPair(&invadersGStart, &invadersGEnd) }, { "invaders-h.bin", toPair(&invadersHStart, &invadersHEnd) },
+			{ "invdelux-d.bin", toPair(&invdeluxDStart, &invdeluxDEnd) }, { "invdelux-e.bin", toPair(&invdeluxEStart, &invdeluxEEnd) }, { "invdelux-f.bin", toPair(&invdeluxFStart, &invdeluxFEnd) }, { "invdelux-g.bin", toPair(&invdeluxGStart, &invdeluxGEnd) }, { "invdelux-h.bin", toPair(&invdeluxHStart, &invdeluxHEnd) },
+			{ "PV.01", toPair(&pv01Start, &pv01End) }, { "PV.02", toPair(&pv02Start, &pv02End) }, { "PV.03", toPair(&pv03Start, &pv03End) }, { "PV.04", toPair(&pv04Start, &pv04End) }, { "PV.05", toPair(&pv05Start, &pv05End) },
+			{ "tn01.bin", toPair(&tn01Start, &tn01End) }, { "tn02.bin", toPair(&tn02Start, &tn02End) }, { "tn03.bin", toPair(&tn03Start, &tn03End) }, { "tn04.bin", toPair(&tn04Start, &tn04End) }, { "tn05-1.bin", toPair(&tn05Start, &tn05End) },
+			{ "lrescue-1.bin", toPair(&lrescue1Start, &lrescue1End) }, { "lrescue-2.bin", toPair(&lrescue2Start, &lrescue2End) }, { "lrescue-3.bin", toPair(&lrescue3Start, &lrescue3End) }, { "lrescue-4.bin", toPair(&lrescue4Start, &lrescue4End) }, { "lrescue-5.bin", toPair(&lrescue5Start, &lrescue5End) }, { "lrescue-6.bin", toPair(&lrescue6Start, &lrescue6End) }
 		};
 
 		stdio_init_all();
@@ -142,7 +192,6 @@ int main(int argc, char** argv)
 			CHECK_ERROR(!r["memory"], printf("No memory found in config file rom\n"));
 			CHECK_ERROR(!r["memory"]["rom"], printf("No rom found in config file memory\n"));
 			CHECK_ERROR(!r["memory"]["rom"]["block"], printf("No rom block found in config file memory\n"));
-
 // For baremetal platforms we need to update the config file so it loads from flash rather than a file
 #ifdef ENABLE_MH_RP2040
 			auto&& rom = r["memory"]["rom"];
@@ -154,8 +203,11 @@ int main(int argc, char** argv)
 				// Check the names of the roms and set the correct rom address accordingly
 				auto name = block["bytes"].as<std::string_view>();
 				CHECK_ERROR(!romNameToAddr.contains(name), printf("The memory rom block is missing bytes: %s\n", std::string(name).c_str()));
-				block["bytes"] = std::to_string(romNameToAddr.at(name).first);
+
+				// The size parameter must be set before bytes as name is a string_view.
+				// Reversing the order would cause ub as the view would be looking at the address rather than the name.
 				block["size"] = romNameToAddr.at(name).second;
+				block["bytes"] = std::to_string(romNameToAddr.at(name).first);
 			}
 #endif // ENABLE_MH_RP2040
 			// Cache all rom strings in a vector of pairs with first being the rom name
