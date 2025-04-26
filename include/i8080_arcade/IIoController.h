@@ -89,14 +89,12 @@ namespace i8080_arcade
 		virtual std::error_code LoadVideoTextures(const JsonVariantConst videoTextures, int frameWidth, int frameHeight) = 0;
 
 		/** Load the selected rom or the save state of the currently selected rom
-			
-			@param	maxSize			The total number of roms in the rom list	
 
 			@return					A tuple holding two values:
 									bool - only valid when loading roms, true if the save file is to be loaded, false if the rom is to be loaded.
 									int - the index into the roms array for the rom to be loaded or saved
 		*/
-		virtual std::tuple<bool, int> GetRomIndex(int maxSize) = 0;
+		virtual std::tuple<bool, int> GetRomIndex() = 0;
 
         /** Free any use resources
             

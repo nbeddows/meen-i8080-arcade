@@ -33,8 +33,10 @@ SOFTWARE.
 
 namespace i8080_arcade
 {
-    RPIoController::RPIoController(bool runAsync, const JsonVariantConst audioHardware, const JsonVariantConst videoHardware)
+    RPIoController::RPIoController(bool runAsync, int romCount, const JsonVariantConst audioHardware, const JsonVariantConst videoHardware)
         : runAsync_{ runAsync }
+		, romCount_{ romCount }
+		, romIndex_{ romCount - 1 }
     {
         i8080ArcadeIO_ = meen_hw::MakeI8080ArcadeIO();
 
@@ -340,12 +342,25 @@ namespace i8080_arcade
             {
                 if (screen_ == Screen::RomSelect)
                 {
-                    // Check button 2 press to trigger a rom load interrupt
-                    if (ButtonPress (!gpio_get(Pin::K2), lastK2_)) // we may need to set a callbcak on the pin since the press could be missed
+                    // Check button 1 press to trigger a rom load interrupt
+                    if (ButtonPress (!gpio_get(Pin::K1), lastK1_)) // we may need to set a callbcak on the pin since the press could be missed
                     {
                         isr = meen::ISR::Load;
                         screen_ = Screen::Gameplay;
                         ships_ = 0;
+                    }
+
+                    if (ButtonPress (!gpio_get(Pin::K2), lastK2_)) // we may need to set a callbcak on the pin since the press could be missed
+                    {
+                        romIndex_ = ++romIndex % romCount_;
+                    }
+
+                    if (ButtonPress (!gpio_get(Pin::K3), lastK3_)) // we may need to set a callbcak on the pin since the press could be missed
+                    {                    
+                        if (--romIndex < 0)
+                        {
+                            romIndex = romCount_ - 1;
+                        }
                     }
                 }
                 break;
@@ -362,7 +377,17 @@ namespace i8080_arcade
 
                 if (success == true)
                 {
-                    vfw->videoFrame = static_cast<MemoryController*>(memoryController)->GetVideoFrame(screen_);
+                    switch (screen_)
+                    {
+                        case Screen::RomSelect:
+                            vfw->videoFrame = static_cast<MemoryController*>(memoryController)->GetRomSelectFrame(romIndex_);
+                            break;
+                        case Screen::Gameplay:
+                            vfw->videoFrame = static_cast<MemoryController*>(memoryController)->GetGameplayFrame();
+                            break;
+                        default:
+                            printf ("Invalid screen\n");
+                    }
 
                     if(vfw->videoFrame != nullptr)
                     {
@@ -562,8 +587,8 @@ namespace i8080_arcade
         printf("%s\n", errorMsg.c_str());
     }
 
-    std::tuple<bool, int> RPIoController::GetRomIndex(int maxSize)
+    std::tuple<bool, int> RPIoController::GetRomIndex()
     {
-        return std::tuple(false, 0);
+        return std::tuple(false, romIndex_);
     }
 } // namespace i8080_arcade

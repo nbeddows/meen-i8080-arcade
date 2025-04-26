@@ -70,25 +70,25 @@ if(value)\
 #include "i8080_arcade/SdlIoController.h"
 #endif // ENABLE_MH_RP2040
 
-static i8080_arcade::MemoryController* MakeMemoryController()
+static i8080_arcade::MemoryController* MakeMemoryController(const std::vector<std::pair<std::string, std::string>>&jsonRoms)
 {
 #ifdef ENABLE_MH_RP2040
-	return new i8080_arcade::MemoryController(3); // 3 - Three frame for triple buffered rendering
+	return new i8080_arcade::MemoryController(jsonRoms, 3); // 3 - Three frame for triple buffered rendering
 #else
-	return new i8080_arcade::MemoryController();
+	return new i8080_arcade::MemoryController(jsonRoms);
 #endif
 }
 
-static i8080_arcade::IIoController* MakeIoController(bool runAsync, JsonVariantConst audioHardware, JsonVariantConst videoHardware)
+static i8080_arcade::IIoController* MakeIoController(bool runAsync, int romCount, JsonVariantConst audioHardware, JsonVariantConst videoHardware)
 {
 	if (!audioHardware|| !videoHardware)
 	{
 		return nullptr;
 	}
 #ifdef ENABLE_MH_RP2040
-	return new i8080_arcade::RPIoController(runAsync, audioHardware, videoHardware);
+	return new i8080_arcade::RPIoController(runAsync, romCount, audioHardware, videoHardware);
 #else
-	return new i8080_arcade::SDLIoController(runAsync, audioHardware, videoHardware);
+	return new i8080_arcade::SDLIoController(runAsync, romCount, audioHardware, videoHardware);
 #endif // ENABLE_MH_RP2040
 }
 
@@ -163,20 +163,17 @@ int main(int argc, char** argv)
 			std::string str;
 			serializeJson(r, str);
 			jsonRoms.emplace_back (r["name"].as<std::string>(), std::move(str));
-
-			// remove this once support for all other roms has been added
-			break;
 		}
 
 		auto meen = hardware["meen"];
 		CHECK_ERROR(!meen, printf("Invalid json config file format: meen section not found\n"));
 
 		// Create our custom i8080 arcade I/O controller based on a specific configuration.
-		auto ioController = MakeIoController(meen["runAsync"], hardware["audio"], hardware["video"]);
+		auto ioController = MakeIoController(meen["runAsync"], jsonRoms.size(), hardware["audio"], hardware["video"]);
 		CHECK_ERROR(!ioController, printf("Failed to create the i/o controller\n"));
 
 		// Create our custom i8080 arcade memory controller.
-		auto memoryController = MakeMemoryController();
+		auto memoryController = MakeMemoryController(jsonRoms);
 		CHECK_ERROR(!memoryController, printf("Failed to create the memory controller\n"));
 
 		// Set up the custom controllers prior to configuring the machine.
@@ -233,7 +230,7 @@ int main(int argc, char** argv)
 				return meen::errc::invalid_argument;
 			}
 
-			auto [unused, romIndex] = static_cast<i8080_arcade::IIoController*>(ioController)->GetRomIndex(jsonRoms.size());
+			auto [unused, romIndex] = static_cast<i8080_arcade::IIoController*>(ioController)->GetRomIndex();
 			std::ofstream fout(saveFilePath + "/" + jsonRoms[romIndex].first + ".json", std::ios::trunc);
 
 			if (!fout.good())
@@ -248,7 +245,7 @@ int main(int argc, char** argv)
 		// Will be called from a different thread if the 'runAsync' or 'loadAsync' configuration options are set to true
 		machine->OnLoad([&jsonRoms, &saveFilePath](char* json, int* jsonLen, meen::IController* ioController)
 		{
-			auto [loadSaveState, romIndex] = static_cast<i8080_arcade::IIoController*>(ioController)->GetRomIndex(jsonRoms.size());
+			auto [loadSaveState, romIndex] = static_cast<i8080_arcade::IIoController*>(ioController)->GetRomIndex();
 
 			if (loadSaveState == true)
 			{
