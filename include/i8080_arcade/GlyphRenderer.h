@@ -116,13 +116,21 @@ namespace i8080_arcade
             */
             std::error_code SetJustification (Justification justification);
 
-            /** The blittable text
+            /** The blittable text (std::string_view overload)
 
                 Set the text that will be rendered when the Blit method is called.
 
                 @param  text            The text to render.
             */
             void SetText(std::string_view text);
+
+            /** The blittable text (std::string&& overload)
+
+                Set the text that will be rendered when the Blit method is called.
+
+                @param  text            The text to render.
+            */
+            void SetText(std::string&& text);
 
             /** Glyph lines height
 
@@ -180,6 +188,8 @@ namespace i8080_arcade
                 @remark                         The SetFont method needs to be called with a valid GlyphRenerer::Font, otherwise this method does nothing.
                 @remark                         Unknown font glyphs print a space (clear to black (or white if inversion is enabled)).
                 @remark                         The method GetMaxWidth can be used to obtain to total number of lines of glyphs.
+                @remark                         The parameters invertLineCount and invertLineStart refer to lines of text that have printable glyphs, ie,
+                                                new lines are ignored.
             */
             std::error_code Blit(std::vector<uint8_t>::iterator start, std::vector<uint8_t>::iterator end, int invertLineCount = 0, int invertLineStart = 0) const;
 
