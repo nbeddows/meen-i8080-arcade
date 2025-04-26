@@ -26,7 +26,7 @@ SOFTWARE.
 
 namespace i8080_arcade
 {
-    MemoryController::MemoryController(int framePoolSize)
+    MemoryController::MemoryController(const std::vector<std::pair<std::string, std::string>>& jsonRoms, int framePoolSize)
     {
         memory_.resize(memorySize_, 0);
         framePool_ = meen_hw::MH_ResourcePool<std::vector<uint8_t>>();
@@ -35,38 +35,9 @@ namespace i8080_arcade
 
         for(int i = 0; i < framePoolSize; i++)
         {
-            framePool_.AddResource(new std::vector<uint8_t>(frameWidth * frameHeight, 0));
-        }
+            auto frame = new std::vector<uint8_t>(frameWidth * frameHeight, 0);
 
-        auto setAnchorPoint = [this](bool setAnchorPoint)
-        {
-            if (setAnchorPoint == true)
-            {
-                // determine the offset at which to blit the text - we want to center the text on the surface
-                int widthOffset = (vramWidth_ - glyphRenderer_.GetWidth()) / 2;
-                int heightOffset = ((vramHeight_ - glyphRenderer_.GetHeight()) / 2) * frameWidth;
-                glyphRenderer_.SetAnchorPoint(centreOffset_ + widthOffset + heightOffset);
-            }
-        };
-
-        glyphRenderer_ = GlyphRenderer(frameWidth);
-        //glyphRenderer_.SetText("   BALLOON BOMBER   \n\n\n   LUNAR RESCUE   \n\n\n   TAITO   \n\n   SPACE INVADERS II   \n\n\n   MIDWAY   \n\n   SPACE INVADERS II   \n\n\n   SPACE INVADERS   ");
-        // todo: need to pass in the rom names from the config file in order to generated the render text
-        glyphRenderer_.SetText(" BALLOON BOMBER \n\n\n LUNAR RESCUE \n\n\n TAITO \n\n SPACE INVADERS II \n\n\n MIDWAY \n\n SPACE INVADERS II \n\n\n SPACE INVADERS ");
-        glyphRenderer_.SetJustification(GlyphRenderer::Justification::Centre);
-        glyphRenderer_.SetFont(GlyphRenderer::Font::I8080ArcadeRegular8x8);
-        setAnchorPoint(true);
-        //setAnchorPoint(!!glyphRenderer_.Update(">>"));
-        //setAnchorPoint(!!glyphRenderer_.Update("<<", 18));
-    }
-
-    meen_hw::MH_ResourcePool<std::vector<uint8_t>>::ResourcePtr MemoryController::GetVideoFrame(int screen) const
-    {
-        auto frame = framePool_.GetResource();
-
-        if(frame != nullptr)
-        {
-            // Thos dpes not take into account bounds checks ... negative values here will result in ub
+            // This does not take into account bounds checks ... negative values here will result in ub
             auto blitBorder = [frameBegin = frame->begin()](int x0Start, int x1Start, int width, int y0Start, int y1Start, int height, int lpm, int rpm)
             {
                 auto p1 = frameBegin + x1Start;
@@ -94,35 +65,76 @@ namespace i8080_arcade
             // blit a border around the vram
             blitBorder(centreOffset_ - frameWidth, centreOffset_ + (vramHeight_ * frameWidth), vramWidth_, centreOffset_ - frameWidth - 1, centreOffset_ + vramWidth_ - frameWidth, vramHeight_ + 10, 0x80, 0x01);
 
-            if (screen == 1 /* Screen::Gameplay */)
-            {
-                if (vramWidth_ == frameWidth)
-                {
-                    std::ranges::copy_n(memory_.begin() + vramOffset_, vramSize_, frame->begin());
-                }
-                else
-                {
-                    auto it = frame->begin() + centreOffset_;
-                    //auto vramStart = memory_.begin() + vramOffset_;
+            framePool_.AddResource(frame);
+        }
 
-                    for (auto vram = memory_.cbegin() + vramOffset_; vram < memory_.cbegin() + vramOffset_ + vramSize_; std::advance(vram, vramWidth_), std::advance(it, frameWidth))
-                    {
-                        std::ranges::copy_n(vram, vramWidth_, it);
-                    }
-                }
+        auto setAnchorPoint = [this](bool setAnchorPoint)
+        {
+            if (setAnchorPoint == true)
+            {
+                // determine the offset at which to blit the text - we want to center the text on the surface
+                int widthOffset = (vramWidth_ - glyphRenderer_.GetWidth()) / 2;
+                int heightOffset = ((vramHeight_ - glyphRenderer_.GetHeight()) / 2) * frameWidth;
+                glyphRenderer_.SetAnchorPoint(centreOffset_ + widthOffset + heightOffset);
+            }
+        };
+
+        std::string txtToBlit;
+
+        for (auto& jsonRom : jsonRoms)
+        {
+            txtToBlit += " " + jsonRom.first + " \n\n\n";
+        }
+
+        std::transform(txtToBlit.begin(), txtToBlit.end(), txtToBlit.begin(), ::toupper);
+        txtToBlit.erase(txtToBlit.end() - 3, txtToBlit.end());
+
+        glyphRenderer_ = GlyphRenderer(frameWidth);
+        glyphRenderer_.SetText(std::move(txtToBlit));
+        glyphRenderer_.SetJustification(GlyphRenderer::Justification::Centre);
+        glyphRenderer_.SetFont(GlyphRenderer::Font::I8080ArcadeRegular8x8);
+        setAnchorPoint(true);
+        //setAnchorPoint(!!glyphRenderer_.Update(">>"));
+        //setAnchorPoint(!!glyphRenderer_.Update("<<", 18));
+    }
+
+    meen_hw::MH_ResourcePool<std::vector<uint8_t>>::ResourcePtr MemoryController::GetRomSelectFrame(int romIndex) const
+    {
+        auto frame = framePool_.GetResource();
+
+        if (frame != nullptr)
+        {
+            // rom selection
+            auto errc = glyphRenderer_.Blit(frame->begin(), frame->end(), 1 /* invert one line */, romIndex /* starting at the rom index */); // maybe todo: add line to blit, much like invert - blitLineStart, blitLineCount ... probably a bit complicated for now
+
+            if (errc)
+            {
+                printf("Failed to blit text: %s\n", errc.message().c_str());
+            }
+        }
+
+        return frame;
+    }
+    
+    meen_hw::MH_ResourcePool<std::vector<uint8_t>>::ResourcePtr MemoryController::GetGameplayFrame() const
+    {
+        auto frame = framePool_.GetResource();
+
+        if(frame != nullptr)
+        {
+            if (vramWidth_ == frameWidth)
+            {
+                std::ranges::copy_n(memory_.begin() + vramOffset_, vramWidth_ * vramHeight_, frame->begin() + centreOffset_);
             }
             else
             {
-                // rom selection
-                auto errc = glyphRenderer_.Blit(frame->begin(), frame->end(), 0 /* invert one line */, 16 /* starting at line 16 */); // maybe todo: add line to blit, much like invert - blitLineStart, blitLineCount ... probably a bit complicated for now
+                auto it = frame->begin() + centreOffset_;
 
-                if (errc)
+                for (auto vram = memory_.cbegin() + vramOffset_; vram < memory_.cbegin() + vramOffset_ + vramSize_; std::advance(vram, vramWidth_), std::advance(it, frameWidth))
                 {
-                    printf("Failed to blit text: %s\n", errc.message().c_str());
+                    std::ranges::copy_n(vram, vramWidth_, it);
                 }
             }
-
-            // blit additional metadata here
         }
 
         return frame;
