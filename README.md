@@ -269,7 +269,7 @@ These settings affect audio output. They can be changed if different audio sampl
 
 These settings are fixed to the specified rom.
 
-`roms:name` - The name of the rom. This is used as the name of the save state json file.<br>
+`roms:name` - The name of the rom. This is used as the name of the save state json file as well as the entries for the rom selection screen.<br>
 `roms:cpu:pc` - The meen cpu program counter. It **must** not be changed, doing so will yield undefined behaviour.<br>
 `roms:cpu:sp` - The meen cpu stack pointer. It **must** not be changed, doing so will yield undefined behaviour.<br>
 `memory:rom:scheme` - An optional parameter specifying the type of the rom resource to load, either `file://` or `json://`.<br>
@@ -277,7 +277,8 @@ These settings are fixed to the specified rom.
 `memory:rom:[block]:bytes`: The rom resource to load. When the resource is fully qualified it will ignore the scheme and directory parameters.
 `memory:rom:[block]:offset`: The offset into memory where the rom will be loaded, this value **must** not be changed, doing so will yield undefined behaviour.<br>
 
-**NOTE**: The rom name is used for the entry in the rom selection screen. It **must** not have any new line characters and **must** only contain characters defined in the supported font defined in `GlyphRenderer.cpp`. The maximum number of characters supported per entry is 26 ((the vram width (224) / the supported font width (8)) - 2 spaces (one is prepended and one is appeneded to the name)). 
+**NOTE**: The `roms:name` parameter **must** not contain any new line characters and **must** only contain characters defined in the supported font defined in `GlyphRenderer.cpp`. The maximum number of characters supported per entry is 26 ((the vram width (224) / the supported font width (8)) - 2 spaces (one is prepended and one is appeneded to the name)). 
+**NOTE**: When targetting the RP2040, the `memory:rom:[block]:bytes` parameter **can't** be changed.
 
 ### Desktop Keyboard Controls
 
