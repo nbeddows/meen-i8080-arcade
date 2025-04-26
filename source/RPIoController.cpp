@@ -352,14 +352,14 @@ namespace i8080_arcade
 
                     if (ButtonPress (!gpio_get(Pin::K2), lastK2_)) // we may need to set a callbcak on the pin since the press could be missed
                     {
-                        romIndex_ = ++romIndex % romCount_;
+                        romIndex_ = ++romIndex_ % romCount_;
                     }
 
                     if (ButtonPress (!gpio_get(Pin::K3), lastK3_)) // we may need to set a callbcak on the pin since the press could be missed
                     {                    
-                        if (--romIndex < 0)
+                        if (--romIndex_ < 0)
                         {
-                            romIndex = romCount_ - 1;
+                            romIndex_ = romCount_ - 1;
                         }
                     }
                 }
