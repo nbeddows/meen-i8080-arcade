@@ -157,13 +157,34 @@ namespace i8080_arcade
 
 			/** Keep track of previous key presses to prevent repeat events from triggering
 
-				Key 'r' restores the currently loaded rom save state (if it exists)
-				Key 'u' loads the currently selected rom
-				Key 'y' save the currently selected roms state
+				key 'down' moves to the next rom.
+				Key 'r' restores the currently loaded rom save state (if it exists).
+				Key 'return' loads the currently selected rom.
+				Key 'up' moves to the previous rom.
+				Key 'y' save the currently selected roms state.
 			*/
+			Uint8 lastDown_{};
 			Uint8 lastR_{};
-			Uint8 lastU_{};
+			Uint8 lastReturn_{};
+			Uint8 lastUp_{};
 			Uint8 lastY_{};
+
+			/** The currently selected rom
+			
+				When the user presses the up and down arrows, this will keep track
+				of the current index.
+				
+				Made atomic since it can be accesssed from a different thread if the runAsync config option
+				is set to true.
+			*/
+			std::atomic_int romIndex_{};
+
+			/** The total number of supported roms for this controller.
+			
+				The value is the max limit used by the romIndex parameter to keep
+				itself within range.
+			*/
+			int romCount_{};
 
 			/** The running state
 
@@ -208,10 +229,11 @@ namespace i8080_arcade
 				Creates an SDL specific i8080 arcade IO controller.
 
 				@param		runAsync		Run this io controller asynchronously.
-				@param		audioHardware	audio hardware configuration options.
-				@param		videoHardware	video hardware configuration options.
+				@param		romCount		The number of supported roms.
+				@param		audioHardware	Audio hardware configuration options.
+				@param		videoHardware	Video hardware configuration options.
 			*/
-			SDLIoController(bool runAsync, const JsonVariantConst audioHardware, const JsonVariantConst videoHardware);
+			SDLIoController(bool runAsync, int romCount, const JsonVariantConst audioHardware, const JsonVariantConst videoHardware);
 
 			/** Destructor
 
@@ -290,20 +312,20 @@ namespace i8080_arcade
 				Create the video texture that will be rendered to the screen.
 
 				@param	videoTextures	JSON object describing the video texture.
+				@param  textureWidth    The width of the videc texture in pixels.
+            	@param  textureHeight   The height of the video texture in pixels.
 
 				@return					An error in the form of a std::error_code.
 			*/
-			std::error_code LoadVideoTextures(const JsonVariantConst videoTextures, int frameWidth, int frameHeight) final;
+			std::error_code LoadVideoTextures(const JsonVariantConst videoTextures, int textureWidth, int textureHeight) final;
 
 			/** Load the selected rom or the save state of the currently selected rom
-
-				@param	maxSize			The total number of roms in the rom list
 
 				@return					A tuple holding two values:
 										bool - only valid when loading roms, true if the save file is to be loaded, false if the rom is to be loaded.
 										int - the index into the roms array for the rom to be loaded or saved
 			*/
-			std::tuple<bool, int> GetRomIndex(int maxSize) final;
+			std::tuple<bool, int> GetRomIndex() final;
 	};
 } // namespace i8080_arcade
 

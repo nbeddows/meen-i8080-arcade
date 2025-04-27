@@ -9,8 +9,8 @@
                 "saveAsync":true
             },
             "video": {
-                "width":224,
-                "height":256,
+                "width":320,
+                "height":240,
                 "fullScreen":false
             },
             "audio": {
@@ -23,7 +23,7 @@
             "video": {
                 "bpp":16,
                 "colour":"white",
-                "orientation":"upright"
+                "orientation":"cocktail"
             },
             "audio": {
                 "scheme":"file://",
@@ -49,7 +49,7 @@
             },
             "roms": [
                 {
-                    "name":"space-invaders",
+                    "name":"space invaders",
                     "cpu":{
                         "pc":0,
                         "sp":0
@@ -68,7 +68,7 @@
                     }
                 },
                 {
-                    "name":"space-invaders-deluxe",
+                    "name":"space invaders ii midway",
                     "cpu":{
                         "pc":0,
                         "sp":0
@@ -88,7 +88,7 @@
                     }
                 },
                 {
-                    "name":"space-invaders-ii",
+                    "name":"space invaders ii taito",
                     "cpu":{
                         "pc":0,
                         "sp":0
@@ -108,7 +108,7 @@
                     }
                 },
                 {
-                    "name":"balloon-bomber",
+                    "name":"balloon bomber",
                     "cpu":{
                         "pc":0,
                         "sp":0
@@ -128,7 +128,7 @@
                     }
                 },
                 {
-                    "name":"lunar-rescue",
+                    "name":"lunar rescue",
                     "cpu":{
                         "pc":0,
                         "sp":0

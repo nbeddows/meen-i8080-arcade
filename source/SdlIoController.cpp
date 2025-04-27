@@ -30,8 +30,10 @@ SOFTWARE.
 
 namespace i8080_arcade
 {
-    SDLIoController::SDLIoController(bool runAsync, const JsonVariantConst audioHardware, const JsonVariantConst videoHardware)
+    SDLIoController::SDLIoController(bool runAsync, int romCount, const JsonVariantConst audioHardware, const JsonVariantConst videoHardware)
 		: runAsync_{ runAsync }
+		, romCount_{ romCount }
+		, romIndex_{ romCount - 1 }
 	{
 		SDL_SetMainReady();
 
@@ -126,9 +128,9 @@ namespace i8080_arcade
 		SDL_Quit();
 	}
 
-	std::tuple<bool, int> SDLIoController::GetRomIndex(int maxSize)
+	std::tuple<bool, int> SDLIoController::GetRomIndex()
 	{
-		return std::tuple(loadSaveState_.exchange(false), 0);
+		return std::tuple(loadSaveState_.exchange(false), romIndex_.load());
 	}
 
 	std::error_code SDLIoController::LoadAudioSamples(const JsonVariantConst audio)
@@ -406,17 +408,38 @@ namespace i8080_arcade
 			{
 				isr = loadSaveInterrupt_.exchange(meen::ISR::NoInterrupt);
 
-				if (isr == meen::ISR::Load && screen_ == Screen::RomSelect)
+				if (isr == meen::ISR::Load)
 				{
-					if (loadSaveState_ == false)
+					if (screen_ == Screen::RomSelect)
 					{
-						// We are loading a rom, move to the game play screen
-						screen_ = Screen::Gameplay;
+						// We are attempting to load from a rom and not a save file
+						if (loadSaveState_ == false)
+						{
+							// We are loading a rom, move to the game play screen
+							screen_ = Screen::Gameplay;
+						}
+						else
+						{
+							// We don't load state from the rom select screen, drop the interrupt
+							isr = meen::ISR::NoInterrupt;
+						}
+					}
+					else
+					{
+						// We can only load a save state from gameplay (as opposed to a rom), drop the interrupt
+						if (loadSaveState_ == false)
+						{
+							isr = meen::ISR::NoInterrupt;
+						}
 					}
 				}
-				else if (loadSaveState_ == false)
+				else if (isr == meen::ISR::Save)
 				{
-					isr = meen::ISR::NoInterrupt;
+					// We can't save anything from rom select, drop the interrupt
+					if (screen_ == Screen::RomSelect)
+					{
+						isr = meen::ISR::NoInterrupt;
+					}
 				}
 				break;
 			}
@@ -441,7 +464,20 @@ namespace i8080_arcade
 
 				if(videoFrameWrapper != nullptr)
 				{
-					videoFrameWrapper->videoFrame = static_cast<MemoryController*>(memoryController)->GetVideoFrame(screen_);
+					auto mc = static_cast<MemoryController*>(memoryController);
+
+					switch (screen_)
+					{
+						case Screen::RomSelect:
+							videoFrameWrapper->videoFrame = mc->GetRomSelectFrame(romIndex_);
+							break;
+						case Screen::Gameplay:
+							videoFrameWrapper->videoFrame = mc->GetGameplayFrame();
+							break;
+						default:
+							printf("Invalid screen\n");
+							break;
+					}
 				}
 
 				SDL_Event e{};
@@ -563,12 +599,33 @@ namespace i8080_arcade
 
 								SDL_RenderCopy(renderer_, texture_, nullptr, &dstRect_);
 								SDL_RenderPresent(renderer_);
+								
+								auto scrollIndex = [this](Uint8 key, Uint8 lastKey, int dir)
+								{
+									if (key ^ lastKey && key)
+									{
+										int romIndex = romIndex_;
 
+										romIndex = (romIndex + dir) % romCount_;
+
+										if (romIndex < 0)
+										{
+											romIndex = romCount_ - 1;
+										}
+
+										romIndex_ = romIndex;
+									}
+
+									return key;
+								};
+
+								lastUp_ = scrollIndex(state[SDL_SCANCODE_UP], lastUp_, 1);
+								lastDown_ = scrollIndex(state[SDL_SCANCODE_DOWN], lastDown_, -1);
 								// Check to see if the user wants to load a rom.
 								// This will only be acknowledged in ServiceInterrupts if screen_ is RomSelect,
 								// we could check screen_ for RomSelect here, but that would mean select_ would have
 								// to be atomic.
-								lastU_ = SetInterrupt(state[SDL_SCANCODE_U], lastU_, meen::ISR::Load, false);
+								lastReturn_ = SetInterrupt(state[SDL_SCANCODE_RETURN], lastReturn_, meen::ISR::Load, false);
 								break;
 							}
 							case EventCode::RenderAudio:

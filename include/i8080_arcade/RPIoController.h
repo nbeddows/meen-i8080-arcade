@@ -167,6 +167,28 @@ namespace i8080_arcade
         bool lastK2_{};
         bool lastK3_{};
 
+        /** The currently selected rom
+			
+            When the user presses the up and down arrows, this will keep track
+            of the current index.
+				
+            Made atomic since it can be accesssed from a different thread if the runAsync config option
+            is set to true.
+        */
+        int romIndex_{};
+
+        /** The total number of supported roms for this controller.
+			
+            The value is the max limit used by the romIndex parameter to keep
+            itself within range.
+        */        
+        int romCount_{};
+
+        /** The running state
+
+            True if meen is to run on core 1, false to run on core 0 with
+            the main application.
+        */
         bool runAsync_{};
 
         /** The current screen
@@ -219,11 +241,12 @@ namespace i8080_arcade
             Creates an RP2040 specific i8080 arcade IO controller.
 
             @param		runAsync		Run this io controller asynchronously.
+            @param		romCount		The number of supported roms.
             @param		audioHardware	audio hardware configuration options.
             @param		videoHardware	video hardware configuration options.
 
         */
-        RPIoController(bool runAsync, const JsonVariantConst audioHardware, const JsonVariantConst videoHardware);
+        RPIoController(bool runAsync, int romCount, const JsonVariantConst audioHardware, const JsonVariantConst videoHardware);
 
         /** Destructor
 
@@ -312,13 +335,11 @@ namespace i8080_arcade
 
         /** Load the selected rom or the save state of the currently selected rom
 
-        @param    maxSize            The total number of roms in the rom list
-
-        @return                      A tuple holding two values:
-                                     bool - only valid when loading roms, true if the save file is to be loaded, false if the rom is to be loaded.
-                                     int - the index into the roms array for the rom to be loaded or saved
+            @return                 A tuple holding two values:
+                                    bool - only valid when loading roms, true if the save file is to be loaded, false if the rom is to be loaded.
+                                    int - the index into the roms array for the rom to be loaded or saved
         */
-        std::tuple<bool, int> GetRomIndex(int maxSize) final;
+        std::tuple<bool, int> GetRomIndex() final;
     };
 } // namespace i8080_arcade
 #endif // RPIOCONTROLLER_H

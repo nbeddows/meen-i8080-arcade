@@ -130,6 +130,15 @@ namespace i8080_arcade
         }
     }
 
+    void GlyphRenderer::SetText(std::string&& text)
+    {
+        if (text.empty() == false)
+        {
+            text_ = std::move(text);
+            Configure();
+        }
+    }
+
     int GlyphRenderer::GetWidth() const
     {
         return maxTxtWidth_;
@@ -300,7 +309,7 @@ namespace i8080_arcade
                         errc = centreTxt(++centreTxtIndex);
                     }
 
-                    lineIndex += newLines;
+                    lineIndex++;
                     newLines = 0;
                 }
 

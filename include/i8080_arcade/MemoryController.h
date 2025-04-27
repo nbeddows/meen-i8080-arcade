@@ -77,13 +77,13 @@ namespace i8080_arcade
             ram frame pool for single/double/triple buffered video frames for
             optimised rendering.
 
-            @param      framePoolSize       The amount frames to allocate, each frame will be width * height bytes in length.
+            @param      framePoolSize       The number of frames to allocate, each frame will be framWidth * frameHeight bytes in length.
 
             @remark     default frame pool size is 1.
 
             @see framePool_
         */
-        MemoryController(int framePoolSize = 1);
+        MemoryController(const std::vector<std::pair<std::string, std::string>>& jsonRoms, int framePoolSize = 1);
 
         /** Destructor
 
@@ -95,15 +95,18 @@ namespace i8080_arcade
 
             The VideoFrame containing the current video ram is taken from a finite frame pool.
 
-            @param  screen  The screen to render.
-
-            @return         The current video ram as a recyclable resource.
-
-            @todo           The screen parameter needs to be the Screen enum defined in IIOController.h.
-                            Its definition needs to be moved to something like Types.h and the header
-                            needs to be included in this file.
+            @return             The current video ram as a recyclable resource.
         */
-        meen_hw::MH_ResourcePool<std::vector<uint8_t>>::ResourcePtr GetVideoFrame(int screen) const;
+        meen_hw::MH_ResourcePool<std::vector<uint8_t>>::ResourcePtr GetGameplayFrame() const;
+
+        /** Generate the current rom select screen
+        
+            The rom select screen lists the rom names defined in the config file that are available to load.
+
+            @param  romIndex    The rom index into the rom names to be rendered that will be highlighted as the currently
+                                selected rom.
+        */
+        meen_hw::MH_ResourcePool<std::vector<uint8_t>>::ResourcePtr GetRomSelectFrame(int romIndex) const;
 
         /** Clear the memory
 
@@ -195,8 +198,7 @@ namespace i8080_arcade
         */
         meen_hw::MH_ResourcePool<std::vector<uint8_t>> framePool_;
 
-        /**
-            Glyph renderer
+        /** Glyph renderer
 
             See GlyphRenderer.h for further details.
         */
