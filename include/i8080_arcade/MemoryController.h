@@ -42,6 +42,10 @@ namespace i8080_arcade
         The controller contains a video frame pool with multiple 1bpp frame buffers of
         a custom size (to allow for rendering of custom widgets beyond the bounds of the vram)
         to facillitate double/triple buffering when required.
+        The title and credits are rendered to the top centre of the display.
+        Additional metadata rendered to the center bottom of the display from left to right
+        includes: current frame rate, current time (24hr), current up time (loops every hour)
+        and current physical ram usage (see GetMemoryUsage method for further details).
     */
     class MemoryController final : public meen::IController
     {
@@ -57,7 +61,7 @@ namespace i8080_arcade
             @todo       In the future this could become a user configurable parameter so that a custom surface size can be declared. It would then most likely involve the requirement
                         of a callback of some sorts in which to render custom graphics to the surface.
         */
-        static constexpr int frameWidth{ 40 }; 
+        static constexpr int frameWidth{ 40 };
 
         /** The height of each frame pool frame in pixels
 
@@ -96,8 +100,10 @@ namespace i8080_arcade
             The VideoFrame containing the current video ram is taken from a finite frame pool.
 
             @return             The current video ram as a recyclable resource.
+
+            @param  currTime    The cpu clock time in nanoseconds.
         */
-        meen_hw::MH_ResourcePool<std::vector<uint8_t>>::ResourcePtr GetGameplayFrame() const;
+        meen_hw::MH_ResourcePool<std::vector<uint8_t>>::ResourcePtr GetGameplayFrame(uint64_t currTime);
 
         /** Generate the current rom select screen
         
@@ -105,8 +111,9 @@ namespace i8080_arcade
 
             @param  romIndex    The rom index into the rom names to be rendered that will be highlighted as the currently
                                 selected rom.
+            @param  currTime    The cpu clock time in nanoseconds.
         */
-        meen_hw::MH_ResourcePool<std::vector<uint8_t>>::ResourcePtr GetRomSelectFrame(int romIndex) const;
+        meen_hw::MH_ResourcePool<std::vector<uint8_t>>::ResourcePtr GetRomSelectFrame(int romIndex, uint64_t currTime);
 
         /** Clear the memory
 
@@ -198,11 +205,76 @@ namespace i8080_arcade
         */
         meen_hw::MH_ResourcePool<std::vector<uint8_t>> framePool_;
 
-        /** Glyph renderer
+        /** Rom title glyph renderer
 
-            See GlyphRenderer.h for further details.
+            The rom title list will be configured to blit in the centre of the vram frame.
+
+            @sa GlyphRenderer.h
         */
-        GlyphRenderer glyphRenderer_{ 0 };
+        GlyphRenderer romList_{ frameWidth };
+
+        /** Metadata glyph renderer
+
+            The metadata will be configured to blit at the bottom centre of the frame
+
+            @sa GlyphRenderer.h
+        */
+        GlyphRenderer metadata_{ frameWidth };
+
+        /** Credits glyph renderer
+
+            The credits will be configured to blit at the top centre of the frame
+
+            @sa GlyphRenderer.h
+        */
+        GlyphRenderer credits_{ frameWidth };
+
+        /** The last machine clock time
+        
+            The time in nanoseconds that is used to compare intervals.
+            Used in conjuction with rendering metadata, int this case, every second.
+        */
+        int64_t lastTime_{};
+        
+        /** The current frame rate
+        
+            @remark measured in frames per second.
+        */
+        int fps_{};
+
+        /** The seconds portion of the current up time
+        
+            @remark reset to 0 when it reaches 60.
+        */
+        uint8_t seconds_{};
+
+        /** The minutes portion of the current up time.
+        
+            @remark incremented when the seconds parameter reaches 60.
+            @remark reset to zero when it reaches 60.
+        */
+        uint8_t minutes_{};
+
+        /** Periodical metadata update
+
+            Update the metadata every second.
+
+            @param  currTime    The cpu clock time in nanoseconds.
+            @param  frame       The arcade surface to blit to.
+        */
+        void UpdateAndBlitMetadata(uint64_t currTime, std::vector<uint8_t>* frame);
+
+        /** Obtain the current ram usage for the application
+
+            The behaviour of this method varies depending on the platform it is running.
+            
+            @return     The total usage in kilobytes.
+
+            @remark Under Windows it will return the total ram usage in the current woring set
+            (as opposed to the private working set).
+            @remark Under RP2040 it will return the total amount of the heap that has been used.
+        */
+        static int GetPhysicalMemoryUsage();
     };
 } // namespace i8080_arcade
 

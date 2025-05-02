@@ -21,16 +21,91 @@ SOFTWARE.
 */
 
 #include <algorithm>
+#include <time.h>
+
+#ifdef WIN32
+#include <windows.h>
+#include <psapi.h>
+#elif defined ENABLE_MH_RP2040
+#include <malloc.h>
+#endif // WIN32
 
 #include "i8080_arcade/MemoryController.h"
 
 namespace i8080_arcade
 {
+    int MemoryController::GetPhysicalMemoryUsage()
+    {
+        int memUsage = 0;
+#ifdef WIN32
+        HANDLE process = GetCurrentProcess();
+
+        if (process != nullptr)
+        {
+            PROCESS_MEMORY_COUNTERS_EX pmc;
+
+            if (GetProcessMemoryInfo(process, std::bit_cast<PROCESS_MEMORY_COUNTERS*>(&pmc), sizeof(pmc)))
+            {
+                memUsage = pmc.WorkingSetSize / 1024.0;
+                //memUsage = pmc.PrivateUsage / 1024.0;
+            }
+        }
+#elif defined ENABLE_MH_RP2040
+        auto GetTotalHeap = []
+        {
+            extern char __StackLimit, __bss_end__;
+            return &__StackLimit - &__bss_end__;
+        };
+
+        struct mallinfo m = mallinfo();
+        printf("FREE HEAP: %d\n", GetTotalHeap() - m.uordblks);
+#else
+        // todo: a de-facto linux implementation
+        printf("GetPhysicalMemoryUsage not defined for this platform\n");
+#endif
+        return memUsage;
+    }
+
     MemoryController::MemoryController(const std::vector<std::pair<std::string, std::string>>& jsonRoms, int framePoolSize)
     {
+        std::string txtToBlit;
+
+        for (auto& jsonRom : jsonRoms)
+        {
+            txtToBlit += " " + jsonRom.first + " \n\n\n";
+        }
+
+        std::transform(txtToBlit.begin(), txtToBlit.end(), txtToBlit.begin(), ::toupper);
+        txtToBlit.erase(txtToBlit.end() - 3, txtToBlit.end());
+
+        romList_.SetText(std::move(txtToBlit));
+        romList_.SetJustification(GlyphRenderer::Justification::Centre);
+        // determine the offset at which to blit the text - we want to center the text on the surface
+        auto widthOffset = (vramWidth_ - romList_.GetWidth()) / 2;
+        auto heightOffset = ((vramHeight_ - romList_.GetHeight()) / 2) * frameWidth;
+        romList_.SetAnchorPoint(centreOffset_ + widthOffset + heightOffset);
+
+        char buf[52];// length of the metadata string + 1;
+        auto t = time(nullptr);
+        auto tm = localtime(&t);
+
+        snprintf(buf, 52, "060 %02d:%02d:%02d %02d:%02d %06d\nFPS   TIME   UTIME MEMORY", tm->tm_hour, tm->tm_min, tm->tm_sec, minutes_, seconds_, GetPhysicalMemoryUsage());
+        metadata_.SetText(std::string_view(buf, 51));
+        // Position the metadata at the bottom centre of screen
+        widthOffset = ((frameWidth - vramWidth_) / 4) - 1;
+        heightOffset = ((frameHeight - metadata_.GetHeight()) / 2) * frameWidth;
+        metadata_.SetAnchorPoint(widthOffset + heightOffset);
+
+        using namespace std::string_view_literals;
+        credits_.SetText("COPYRIGHT:TAITO/MIDWAY\nMEEN I8080 ARCADE"sv);
+        credits_.SetJustification(GlyphRenderer::Justification::Centre);
+        // Position the credits at the top centre
+        widthOffset = vramWidth_ + ((frameWidth - vramWidth_) / 2) + 1;
+        heightOffset = ((frameHeight - credits_.GetHeight()) / 2) * frameWidth;
+        credits_.SetAnchorPoint(widthOffset + heightOffset);
+
         memory_.resize(memorySize_, 0);
         framePool_ = meen_hw::MH_ResourcePool<std::vector<uint8_t>>();
-
         static_assert((frameWidth * frameHeight) >= (vramSize_));
 
         for(int i = 0; i < framePoolSize; i++)
@@ -65,58 +140,44 @@ namespace i8080_arcade
             // blit a border around the vram
             blitBorder(centreOffset_ - frameWidth, centreOffset_ + (vramHeight_ * frameWidth), vramWidth_, centreOffset_ - frameWidth - 1, centreOffset_ + vramWidth_ - frameWidth, vramHeight_ + 10, 0x80, 0x01);
 
-            framePool_.AddResource(frame);
-        }
-
-        auto setAnchorPoint = [this](bool setAnchorPoint)
-        {
-            if (setAnchorPoint == true)
-            {
-                // determine the offset at which to blit the text - we want to center the text on the surface
-                int widthOffset = (vramWidth_ - glyphRenderer_.GetWidth()) / 2;
-                int heightOffset = ((vramHeight_ - glyphRenderer_.GetHeight()) / 2) * frameWidth;
-                glyphRenderer_.SetAnchorPoint(centreOffset_ + widthOffset + heightOffset);
-            }
-        };
-
-        std::string txtToBlit;
-
-        for (auto& jsonRom : jsonRoms)
-        {
-            txtToBlit += " " + jsonRom.first + " \n\n\n";
-        }
-
-        std::transform(txtToBlit.begin(), txtToBlit.end(), txtToBlit.begin(), ::toupper);
-        txtToBlit.erase(txtToBlit.end() - 3, txtToBlit.end());
-
-        glyphRenderer_ = GlyphRenderer(frameWidth);
-        glyphRenderer_.SetText(std::move(txtToBlit));
-        glyphRenderer_.SetJustification(GlyphRenderer::Justification::Centre);
-        glyphRenderer_.SetFont(GlyphRenderer::Font::I8080ArcadeRegular8x8);
-        setAnchorPoint(true);
-        //setAnchorPoint(!!glyphRenderer_.Update(">>"));
-        //setAnchorPoint(!!glyphRenderer_.Update("<<", 18));
-    }
-
-    meen_hw::MH_ResourcePool<std::vector<uint8_t>>::ResourcePtr MemoryController::GetRomSelectFrame(int romIndex) const
-    {
-        auto frame = framePool_.GetResource();
-
-        if (frame != nullptr)
-        {
-            // rom selection
-            auto errc = glyphRenderer_.Blit(frame->begin(), frame->end(), 1 /* invert one line */, romIndex /* starting at the rom index */); // maybe todo: add line to blit, much like invert - blitLineStart, blitLineCount ... probably a bit complicated for now
+            auto errc = metadata_.Blit(frame->begin(), frame->end(), 0 /* invert no lines */, 0 /* starting from line 0 */); // maybe todo: add line to blit, much like invert - blitLineStart, blitLineCount ... probably a bit complicated for now
 
             if (errc)
             {
                 printf("Failed to blit text: %s\n", errc.message().c_str());
             }
+
+            errc = credits_.Blit(frame->begin(), frame->end(), 0 /* invert no lines */, 0 /* starting from line 0 */); // maybe todo: add line to blit, much like invert - blitLineStart, blitLineCount ... probably a bit complicated for now
+
+            if (errc)
+            {
+                printf("Failed to blit text: %s\n", errc.message().c_str());
+            }
+
+            framePool_.AddResource(frame);
+        }
+    }
+
+    meen_hw::MH_ResourcePool<std::vector<uint8_t>>::ResourcePtr MemoryController::GetRomSelectFrame(int romIndex, uint64_t currTime)
+    {
+        auto frame = framePool_.GetResource();
+
+        if (frame != nullptr)
+        {
+            auto errc = romList_.Blit(frame->begin(), frame->end(), 1 /* invert one line */, romIndex /* starting at the rom index */); // maybe todo: add line to blit, much like invert - blitLineStart, blitLineCount ... probably a bit complicated for now
+
+            if (errc)
+            {
+                printf("Failed to blit text: %s\n", errc.message().c_str());
+            }
+
+            UpdateAndBlitMetadata(currTime, frame.get());
         }
 
         return frame;
     }
     
-    meen_hw::MH_ResourcePool<std::vector<uint8_t>>::ResourcePtr MemoryController::GetGameplayFrame() const
+    meen_hw::MH_ResourcePool<std::vector<uint8_t>>::ResourcePtr MemoryController::GetGameplayFrame(uint64_t currTime)
     {
         auto frame = framePool_.GetResource();
 
@@ -135,9 +196,44 @@ namespace i8080_arcade
                     std::ranges::copy_n(vram, vramWidth_, it);
                 }
             }
+
+            UpdateAndBlitMetadata(currTime, frame.get());
         }
 
         return frame;
+    }
+
+    void MemoryController::UpdateAndBlitMetadata(uint64_t currTime, std::vector<uint8_t>* frame)
+    {
+        // Update the metadata every second
+        if (currTime - lastTime_ >= 1000000000)
+        {
+            char buf[26];// length of the metadata string + 1;
+            auto t = time(nullptr);
+            auto tm = localtime(&t);
+
+            ++seconds_;
+
+            if (seconds_ == 60)
+            {
+                minutes_ = ++minutes_ % 60;
+                seconds_ = 0;
+            }
+
+            snprintf(buf, 26, "%03d %02d:%02d:%02d %02d:%02d %06d", fps_, tm->tm_hour, tm->tm_min, tm->tm_sec, minutes_, seconds_, GetPhysicalMemoryUsage());
+            metadata_.Update(std::string_view(buf, 25), 0);
+            auto errc = metadata_.Blit(frame->begin(), frame->end(), 0 /* invert no lines */, 0 /* starting from line 0 */); // maybe todo: add line to blit, much like invert - blitLineStart, blitLineCount ... probably a bit complicated for now
+
+            if (errc)
+            {
+                printf("Failed to blit text: %s\n", errc.message().c_str());
+            }
+
+            lastTime_ = currTime;
+            fps_ = 0;
+        }
+
+        ++fps_;
     }
 
     void MemoryController::Clear()
