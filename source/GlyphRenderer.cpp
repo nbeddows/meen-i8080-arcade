@@ -71,22 +71,7 @@ namespace i8080_arcade
         {
             case GlyphRenderer::Font::I8080ArcadeRegular8x8:
             {
-                font_.assign(
-                {
-                //    /         0             1         2             3             4         5             6
-                    0x060C1830607C8A92, 0xA27C0242FE020246, 0x8A929262848292B2, 0xCC182848FE08E4A2, 0xA2A29C3C5292928C,
-                //    7         8             9         :             ;             <         =             >
-                    0x808E90A0C06C9292, 0x926C629292947800, 0x0000000000000000, 0x0010284482002828, 0x2828288244281000,
-                //    ?         @             A         B             C             D         E             F
-                    0x40809AA040000000, 0x00003E4888483EFE, 0x9292926C7C828282, 0x44FE8282827CFE92, 0x9292820000000000,
-                //    G         H             I         J             K             L         M             N
-                    0x0000000000FE1010, 0x10FE8282FE828200, 0x0000000000000000, 0x00FE02020202FE40, 0x3040FEFE201008FE,
-                //    O         P             Q         R             S             T         U             V
-                    0x7C8282827CFE9090, 0x90600000000000FE, 0x9098946264929292, 0x4C8080FE8080FC02, 0x0202FCF8040204F8,
-                //    W         X             Y         Z
-                    0xFE041804FE000000, 0x0000C0201E20C000 ,0x0000000000000000
-                });
-
+                font_ = std::span(i8080ArcadeRegular8x8_);
                 asciiBase_ = static_cast<uint8_t>('/');
                 break;
             }
