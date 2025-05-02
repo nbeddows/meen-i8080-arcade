@@ -4,7 +4,9 @@
 This is a binary distribution of an [emulated i8080 arcade machine](https://github.com/nbeddows/i8080-arcade) based on the Space Invaders Taito/Midway arcade hardware using [meen](http://github.com/nbeddows/mach-emu/) and [meen-hw](http://github.com/nbeddows/meen-hw/).
 
 It adds the following addtional graphical components to the emulation:
-- a rom selection screen allowing the user to use the up and down arrow keys followed by the enter key to load a supported rom (defined in the config file).  
+- a rom selection screen allowing the user select and load the supported roms (see controls section for further details).  
+- title and credits.
+- metadata including: frame rate, time, up time and memory usage.
 
 This emulator has been tested against the following roms (which can be found elsewhere online):
 

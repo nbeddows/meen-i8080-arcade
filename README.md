@@ -3,7 +3,9 @@
 This demo project shows how to make use of the [meen](http://github.com/nbeddows/meen/) and [meen_hw](http://github.com/nbeddows/meen-hw) packages to emulate an arcade machine, in this case, one based on the Space Invaders Taito/Midway arcade hardware.
 
 It adds the following addtional graphical components to the emulation:
-- a rom selection screen allowing the user to use the up and down arrow keys followed by the enter key to load a supported rom (defined in the config file).  
+- a rom selection screen allowing the user select and load the supported roms (see controls section for further details).  
+- title and credits.
+- metadata including: frame rate, time, up time and memory usage.
 
 This project has been tested against the following roms (which can be found elsewhere online) with loading/saving game play state on the following platforms: Windows/Linux(x86_64), Linux(armv7hf, armv8), Pico RP2040(armv6-m):
 
