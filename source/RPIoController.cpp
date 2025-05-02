@@ -380,10 +380,10 @@ namespace i8080_arcade
                     switch (screen_)
                     {
                         case Screen::RomSelect:
-                            vfw->videoFrame = static_cast<MemoryController*>(memoryController)->GetRomSelectFrame(romIndex_);
+                            vfw->videoFrame = static_cast<MemoryController*>(memoryController)->GetRomSelectFrame(romIndex_, currTime);
                             break;
                         case Screen::Gameplay:
-                            vfw->videoFrame = static_cast<MemoryController*>(memoryController)->GetGameplayFrame();
+                            vfw->videoFrame = static_cast<MemoryController*>(memoryController)->GetGameplayFrame(currTime);
                             break;
                         default:
                             printf ("Invalid screen\n");
@@ -561,23 +561,11 @@ namespace i8080_arcade
 
             // Explicitly set to nullptr so it is immediately returned to the memory controller.
             videoFrame = nullptr;
-
-            //fr++;
         }
         else
         {
             printf("Video frame dropped\n");
         }
-
-        //auto now = get_absolute_time();
-
-        //if(absolute_time_diff_us(lastTime, now) >= 1000000)
-        //{
-        //    lastTime = now;
-        //    printf("FR: %d\n", fr);
-        //    fr = 0;
-        //}
-        //}
 
         return false;
     }
