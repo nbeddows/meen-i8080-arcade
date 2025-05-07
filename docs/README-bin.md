@@ -4,9 +4,15 @@
 This is a binary distribution of an [emulated i8080 arcade machine](https://github.com/nbeddows/i8080-arcade) based on the Space Invaders Taito/Midway arcade hardware using [meen](http://github.com/nbeddows/mach-emu/) and [meen-hw](http://github.com/nbeddows/meen-hw/).
 
 It adds the following addtional graphical components to the emulation:
-- a rom selection screen allowing the user to use the up and down arrow keys followed by the enter key to load a supported rom (defined in the config file).  
+- a rom selection screen allowing the user select and load the supported roms (see controls section for further details).  
+- title and credits.
+- metadata including:<br>
+  - frame rate.<br>
+  - current time (not supported on RP2040).<br>
+  - up time.<br>
+  - memory usage (Windows - working set size, RP2040 - mallinfo uordblks, other platforms (where supported) - /proc/self/stat resident set size).
 
-This emulator has been tested against the following roms (which can be found elsewhere online):
+This project has been tested against the following roms (which can be found elsewhere online) with loading/saving game play state on the following platforms: Windows/Linux(x86_64), Linux(armv7hf, armv8), Pico RP2040(armv6-m) (load only):
 
 - Space Invaders.
 - Space Invaders Part II/Deluxe.

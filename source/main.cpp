@@ -348,12 +348,7 @@ int main(int argc, char** argv)
 	}
 
 	// Run the machine until the 'q' key is pressed or the window is closed (ie; the machine OnIdle handler returns true)
-	auto ex = machine->Run();
-
-	if (ex)
-	{
-		printf("Machine run time: %.2f seconds\n", ex.value() / 1000000000.0);
-	}
+	machine->Run();
 
 	return 0;
 }

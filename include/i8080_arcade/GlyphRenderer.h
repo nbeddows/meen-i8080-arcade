@@ -23,7 +23,9 @@ SOFTWARE.
 #ifndef GLYPHRENDERER_H
 #define GLYPHRENDERER_H
 
+#include <array>
 #include <cstdint>
+#include <span>
 #include <string_view>
 #include <system_error>
 #include <vector>
@@ -48,7 +50,7 @@ namespace i8080_arcade
                     Each glyph consumes 40 bits. When written to the upper 40 bits of a 64 bit number the remaining 24 bits represents the space
                     between glyphs. This gives us a quick monospace font based on the Space Invaders arcade hardware. Each glyph is placed in the
                     upper left giving 3 pixles of space after the glyph and one pixel of space below yielding a 5x7 glyph in an 8x8 surface.
-                    NOTE: any entres with all zeros are unused and are reserved for future use.
+                    NOTE: any entries with all zeros are unused and are reserved for future use.
                 */
                 I8080ArcadeRegular8x8
             };
@@ -201,17 +203,44 @@ namespace i8080_arcade
             */
             static constexpr double unpackRatio_ = 0.625;
 
-            /** The font to render with
-            
-                This is set via the SetFont method.
+            /**
+                A packed 8x8 font for the ascii range 47 (/) to 90 (Z) defined in the native i8080 arcade video format (1 bit cocktail orientation).
+                Each glyph consumes 40 bits. When written to the upper 40 bits of a 64 bit number the remaining 24 bits represents the space
+                between glyphs. This gives us a quick monospace font based on the Space Invaders arcade hardware. Each glyph is placed in the
+                upper left giving 3 pixles of space after the glyph and one pixel of space below yielding a 5x7 glyph in an 8x8 surface.
+                NOTE: any entries with all zeros are unused and are reserved for future use.
             */
-            std::vector<uint64_t> font_;
+            static constexpr std::array<uint64_t, 28> i8080ArcadeRegular8x8_
+            {
+                //    /         0             1         2             3             4         5             6
+                0x060C1830607C8A92, 0xA27C0242FE020246, 0x8A929262848292B2, 0xCC182848FE08E4A2, 0xA2A29C3C5292928C,
+                //    7         8             9         :             ;             <         =             >
+                0x808E90A0C06C9292, 0x926C629292947800, 0x6666000000000000, 0x0010284482002828, 0x2828288244281000,
+                //    ?         @             A         B             C             D         E             F
+                0x40809AA040000000, 0x00003E4888483EFE, 0x9292926C7C828282, 0x44FE8282827CFE92, 0x929282FE90909080,
+                //    G         H             I         J             K             L         M             N
+                0x7C82828A8EFE1010, 0x10FE8282FE828200, 0x0000000000000000, 0x00FE02020202FE40, 0x3040FEFE201008FE,
+                //    O         P             Q         R             S             T         U             V
+                0x7C8282827CFE9090, 0x90600000000000FE, 0x9098946264929292, 0x4C8080FE8080FC02, 0x0202FCF8040204F8,
+                //    W         X             Y         Z
+                0xFE041804FE000000, 0x0000C0201E20C000, 0x0000000000000000
+            };
 
-            /** The base character for indexing puropses
+            /** The font to render with
+
+                This can be set via the SetFont method.
+
+                Teh default font to use is i8080 arcade regular 8x8.
+            */
+            std::span<const uint64_t> font_{ i8080ArcadeRegular8x8_ };
+
+            /** The base character for indexing purposes
 
                 This value is dependent on the font in use.
+
+                Teh default ascii base to use is i8080 arcade regular 8x8.
             */
-            uint8_t asciiBase_{};
+            uint8_t asciiBase_{ static_cast<uint8_t>('/') };
 
             /** Glyph alignment
 

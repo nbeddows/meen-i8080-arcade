@@ -13,6 +13,9 @@
   `loadAsync` and `saveAsync` options can
   be false) for demonstration purposes.
 * Added a rom selection screen.
+* Added rendered metadata `frame rate`, `time`
+  `uptime` and `memory usage`.
+* Added rendered Midway/Taito copyright.
 
 0.6.1 [04/08/24]
 * Added profiles for improved build support.

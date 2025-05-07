@@ -42,7 +42,7 @@ namespace i8080_arcade
 			printf("Failed to initialise SDL");
 		}
 
-		window_ = SDL_CreateWindow("i8080 arcade",
+		window_ = SDL_CreateWindow("meen i8080 arcade",
 								SDL_WINDOWPOS_UNDEFINED,
 								SDL_WINDOWPOS_UNDEFINED,
 								videoHardware["width"].as<int>(),
@@ -469,10 +469,10 @@ namespace i8080_arcade
 					switch (screen_)
 					{
 						case Screen::RomSelect:
-							videoFrameWrapper->videoFrame = mc->GetRomSelectFrame(romIndex_);
+							videoFrameWrapper->videoFrame = mc->GetRomSelectFrame(romIndex_, currTime);
 							break;
 						case Screen::Gameplay:
-							videoFrameWrapper->videoFrame = mc->GetGameplayFrame();
+							videoFrameWrapper->videoFrame = mc->GetGameplayFrame(currTime);
 							break;
 						default:
 							printf("Invalid screen\n");
