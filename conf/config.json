@@ -50,10 +50,6 @@
             "roms": [
                 {
                     "name":"space invaders",
-                    "cpu":{
-                        "pc":0,
-                        "sp":0
-                    },
                     "memory": {
                         "rom": {
                             "scheme":"file://",
@@ -69,10 +65,6 @@
                 },
                 {
                     "name":"space invaders ii midway",
-                    "cpu":{
-                        "pc":0,
-                        "sp":0
-                    },
                     "memory": {
                         "rom": {
                             "scheme":"file://",
@@ -89,10 +81,6 @@
                 },
                 {
                     "name":"space invaders ii taito",
-                    "cpu":{
-                        "pc":0,
-                        "sp":0
-                    },
                     "memory": {
                         "rom": {
                             "scheme":"file://",
@@ -109,10 +97,6 @@
                 },
                 {
                     "name":"balloon bomber",
-                    "cpu":{
-                        "pc":0,
-                        "sp":0
-                    },
                     "memory": {
                         "rom": {
                             "scheme":"file://",
@@ -129,10 +113,6 @@
                 },
                 {
                     "name":"lunar rescue",
-                    "cpu":{
-                        "pc":0,
-                        "sp":0
-                    },
                     "memory": {
                         "rom": {
                             "scheme":"file://",
