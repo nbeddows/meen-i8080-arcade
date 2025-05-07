@@ -28,6 +28,8 @@ SOFTWARE.
 #include <psapi.h>
 #elif defined ENABLE_MH_RP2040
 #include <malloc.h>
+#else
+#include <fstream>
 #endif // WIN32
 
 #include "i8080_arcade/MemoryController.h"
@@ -51,17 +53,28 @@ namespace i8080_arcade
             }
         }
 #elif defined ENABLE_MH_RP2040
-        auto GetTotalHeap = []
-        {
-            extern char __StackLimit, __bss_end__;
-            return &__StackLimit - &__bss_end__;
-        };
-
         struct mallinfo m = mallinfo();
-        printf("FREE HEAP: %d\n", GetTotalHeap() - m.uordblks);
+        memUsage = m.uordblks;
 #else
-        // todo: a de-facto linux implementation
-        printf("GetPhysicalMemoryUsage not defined for this platform\n");
+        // We want the resident set size
+        std::ifstream fin("/proc/self/stat", std::ios_base::in); // get the rss from the proc self stat directory
+
+        if (fin.good())
+        {
+            std::string entry;
+
+            for (int count = 0; count < 23 /* entries to skip before rss */; count++)
+            {
+                fin >> entry;
+            }
+
+            fin >> memUsage;
+            memUsage *= (sysconf(_SC_PAGE_SIZE) / 1024);
+        }
+        else
+        {
+            printf("GetPhysicalMemoryUsage not defined for this platform\n");
+        }
 #endif
         return memUsage;
     }
@@ -85,12 +98,12 @@ namespace i8080_arcade
         auto heightOffset = ((vramHeight_ - romList_.GetHeight()) / 2) * frameWidth;
         romList_.SetAnchorPoint(centreOffset_ + widthOffset + heightOffset);
 
-        char buf[52];// length of the metadata string + 1;
+        char buf[64];// length of the metadata string rounded to the next power of 2
         auto t = time(nullptr);
         auto tm = localtime(&t);
 
-        snprintf(buf, 52, "060 %02d:%02d:%02d %02d:%02d %06d\nFPS   TIME   UTIME MEMORY", tm->tm_hour, tm->tm_min, tm->tm_sec, minutes_, seconds_, GetPhysicalMemoryUsage());
-        metadata_.SetText(std::string_view(buf, 51));
+        snprintf(buf, 64, "060 %02d:%02d:%02d %02d:%02d %06d\nFPS   TIME   UTIME MEMORY", tm->tm_hour, tm->tm_min, tm->tm_sec, minutes_, seconds_, GetPhysicalMemoryUsage());
+        metadata_.SetText(std::string_view(buf, 51)); // 51 - the meximum length of the metadata string
         // Position the metadata at the bottom centre of screen
         widthOffset = ((frameWidth - vramWidth_) / 4) - 1;
         heightOffset = ((frameHeight - metadata_.GetHeight()) / 2) * frameWidth;
@@ -176,7 +189,7 @@ namespace i8080_arcade
 
         return frame;
     }
-    
+
     meen_hw::MH_ResourcePool<std::vector<uint8_t>>::ResourcePtr MemoryController::GetGameplayFrame(uint64_t currTime)
     {
         auto frame = framePool_.GetResource();
@@ -208,7 +221,7 @@ namespace i8080_arcade
         // Update the metadata every second
         if (currTime - lastTime_ >= 1000000000)
         {
-            char buf[26];// length of the metadata string + 1;
+            char buf[32]; // length of the metadata string rounded to the next power of 2
             auto t = time(nullptr);
             auto tm = localtime(&t);
 
@@ -220,17 +233,17 @@ namespace i8080_arcade
                 seconds_ = 0;
             }
 
-            snprintf(buf, 26, "%03d %02d:%02d:%02d %02d:%02d %06d", fps_, tm->tm_hour, tm->tm_min, tm->tm_sec, minutes_, seconds_, GetPhysicalMemoryUsage());
-            metadata_.Update(std::string_view(buf, 25), 0);
-            auto errc = metadata_.Blit(frame->begin(), frame->end(), 0 /* invert no lines */, 0 /* starting from line 0 */); // maybe todo: add line to blit, much like invert - blitLineStart, blitLineCount ... probably a bit complicated for now
-
-            if (errc)
-            {
-                printf("Failed to blit text: %s\n", errc.message().c_str());
-            }
-
+            snprintf(buf, 32, "%03d %02d:%02d:%02d %02d:%02d %06d", fps_, tm->tm_hour, tm->tm_min, tm->tm_sec, minutes_, seconds_, GetPhysicalMemoryUsage());
+            metadata_.Update(std::string_view(buf, 25), 0); // 25 - the maximum length of the metadata string
             lastTime_ = currTime;
             fps_ = 0;
+        }
+
+        auto errc = metadata_.Blit(frame->begin(), frame->end(), 0 /* invert no lines */, 0 /* starting from line 0 */); // maybe todo: add line to blit, much like invert - blitLineStart, blitLineCount ... probably a bit complicated for now
+
+        if (errc)
+        {
+            printf("Failed to blit text: %s\n", errc.message().c_str());
         }
 
         ++fps_;
