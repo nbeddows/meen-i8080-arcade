@@ -230,14 +230,14 @@ namespace i8080_arcade
         GlyphRenderer credits_{ frameWidth };
 
         /** The last machine clock time
-        
+
             The time in nanoseconds that is used to compare intervals.
             Used in conjuction with rendering metadata, int this case, every second.
         */
         int64_t lastTime_{};
-        
+
         /** The current frame rate
-        
+
             @remark measured in frames per second.
         */
         int fps_{};
@@ -249,7 +249,7 @@ namespace i8080_arcade
         uint8_t seconds_{};
 
         /** The minutes portion of the current up time.
-        
+
             @remark incremented when the seconds parameter reaches 60.
             @remark reset to zero when it reaches 60.
         */
@@ -267,7 +267,7 @@ namespace i8080_arcade
         /** Obtain the current ram usage for the application
 
             The behaviour of this method varies depending on the platform it is running.
-            
+
             @return     The total usage in kilobytes.
 
             @remark Under Windows it will return the total ram usage in the current woring set
