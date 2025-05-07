@@ -367,7 +367,10 @@ namespace i8080_arcade
             }
             case 1:
             {
-                isr = meen::ISR::One;
+                if (screen_ == Screen::Gameplay)
+                {
+                    isr = meen::ISR::One;
+                }
                 break;
             }
             case 2:
@@ -412,7 +415,10 @@ namespace i8080_arcade
                     printf("1 Video frame dropped, renderer too slow\n");
                 }
 
-                isr = meen::ISR::Two;
+                if (screen_ == Screen::Gameplay)
+                {
+                    isr = meen::ISR::Two;
+                }
                 break;
             }
             default:
