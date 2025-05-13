@@ -16,6 +16,7 @@
 * Added rendered metadata `frame rate`, `time`
   `uptime` and `memory usage`.
 * Added rendered Midway/Taito copyright.
+* Refactored the event handling.
 
 0.6.1 [04/08/24]
 * Added profiles for improved build support.
