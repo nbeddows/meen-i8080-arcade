@@ -119,20 +119,20 @@ if(value)\
 static i8080_arcade::MemoryController* MakeMemoryController(const std::vector<std::pair<std::string, std::string>>&jsonRoms)
 {
 #ifdef ENABLE_MH_RP2040
-	return new i8080_arcade::MemoryController(jsonRoms, 3); // 3 - Three frame for triple buffered rendering
+	return new i8080_arcade::MemoryController(jsonRoms);
 #else
 	return new i8080_arcade::MemoryController(jsonRoms);
 #endif
 }
 
-static i8080_arcade::IIoController* MakeIoController(bool runAsync, int romCount, JsonVariantConst audioHardware, JsonVariantConst videoHardware)
+static i8080_arcade::IIoController* MakeIoController(bool runAsync, meen_hw::MH_ResourcePool<std::vector<uint8_t>>::ResourcePtr&& backBuffer, int romCount, JsonVariantConst audioHardware, JsonVariantConst videoHardware)
 {
 	if (!audioHardware|| !videoHardware)
 	{
 		return nullptr;
 	}
 #ifdef ENABLE_MH_RP2040
-	return new i8080_arcade::RPIoController(runAsync, romCount, audioHardware, videoHardware);
+	return new i8080_arcade::RPIoController(runAsync, std::move(backBuffer), romCount, audioHardware, videoHardware);
 #else
 	return new i8080_arcade::SDLIoController(runAsync, romCount, audioHardware, videoHardware);
 #endif // ENABLE_MH_RP2040
@@ -220,13 +220,21 @@ int main(int argc, char** argv)
 		auto meen = hardware["meen"];
 		CHECK_ERROR(!meen, printf("Invalid json config file format: meen section not found\n"));
 
-		// Create our custom i8080 arcade I/O controller based on a specific configuration.
-		auto ioController = MakeIoController(meen["runAsync"], jsonRoms.size(), hardware["audio"], hardware["video"]);
-		CHECK_ERROR(!ioController, printf("Failed to create the i/o controller\n"));
-
 		// Create our custom i8080 arcade memory controller.
 		auto memoryController = MakeMemoryController(jsonRoms);
 		CHECK_ERROR(!memoryController, printf("Failed to create the memory controller\n"));
+
+		// Create a frame pool of 2 frames, passing an empty one back for use as the initial io controller back buffer if required.
+		auto backBuffer = memoryController->MakeFramePool(2);
+		CHECK_ERROR(!backBuffer, printf("Failed to create the memory controller frame pool\n"));
+
+		// Create our custom i8080 arcade I/O controller based on a specific configuration.
+		auto ioController = MakeIoController(meen["runAsync"], std::move(backBuffer), jsonRoms.size(), hardware["audio"], hardware["video"]);
+		CHECK_ERROR(!ioController, printf("Failed to create the i/o controller\n"));
+
+		// todo: call a method that will create the event pool
+		// auto err = ioController->MakeEventPool(2);
+		// CHECK_ERROR(err, printf("Failed to create the io controller event pool\n");
 
 		// Set up the custom controllers prior to configuring the machine.
 
