@@ -45,7 +45,7 @@ namespace i8080_arcade
         The title and credits are rendered to the top centre of the display.
         Additional metadata rendered to the center bottom of the display from left to right
         includes: current frame rate, current time (24hr), current up time (loops every hour)
-        and current physical ram usage (see GetMemoryUsage method for further details).
+        and current physical ram usage (see GetPhysicalMemoryUsage method for further details).
     */
     class MemoryController final : public meen::IController
     {
@@ -73,6 +73,18 @@ namespace i8080_arcade
                         of a callback of some sorts in which to render custom graphics to the surface.
         */
         static constexpr int frameHeight{ 240 };
+
+        /** The width of the vram
+
+            The 1bpp width in bytes of the vram that resides in memory.
+        */
+        static constexpr int vramWidth{ 32 };
+
+        /** The height of the vram
+
+            The vram that resides in memory in pixels.
+        */
+        static constexpr int vramHeight{ 224 };
 
         /** Constructor
 
@@ -106,7 +118,7 @@ namespace i8080_arcade
         meen_hw::MH_ResourcePool<std::vector<uint8_t>>::ResourcePtr GetGameplayFrame(uint64_t currTime);
 
         /** Generate the current rom select screen
-        
+
             The rom select screen lists the rom names defined in the config file that are available to load.
 
             @param  romIndex    The rom index into the rom names to be rendered that will be highlighted as the currently
@@ -115,11 +127,25 @@ namespace i8080_arcade
         */
         meen_hw::MH_ResourcePool<std::vector<uint8_t>>::ResourcePtr GetRomSelectFrame(int romIndex, uint64_t currTime);
 
-        /** Clear the memory
+        /** Clear all internal memory and frame buffers
 
-            Wipe the all the memory and frame pool frame buffers to 0.
+            All buffers will be set to 0x00.
+
+            @param    backBuffer    The current off screen buffer to clear.
         */
-        void Clear();
+        void Clear(std::vector<uint8_t>* backBuffer);
+
+        /** Populate the memory controller frame pool
+
+            This function MUST be called before attaching the controller to the machine.
+
+            @param    framePoolSize    The number of frames to allocate in the native pixel format with the specified
+                                       resolution.
+
+            @return                    The initial frame to render, this can then be used as the initial frame in a
+                                       double buffered system.
+        */
+        meen_hw::MH_ResourcePool<std::vector<uint8_t>>::ResourcePtr MakeFramePool(int framePoolSize);
 
         /** Read from controller
 
@@ -161,23 +187,11 @@ namespace i8080_arcade
         //cppcheck-suppress unusedStructMember
         static constexpr size_t memorySize_{ 1 << 16 };
 
-        /** The width of the vram
-
-            The 1bpp width in bytes of the vram that resides in memory.
-        */
-        static constexpr int vramWidth_{ 32 };
-
-        /** The height of the vram
- 
-            The vram that resides in memory in pixels.
-        */
-        static constexpr int vramHeight_{ 224 };
-
         /** VRAM size
 
             The total size in bytes.
         */
-        static constexpr int vramSize_{ vramWidth_ * vramHeight_ };
+        static constexpr int vramSize_{ vramWidth * vramHeight };
 
         /** VRAM memory offset
 
@@ -189,7 +203,7 @@ namespace i8080_arcade
 
             The offset from the beginning of the frame at which to blit the vram so that it is blitted in the middle of the frame.
         */
-        static constexpr int centreOffset_{ (((frameHeight - vramHeight_) / 2) * frameWidth) + ((frameWidth - vramWidth_) / 2) };
+        static constexpr int centreOffset_{ (((frameHeight - vramHeight) / 2) * frameWidth) + ((frameWidth - vramWidth) / 2) };
 
         /** Memory buffer
 
@@ -243,7 +257,7 @@ namespace i8080_arcade
         int fps_{};
 
         /** The seconds portion of the current up time
-        
+
             @remark reset to 0 when it reaches 60.
         */
         uint8_t seconds_{};
@@ -266,13 +280,14 @@ namespace i8080_arcade
 
         /** Obtain the current ram usage for the application
 
-            The behaviour of this method varies depending on the platform it is running.
+            The behaviour of this method varies depending on the platform.
 
             @return     The total usage in kilobytes.
 
             @remark Under Windows it will return the total ram usage in the current woring set
             (as opposed to the private working set).
             @remark Under RP2040 it will return the total amount of the heap that has been used.
+            @remark Other supported platforms will return the /proc/self/stat resident set size when available.
         */
         static int GetPhysicalMemoryUsage();
     };
