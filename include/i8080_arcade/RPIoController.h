@@ -25,6 +25,7 @@ SOFTWARE.
 
 #include <ArduinoJson.h>
 #include <pico/util/queue.h>
+#include <variant>
 #include <vector>
 
 #include "i8080_arcade/IIoController.h"
@@ -91,8 +92,16 @@ namespace i8080_arcade
         */
         int heightOffset_{};
 
-        // The width/height of the memory controller frame buffers
+        /** The width of the attached lcd panel in pixels
+
+            @remark    using a different value other than the correct lcd width is untested.
+        */
         int textureWidth_{};
+
+        /** The height of the attached lcd panel in pixels
+
+            @remark    using a different value other than the correct lcd height is untested.
+        */
         int textureHeight_{};
 
         /** The previous video frame
@@ -113,32 +122,48 @@ namespace i8080_arcade
         */
         std::unique_ptr<meen_hw::MH_II8080ArcadeIO> i8080ArcadeIO_;
 
-        /** Video frame to render queue
+	    /** Helper type for functional style visitor for std::visit
 
-            A double element queue used to render the current frame while generating the next frame.
+	        This template helper type is taken straight from cppreference std::visit examples (https://en.cppreference.com/w/cpp/utility/variant/visit2)
+	    */
+	    template<class... Ts>
+	    struct overloaded : Ts... { using Ts::operator()...; };
+
+	    /** Generated event data
+
+            A using directve for ease of use. This will hold the active event data to be processed.
+
+            bool:        True to clear the vram area of the lcd display, false otherwise.
+            std::string: The application has encountered and error.
+            ResourcePtr: The next video frame is ready to be rendered. This event drives the control loop.
+	    */
+	    using EventData = std::variant<std::string, bool, meen_hw::MH_ResourcePool<std::vector<uint8_t>>::ResourcePtr>;
+
+	    /** A finite EventData resource pool
+
+            A vector of EventData variants to be used during the event handleing process.
+
+            @remark    Populate from a fnite array of EventData objects
+	    */
+        queue_t eventDataQueue_;
+
+        /** Available event data queue
+
+            The pool of available events that can be filled.
         */
-        queue_t videoFrameQueue_;
+        queue_t eventDataFreeQueue_;
 
-        /** Available frame queue
+        /** The maximum number of events across all pools
 
-            Remainder frames (ones that are not being rendered or generated).
+            This can be increased/decreased depending on requirements.
         */
-        queue_t freeQueue_;
+        static constexpr int maxEventData_{ 2 };
 
-        /** VideoFrameWrapper
+        /** An array of EventData variants for use with RP2040s C based queue api
 
-            A convenience wrapper used to pass unique pointers through RP2040s C based queue api.
+            @remark    these wrappers are solely accessed via the event data queues.
         */
-        struct VideoFrameWrapper
-        {
-            meen_hw::MH_ResourcePool<std::vector<uint8_t>>::ResourcePtr videoFrame;
-        };
-
-        /** An array of resourcePtr wrappers for use with RP2040s C based queue api
-
-            @remark    these wrappers are solely accessed via queues to implement double buffering.
-        */
-        VideoFrameWrapper videoFrameWrapper_[2];
+        EventData eventData_[maxEventData_];
 
         /** Video frame buffer
 
@@ -168,20 +193,20 @@ namespace i8080_arcade
         bool lastK3_{};
 
         /** The currently selected rom
-			
+
             When the user presses the up and down arrows, this will keep track
             of the current index.
-				
+
             Made atomic since it can be accesssed from a different thread if the runAsync config option
             is set to true.
         */
         int romIndex_{};
 
         /** The total number of supported roms for this controller.
-			
+
             The value is the max limit used by the romIndex parameter to keep
             itself within range.
-        */        
+        */
         int romCount_{};
 
         /** The running state
@@ -241,12 +266,13 @@ namespace i8080_arcade
             Creates an RP2040 specific i8080 arcade IO controller.
 
             @param		runAsync		Run this io controller asynchronously.
+            @param      backBuffer      The first frame to use for double buffering.
             @param		romCount		The number of supported roms.
             @param		audioHardware	audio hardware configuration options.
             @param		videoHardware	video hardware configuration options.
 
         */
-        RPIoController(bool runAsync, int romCount, const JsonVariantConst audioHardware, const JsonVariantConst videoHardware);
+        RPIoController(bool runAsync, meen_hw::MH_ResourcePool<std::vector<uint8_t>>::ResourcePtr&& backBuffer, int romCount, const JsonVariantConst audioHardware, const JsonVariantConst videoHardware);
 
         /** Destructor
 
@@ -295,31 +321,31 @@ namespace i8080_arcade
             Create the video texture that will be rendered to the screen.
 
             @param  videoTextures   JSON object describing the video texture.
-            @param  textureWidth    The width of the videc texture in pixels.
+            @param  textureWidth    The width of the video texture in pixels.
             @param  textureHeight   The height of the video texture in pixels.
 
-			@return					An error in the form of a std::error_code.
+            @return                 An error in the form of a std::error_code.
         */
         std::error_code LoadVideoTextures(const JsonVariantConst videoTextures, int textureWidth, int textureHeight) final;
 
-   		/** Load Audio Samples
+        /** Load Audio Samples
 
             Loads the audio samples from the configuration file.
 
-			@param	audioSamples	JSON object representing the audio sample files.
+            @param     audioSamples    JSON object representing the audio sample files.
 
-			@return					An error in the form of a std::error_code.
-		*/
+            @return    An error in the form of a std::error_code.
+        */
         std::error_code LoadAudioSamples(const JsonVariantConst audioSamples) final;
 
         /** Main control loop
 
             Process all incoming events.
 
-            @return                 True to quit the machine, false otherwise.
+            @return    True to quit the machine, false otherwise.
 
-            @remark                 This method will always return false, ie; the loop
-                                    will run until the device is switched off.
+            @remark    This method will always return false, ie; the loop
+                       will run until the device is switched off.
         */
         bool HandleEvent() final;
 
@@ -335,9 +361,9 @@ namespace i8080_arcade
 
         /** Load the selected rom or the save state of the currently selected rom
 
-            @return                 A tuple holding two values:
-                                    bool - only valid when loading roms, true if the save file is to be loaded, false if the rom is to be loaded.
-                                    int - the index into the roms array for the rom to be loaded or saved
+            @return    A tuple holding two values:
+                       bool - only valid when loading roms, true if the save file is to be loaded, false if the rom is to be loaded.
+                       int - the index into the roms array for the rom to be loaded or saved
         */
         std::tuple<bool, int> GetRomIndex() final;
     };
