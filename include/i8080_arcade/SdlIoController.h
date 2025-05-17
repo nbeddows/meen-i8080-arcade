@@ -101,9 +101,9 @@ namespace i8080_arcade
 			struct overloaded : Ts... { using Ts::operator()...; };
 
 			/** Generated event data
-			
+
 				A using directve for ease of use. This will hold the active event data to be processed.
-				
+
 				uint16_t:		Check if there is any input from the user. The SDL_Event data2 type is a promise to filled with the user input.
 				uint8_t:		Audio is ready to be played. The SDL_Event data2 type is the index into the mixChunk_ to be played.
 				std::string:	The application has encountered and error.
@@ -112,9 +112,9 @@ namespace i8080_arcade
 				The EventData will be used for the SDL_Event data1 property.
 			*/
 			using EventData = std::variant<std::string, uint8_t, uint16_t, meen_hw::MH_ResourcePool<std::vector<uint8_t>>::ResourcePtr>;
-			
+
 			/** A finite EventData resource pool
-			
+
 				A vector of EventData variants to be used during the event handleing process.
 
 				@remark		Set to a size of 2 (done as a resize in the constructor, todo: probably should be passed as a parameter to the constructor)
@@ -170,17 +170,17 @@ namespace i8080_arcade
 			Uint8 lastY_{};
 
 			/** The currently selected rom
-			
+
 				When the user presses the up and down arrows, this will keep track
 				of the current index.
-				
+
 				Made atomic since it can be accesssed from a different thread if the runAsync config option
 				is set to true.
 			*/
 			std::atomic_int romIndex_{};
 
 			/** The total number of supported roms for this controller.
-			
+
 				The value is the max limit used by the romIndex parameter to keep
 				itself within range.
 			*/
@@ -224,7 +224,7 @@ namespace i8080_arcade
 			Uint8 SetInterrupt(Uint8 key, Uint8 lastKey, meen::ISR isr, bool loadSaveState);
 
 			/** Get event data from the event data pool
-			
+
 				Removes an EventData resource from the event data pool and returns it.
 
 				@return		An EventData variant pointer.
