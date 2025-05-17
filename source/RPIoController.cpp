@@ -33,10 +33,11 @@ SOFTWARE.
 
 namespace i8080_arcade
 {
-    RPIoController::RPIoController(bool runAsync, int romCount, const JsonVariantConst audioHardware, const JsonVariantConst videoHardware)
+    RPIoController::RPIoController(bool runAsync, meen_hw::MH_ResourcePool<std::vector<uint8_t>>::ResourcePtr&& backBuffer, int romCount, const JsonVariantConst audioHardware, const JsonVariantConst videoHardware)
         : runAsync_{ runAsync }
-		, romCount_{ romCount }
-		, romIndex_{ romCount - 1 }
+        , romCount_{ romCount }
+        , romIndex_{ romCount - 1 }
+        , backBuffer_{ std::move(backBuffer) }
     {
         i8080ArcadeIO_ = meen_hw::MakeI8080ArcadeIO();
 
@@ -49,13 +50,13 @@ namespace i8080_arcade
         width_ = videoHardware["width"].as<int>();
         height_ = videoHardware["height"].as<int>();
 
-        queue_init(&videoFrameQueue_, sizeof(uintptr_t), 2);
-        queue_init(&freeQueue_, sizeof(uintptr_t), 2);
+        queue_init(&eventDataQueue_, sizeof(uintptr_t), maxEventData_);
+        queue_init(&eventDataFreeQueue_, sizeof(uintptr_t), maxEventData_);
 
-        for(int i = 0; i < 2; i++)
+        for(int i = 0; i < maxEventData_; i++)
         {
-            auto p = std::bit_cast<uintptr_t>(&videoFrameWrapper_[i]);
-            queue_add_blocking(&freeQueue_, static_cast<void*>(&p));
+            auto p = std::bit_cast<uintptr_t>(&eventData_[i]);
+            queue_add_blocking(&eventDataFreeQueue_, static_cast<void*>(&p));
         }
 
         spi_init(spi1, 62.5 * 1000000);
@@ -103,7 +104,7 @@ namespace i8080_arcade
 
         // Set the read / write scan direction of the frame memory
         WriteCmd(0x36); //MX, MY, RGB mode
-        WriteParam(0x70);     //0x08 bit: off - RGB,  on - BGR
+        WriteParam(0x70); //0x08 bit: off - RGB,  on - BGR
 
         // 16bpp
         WriteCmd(0x3A);
@@ -128,31 +129,12 @@ namespace i8080_arcade
         SetRegion(0, 0, width_, height_);
         // write to lcd ram
         WriteCmd(0X2C);
+
         // Write 16 bits at a time
         spi_set_format(spi1, 16, SPI_CPOL_0, SPI_CPHA_0, SPI_MSB_FIRST);
 
         gpio_put(Pin::DC, 1);
         gpio_put(Pin::CS, 0);
-
-        // Clear the display
-        for(int i = 0; i < height_; i++)
-        {
-             for(int j = 0; j < width_; j++)
-             {
-                 uint16_t p = 0x0000;
-                 spi_write16_blocking(spi1, &p, 1);
-             }
-        }
-
-        gpio_put(Pin::CS, 1);
-        // Write 8 bits at a time
-        spi_set_format(spi1, 8, SPI_CPOL_0, SPI_CPHA_0, SPI_MSB_FIRST);
-        // Center the graphics on the display
-        RPIoController::SetRegion(widthOffset_, heightOffset_, width_ - widthOffset_, height_ - heightOffset_);
-        // write to lcd ram
-        RPIoController::WriteCmd(0X2C);
-        // Write 16 bits at a time
-        spi_set_format(spi1, 16, SPI_CPOL_0, SPI_CPHA_0, SPI_MSB_FIRST);
     }
 
     RPIoController::~RPIoController()
@@ -166,8 +148,8 @@ namespace i8080_arcade
         gpio_deinit(Pin::K3);
         gpio_deinit(Pin::RST);
         spi_deinit(spi1);
-        queue_free(&freeQueue_);
-        queue_free(&videoFrameQueue_);
+        queue_free(&eventDataFreeQueue_);
+        queue_free(&eventDataQueue_);
     }
 
     std::error_code RPIoController::LoadVideoTextures(const JsonVariantConst videoTextures, int textureWidth, int textureHeight)
@@ -211,6 +193,35 @@ namespace i8080_arcade
         textureWidth_ = textureWidth;
         textureHeight_ = textureHeight;
 
+        // Blit the first frame
+
+        gpio_put(Pin::CS, 1);
+        // Write 8 bits at a time
+        spi_set_format(spi1, 8, SPI_CPOL_0, SPI_CPHA_0, SPI_MSB_FIRST);
+        // Center the graphics on the display
+        RPIoController::SetRegion(widthOffset_, heightOffset_, width_ - widthOffset_, height_ - heightOffset_);
+        // write to lcd ram
+        RPIoController::WriteCmd(0X2C);
+        // Write 16 bits at a time
+        spi_set_format(spi1, 16, SPI_CPOL_0, SPI_CPHA_0, SPI_MSB_FIRST);
+
+        gpio_put(Pin::DC, 1);
+        gpio_put(Pin::CS, 0);
+
+        auto bb = backBuffer_.get()->data();
+        auto compressedWidth = textureWidth_ >> 3;
+        auto dst = texture_.data();
+        auto dstSize = texture_.size();
+        auto dst16 = std::bit_cast<uint16_t*>(dst);
+
+        // loop back buffer, blit each scan line
+        for(int i = 0; i < textureHeight_; i++)
+        {
+            i8080ArcadeIO_->BlitVRAM(std::span(dst, dstSize), textureWidth_, dstSize, std::span(bb, compressedWidth), MemoryController::frameWidth);
+            spi_write16_blocking(spi1, dst16, textureWidth_);
+            bb += compressedWidth;
+        }
+
         return std::error_code{};
     }
 
@@ -247,35 +258,43 @@ namespace i8080_arcade
 
                 if (ButtonPress(!gpio_get(Pin::K1), lastK1_))
                 {
-// todo: all frame buffers need to be returned to the memory controller so they can be cleared
-#if 0
-                    backBuffer_ = nullptr;
-                    VideoFrameWrapper* vfw = nullptr;
-                    queue_try_remove(&videoFrameQueue_, static_cast<void*>(&vfw));
-
-                    if (vfw != nullptr)
-                    {
-                        printf("Cancel frames\n");
-
-                        while(vfw != nullptr)
-                        {
-                            printf("Return frame to pool\n");
-                            auto videoFrame = std::move(vfw->videoFrame);
-                            // explicitly set to nullptr as there is no requirement on std::move to do this
-                            vfw->videoFrame = nullptr;
-                            auto p = std::bit_cast<uintptr_t>(vfw);
-                            queue_add_blocking(&freeQueue_, static_cast<void*>(&p));
-
-                            vfw = nullptr;
-                            queue_try_remove(&videoFrameQueue_, static_cast<void*>(&vfw));
-                        }
-
-                        printf("End cancel frames\n");
-                    }
-#endif
+                    EventData* eventData = nullptr;
                     screen_ = Screen::RomSelect;
-                    // Clear the memmory so the loaded rom code is not executed during the rom select screen.
-                    static_cast<MemoryController*>(memoryController)->Clear();
+
+                    if (runAsync_ == true)
+                    {
+                        // Spin until the event data free queue size is full; ie all event data variants are returned, todo: ideally we would wait here
+                        while(queue_get_level(&eventDataFreeQueue_) < maxEventData_)
+                        {
+                            // do nothing
+                            printf("Waiting for final frame to blit before clearing\n");
+                        }
+                    }
+                    else
+                    {
+                        // We need to cancel any outstanding events
+                        while(queue_try_remove(&eventDataQueue_, static_cast<void*>(&eventData)) == true)
+                        {
+                            auto videoFrame = std::get_if<meen_hw::MH_ResourcePool<std::vector<uint8_t>>::ResourcePtr>(eventData);
+
+                            if (videoFrame != nullptr)
+                            {
+                                // Cancel the frame, ie; return it to the memory controller frame pool.
+                                *videoFrame = nullptr;
+                            }
+
+                            queue_add_blocking(&eventDataFreeQueue_, static_cast<void*>(&eventData));
+                        }
+                    }
+
+                    // We should now be safe to reset this as video frames can only be added from the thread we are currently on
+                    // and the spinlock/cancellation above ensures all remaining frames have been blitted/cancelled
+                    // (the HandleEvent thread (if runAsync is true) would now be in a waiting state waiting on the next frame to be added).
+                    static_cast<MemoryController*>(memoryController)->Clear(backBuffer_.get());
+                    queue_remove_blocking(&eventDataFreeQueue_, static_cast<void*>(&eventData));
+                    // Clear the vram portion of the display
+                    *eventData = true;
+                    queue_add_blocking(&eventDataQueue_, static_cast<void*>(&eventData));
                 }
                 else
                 {
@@ -356,7 +375,7 @@ namespace i8080_arcade
                     }
 
                     if (ButtonPress (!gpio_get(Pin::K3), lastK3_)) // we may need to set a callbcak on the pin since the press could be missed
-                    {                    
+                    {
                         if (--romIndex_ < 0)
                         {
                             romIndex_ = romCount_ - 1;
@@ -375,54 +394,49 @@ namespace i8080_arcade
             }
             case 2:
             {
-                VideoFrameWrapper* vfw;
-                auto success = queue_try_remove(&freeQueue_, static_cast<void*>(&vfw));
+                EventData* eventData = nullptr;
+                auto success = queue_try_remove(&eventDataFreeQueue_, static_cast<void*>(&eventData));
+
+                if (screen_ == Screen::Gameplay)
+                {
+                    isr = meen::ISR::Two;
+                }
 
                 if (success == true)
                 {
                     switch (screen_)
                     {
                         case Screen::RomSelect:
-                            vfw->videoFrame = static_cast<MemoryController*>(memoryController)->GetRomSelectFrame(romIndex_, currTime);
+                            *eventData = static_cast<MemoryController*>(memoryController)->GetRomSelectFrame(romIndex_, currTime);
                             break;
                         case Screen::Gameplay:
-                            vfw->videoFrame = static_cast<MemoryController*>(memoryController)->GetGameplayFrame(currTime);
+                            *eventData = static_cast<MemoryController*>(memoryController)->GetGameplayFrame(currTime);
                             break;
                         default:
-                            printf ("Invalid screen\n");
+                            break;
                     }
 
-                    if(vfw->videoFrame != nullptr)
-                    {
-                        auto p = std::bit_cast<uintptr_t>(vfw);
-                        success = queue_try_add(&videoFrameQueue_, static_cast<void*>(&p));
+                    auto videoFrame = std::get_if<meen_hw::MH_ResourcePool<std::vector<uint8_t>>::ResourcePtr>(eventData);
 
-                        if(success == false)
-                        {
-                            printf("Failed to add frame to video queue\n");
-                            // explicitly null the video frame so it is returned to the memory frame pool.
-                            vfw->videoFrame = nullptr;
-                            queue_add_blocking(&freeQueue_, static_cast<void*>(&p));
-                        }
-                    }
-                    else
+                    // The variant is in an invalid state or no video frame was generated.
+                    if (videoFrame == nullptr || *videoFrame == nullptr)
                     {
-                        printf("CORE 1 dropped\n");
+                        *eventData = "Failed to get the frame from the memory controller, frame dropped";
                     }
+
+                    success = queue_try_add(&eventDataQueue_, static_cast<void*>(&eventData));
+                    assert(success == true);
                 }
                 else
                 {
-                    printf("1 Video frame dropped, renderer too slow\n");
-                }
-
-                if (screen_ == Screen::Gameplay)
-                {
-                    isr = meen::ISR::Two;
+                    printf("Failed to dispatch video frame, increase the event data pool size\n");
+                    // assert(0);
                 }
                 break;
             }
             default:
             {
+                assert(interrupt >= 0 && interrupt <= 2);
                 break;
             }
         }
@@ -470,59 +484,82 @@ namespace i8080_arcade
 
     bool RPIoController::HandleEvent()
     {
-        VideoFrameWrapper* vfw = nullptr;
+        EventData* eventData = nullptr;
 
         if (runAsync_ == true)
         {
-            queue_remove_blocking(&videoFrameQueue_, static_cast<void*>(&vfw));
+            queue_remove_blocking(&eventDataQueue_, static_cast<void*>(&eventData));
         }
         else
         {
-            if (queue_try_remove(&videoFrameQueue_, static_cast<void*>(&vfw)) == false)
+            if (queue_try_remove(&eventDataQueue_, static_cast<void*>(&eventData)) == false)
             {
                 return false;
             }
         }
 
-        auto videoFrame = std::move(vfw->videoFrame);
-        // explicitly set to nullptr as there is no requirement on std::move to do this
-        vfw->videoFrame = nullptr;
-        auto p = std::bit_cast<uintptr_t>(vfw);
-        queue_add_blocking(&freeQueue_, static_cast<void*>(&p));
-
-        if (videoFrame != nullptr)
-        {
-            auto compressedWidth = textureWidth_ >> 3;
-            auto dst = texture_.data();
-            auto dstSize = texture_.size();
-            auto dst16 = std::bit_cast<uint16_t*>(dst);
-            auto vf = videoFrame.get()->data();
-            uint8_t* bb = nullptr;
-
-            if(backBuffer_ != nullptr)
+        auto quit = std::visit(overloaded
+	{
+            [](const std::string& error)
             {
-                bb = backBuffer_.get()->data();
-            }
-
-            gpio_put(Pin::DC, 1);
-            gpio_put(Pin::CS, 0);
-
-            for(int i = 0/*, lastScanline = 0*/; i < textureHeight_; i++)
+                printf("%s\n", error.c_str());
+                return false;
+            },
+            [this](bool clear)
             {
-                // Blit a scanline at a time for performance reasons
-
-                // Utilise a back buffer so we only render scanlines that have changed
-                if(bb != nullptr)
+                if (clear == true)
                 {
-                    // Check to see if this scanline has changed compared to its counterpart in the previous frame
+                    // The vram is positioned at the center of the display
+                    int ho = (height_ - MemoryController::vramHeight) / 2;
+                    // The vram is 1bpp hence we need to multiply the width by 8
+                    int wo = (width_ - (MemoryController::vramWidth << 3)) / 2;
+
+                    // Clear the centre of the display (where the vram is blitted), one row at a time
+                    for(int i = ho; i < ho + MemoryController::vramHeight; i++)
+                    {
+                        gpio_put(Pin::CS, 1);
+                        // Write 8 bits at a time
+                        spi_set_format(spi1, 8, SPI_CPOL_0, SPI_CPHA_0, SPI_MSB_FIRST);
+                        // Clear the blittable region to the current row
+                        RPIoController::SetRegion(wo, i /* row start */, width_ - wo, 1/* Cover a height of 1, ie; 1 row*/);
+                        // Write to lcd ram
+                        RPIoController::WriteCmd(0X2C);
+                        // Write 16 bits at a time
+                        spi_set_format(spi1, 16, SPI_CPOL_0, SPI_CPHA_0, SPI_MSB_FIRST);
+
+                        gpio_put(Pin::DC, 1);
+                        gpio_put(Pin::CS, 0);
+
+                        // Clear the current row of the display
+                        for(int j = 0; j < MemoryController::vramWidth << 3; j++)
+                        {
+                            uint16_t p = 0x0000;
+                            spi_write16_blocking(spi1, &p, 1);
+                        }
+                    }
+                }
+
+                return false;
+            },
+            [this](meen_hw::MH_ResourcePool<std::vector<uint8_t>>::ResourcePtr& videoFrame)
+            {
+                auto compressedWidth = textureWidth_ >> 3;
+                auto dst = texture_.data();
+                auto dstSize = texture_.size();
+                auto dst16 = std::bit_cast<uint16_t*>(dst);
+                auto vf = videoFrame.get()->data();
+                uint8_t* bb = backBuffer_.get()->data();
+
+                for(int i = 0, lastScanline = 0; i < textureHeight_; i++, bb += compressedWidth, vf += compressedWidth)
+                {
+                    // Blit a scanline at a time for performance reasons
+
+                    // Check to see if this scanline has changed compared to its counterpart in the back buffer (previous frame)
                     if(std::memcmp(bb, vf, compressedWidth) != 0)
                     {
                         // Update the region only if the scanline to be rendered is non contiguous from the previous scanline
-                        // TODO: this minor optimisation yields rendering errors, requires further investigation if it is needed.
-                        //if(i - lastScanline > 1)
+                        if(i - lastScanline > 1)
                         {
-                            //setRegion(i);
-
                             gpio_put(Pin::CS, 1);
                             // Write 8 bits at a time
                             spi_set_format(spi1, 8, SPI_CPOL_0, SPI_CPHA_0, SPI_MSB_FIRST);
@@ -542,43 +579,40 @@ namespace i8080_arcade
                         spi_write16_blocking(spi1, dst16, textureWidth_);
 
                         // Update the last scanline index
-                        //lastScanline = i;
+                        lastScanline = i;
                     }
 //                  else
 //                      this scanline is the same as its counterpart in the previous frame, no need to render this scanline
-
-                    // Move to the next scanline in the back buffer
-                    bb += compressedWidth;
-                }
-                else
-                {
-                    i8080ArcadeIO_->BlitVRAM(std::span(dst, dstSize), textureWidth_, dstSize, std::span(vf, compressedWidth), MemoryController::frameWidth);
-                    spi_write16_blocking(spi1, dst16, textureWidth_);
                 }
 
-                // Move to the next scanline in the front buffer
-                vf += compressedWidth;
+                // We are done, move the video frame to the back buffer.
+                // This will return the previous back buffer to the memory controller frame pool.
+                backBuffer_ = std::move(videoFrame);
+                return false;
             }
+        }, *eventData);
 
-            gpio_put(Pin::CS, 1);
+        queue_add_blocking(&eventDataFreeQueue_, static_cast<void*>(&eventData));
 
-            // We are done, swap the front and back buffers
-            std::swap(backBuffer_, videoFrame);
-
-            // Explicitly set to nullptr so it is immediately returned to the memory controller.
-            videoFrame = nullptr;
-        }
-        else
-        {
-            printf("Video frame dropped\n");
-        }
-
-        return false;
+        return quit;
     }
 
     void RPIoController::HandleError(std::string&& errorMsg)
     {
-        printf("%s\n", errorMsg.c_str());
+        EventData* eventData = nullptr;
+
+        queue_remove_blocking(&eventDataFreeQueue_, static_cast<void*>(&eventData));
+
+        if (eventData != nullptr)
+        {
+            *eventData = std::move(errorMsg);
+            queue_add_blocking(&eventDataQueue_, static_cast<void*>(&eventData));
+        }
+        else
+        {
+            printf("Failed to dispatch error message, increase the event data pool size\n");
+            //assert(0);
+        }
     }
 
     std::tuple<bool, int> RPIoController::GetRomIndex()

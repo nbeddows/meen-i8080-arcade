@@ -28,6 +28,7 @@ SOFTWARE.
 #include <atomic>
 #include <SDL.h>
 #include <SDL_mixer.h>
+#include <variant>
 #include <vector>
 
 #include "i8080_arcade/IIoController.h"
@@ -92,40 +93,39 @@ namespace i8080_arcade
 			*/
 			uint64_t siEvent_{};
 
-			/** SDL Event codes
+			/** Helper type for functional style visitor for std::visit
 
-				Individual event codes that can be set on an SDL_Event of type 'i8080 arcade Event'.
-
-				@see siEvent_
+				This template helper type is taken straight from cppreference std::visit examples (https://en.cppreference.com/w/cpp/utility/variant/visit2)
 			*/
-			enum EventCode
-			{
-				RenderVideo,	/**< The next video frame is ready to be rendered. This event drives the control loop */
-				RenderAudio,	/**< Audio is ready to be played. The siEvent data1 type is the index into the mixChunk_ to be played. */
-				ReadInput		/**< Check if there is any input from the user. The siEvent data1 type is the type of input to be checked. */
-			};
+			template<class... Ts>
+			struct overloaded : Ts... { using Ts::operator()...; };
 
-			/** VideoFrameWrapper
+			/** Generated event data
 
-			 	A convenience wrapper used to pass unique pointers through SDL's event structure.
+				A using directve for ease of use. This will hold the active event data to be processed.
+
+				uint16_t:		Check if there is any input from the user. The SDL_Event data2 type is a promise to filled with the user input.
+				uint8_t:		Audio is ready to be played. The SDL_Event data2 type is the index into the mixChunk_ to be played.
+				std::string:	The application has encountered and error.
+				ResourcePtr:	The next video frame is ready to be rendered. This event drives the control loop.
+
+				The EventData will be used for the SDL_Event data1 property.
 			*/
-			struct VideoFrameWrapper
-			{
-				meen_hw::MH_ResourcePool<std::vector<uint8_t>>::ResourcePtr videoFrame;
-			};
+			using EventData = std::variant<std::string, uint8_t, uint16_t, meen_hw::MH_ResourcePool<std::vector<uint8_t>>::ResourcePtr>;
 
-			/** videoFrameWrapperPool_
+			/** A finite EventData resource pool
 
-				An array of frame wrappers used to pass video frames from the machine thread
-				to the main thread.
+				A vector of EventData variants to be used during the event handleing process.
+
+				@remark		Set to a size of 2 (done as a resize in the constructor, todo: probably should be passed as a parameter to the constructor)
 			*/
-			std::vector<std::unique_ptr<VideoFrameWrapper>> videoFrameWrapperPool_;
+			std::vector<std::unique_ptr<EventData>> eventDataPool_;
 
-			/** videoFrameWrapperMutex_
+			/** Event data pool mutex
 
-				Video frame mutual exclusion between the main thread and the machine thread.
+				event data mutual exclusion between the main thread and the machine thread.
 			*/
-			std::mutex videoFrameWrapperMutex_;
+			std::mutex eventDataMutex_;
 
 			/** Prepare for shut down
 
@@ -170,17 +170,17 @@ namespace i8080_arcade
 			Uint8 lastY_{};
 
 			/** The currently selected rom
-			
+
 				When the user presses the up and down arrows, this will keep track
 				of the current index.
-				
+
 				Made atomic since it can be accesssed from a different thread if the runAsync config option
 				is set to true.
 			*/
 			std::atomic_int romIndex_{};
 
 			/** The total number of supported roms for this controller.
-			
+
 				The value is the max limit used by the romIndex parameter to keep
 				itself within range.
 			*/
@@ -223,6 +223,15 @@ namespace i8080_arcade
 			*/
 			Uint8 SetInterrupt(Uint8 key, Uint8 lastKey, meen::ISR isr, bool loadSaveState);
 
+			/** Get event data from the event data pool
+
+				Removes an EventData resource from the event data pool and returns it.
+
+				@return		An EventData variant pointer.
+
+				@remark		Once the event data has been use it MUST be returned to the event data pool.
+			*/
+			EventData* GetEventData();
 		public:
 			/** Initialisation constructor
 

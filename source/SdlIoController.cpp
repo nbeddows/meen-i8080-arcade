@@ -89,20 +89,13 @@ namespace i8080_arcade
 		SDL_SetEventFilter([](void* eventType, SDL_Event* e)
 		{
 			// Ignore all events except ours.
-			if (reinterpret_cast<uint64_t>(eventType) == e->type || e->type == SDL_QUIT)
-			{
-				return 1;
-			}
-			else
-			{
-				return 0;
-			}
+			return static_cast<int>((reinterpret_cast<uint64_t>(eventType) == e->type || e->type == SDL_QUIT) == true);
 		},
 		reinterpret_cast<void*>(siEvent_));
 
-		for(int i = 0; i < 1; i++)
+		for(int i = 0; i < 2; i++)
 		{
-			videoFrameWrapperPool_.emplace_back(std::make_unique<VideoFrameWrapper>());
+			eventDataPool_.emplace_back(std::make_unique<EventData>());
 		}
 	}
 
@@ -301,6 +294,21 @@ namespace i8080_arcade
 		return value;
 	}
 
+	std::variant<std::string, uint8_t, uint16_t, meen_hw::MH_ResourcePool<std::vector<uint8_t>>::ResourcePtr>* SDLIoController::GetEventData()
+	{
+		EventData* eventData = nullptr;
+
+		std::lock_guard<std::mutex> lg(eventDataMutex_);
+
+		if (eventDataPool_.empty() == false)
+		{
+			eventData = eventDataPool_.back().release();
+			eventDataPool_.pop_back();
+		}
+
+		return eventData;
+	}
+
 	uint8_t SDLIoController::Read(uint16_t port, [[maybe_unused]] meen::IController* controller)
 	{
 		auto ret = i8080ArcadeIO_->ReadPort(port);
@@ -311,32 +319,42 @@ namespace i8080_arcade
 			{
 				if (runAsync_ == true)
 				{
-					// This block isn't ideal as it pushes a request to the main
-					// thread and waits for a result ... I don't think we can
-					// remove this and just perform the else case as I don't think
-					// it is safe to do so with SDL across threads.
-					std::promise<uint16_t> p;
-					SDL_Event e{};
-					e.type = siEvent_;
-					e.user.code = EventCode::ReadInput;
-					e.user.data1 = reinterpret_cast<void*>(port);
-					e.user.data2 = reinterpret_cast<void*>(&p);
-					SDL_PushEvent(&e);
+					auto eventData = GetEventData();
 
-					if (quit_ == false)
+					if (eventData != nullptr)
 					{
-						auto val = p.get_future().get();
+						// This block isn't ideal as it pushes a request to the main
+						// thread and waits for a result ... I don't think we can
+						// remove this and just perform the else case as I don't think
+						// it is safe to do so with SDL across threads.
+						std::promise<uint16_t> p;
+						SDL_Event e{ .type = static_cast<Uint32>(siEvent_) };
+						*eventData = port;
+						e.user.data1 = reinterpret_cast<void*>(eventData);
+						e.user.data2 = reinterpret_cast<void*>(&p);
+						SDL_PushEvent(&e);
 
-						if (val <= 0xFF)
+						if (quit_ == false)
 						{
-							ret = static_cast<uint8_t>(val);
+							auto val = p.get_future().get();
+
+							if (val <= 0xFF)
+							{
+								ret = static_cast<uint8_t>(val);
+							}
+							else
+							{
+								screen_ = Screen::RomSelect;
+								// Clear the memory controller ram and frame buffers
+								// We don't use a back buffer with this controller, pass nullptr
+								static_cast<MemoryController*>(controller)->Clear(nullptr);
+							}
 						}
-						else
-						{
-							screen_ = Screen::RomSelect;
-							// Clear the memory controller ram and frame buffers
-							static_cast<MemoryController*>(controller)->Clear();
-						}
+					}
+					else
+					{
+						printf("Failed to dispatch keyboard read, increase the event data pool size\n");
+						//assert(0);
 					}
 				}
 				else
@@ -351,28 +369,32 @@ namespace i8080_arcade
 					{
 						SDL_Event e;
 
-						// In single threaded mode we need to abort the current frame to be rendered and return the wrapper
-						// and its frame to their respective pools so that the frame can be cleared.
-						if (SDL_PollEvent(&e))
+						// In single threaded mode we need to remove all outstanding i8080 arcade events, return the video frames
+						// back to the memory controller so they can be cleared, then return the event data back to the pool.
+						while (SDL_PeepEvents(&e, 1, SDL_GETEVENT, siEvent_, siEvent_) > 0)
 						{
-							if (e.type == siEvent_ && e.user.code == EventCode::RenderVideo)
-							{
-								auto videoFrameWrapper = std::bit_cast<VideoFrameWrapper*>(e.user.data1);
+							auto eventData = std::bit_cast<EventData*>(e.user.data1);
+							assert(eventData != nullptr);
 
-								if (videoFrameWrapper != nullptr)
+							if (eventData != nullptr)
+							{
+								// The resource (if it exists) will get returned to the frame pool after the completion of this block
+								auto videoFrame = std::get_if<meen_hw::MH_ResourcePool<std::vector<uint8_t>>::ResourcePtr>(eventData);
+								
+								if (videoFrame != nullptr)
 								{
-									auto videoFrame = std::move(videoFrameWrapper->videoFrame);
-									// We are single threaded, so we don't need to lock this.
-									videoFrameWrapperPool_.push_back(std::unique_ptr<VideoFrameWrapper>(videoFrameWrapper));
+									*videoFrame = nullptr;
 								}
+
+								// We are single threaded, so we don't need to lock this.
+								eventDataPool_.push_back(std::unique_ptr<EventData>(eventData));
 							}
 						}
 
 						screen_ = Screen::RomSelect;
 						// Clear the memory controller ram and frame buffers
-						static_cast<MemoryController*>(controller)->Clear();
-
-						// todo: for the RPIoController we need to clear the back buffer
+						// We don't use a back buffer with this controller, pass nullptr
+						static_cast<MemoryController*>(controller)->Clear(nullptr);
 					}
 				}
 			}
@@ -387,12 +409,21 @@ namespace i8080_arcade
 
 		if (audio > 0)
 		{
-			SDL_Event e{};
-			e.type = siEvent_;
-			e.user.code = EventCode::RenderAudio;
-			e.user.data1 = reinterpret_cast<void*>(port);
-			e.user.data2 = reinterpret_cast<void*>(audio);
-			SDL_PushEvent(&e);
+			auto eventData = GetEventData();
+
+			if (eventData != nullptr)
+			{
+				SDL_Event e{ .type = static_cast<Uint32>(siEvent_) };
+				*eventData = static_cast<uint8_t>(port);
+				e.user.data1 = reinterpret_cast<void*>(eventData);
+				e.user.data2 = reinterpret_cast<void*>(audio);
+				SDL_PushEvent(&e);
+			}
+			else
+			{
+				printf("Failed dispatch audio, increase the event data pool size\n");
+				//assert(0);
+			}
 		}
 	}
 
@@ -445,49 +476,55 @@ namespace i8080_arcade
 			}
 			case 1:
 			{
-				isr = meen::ISR::One;
+				if (screen_ == Screen::Gameplay)
+				{
+					isr = meen::ISR::One;
+				}
 				break;
 			}
 			case 2:
 			{
-				isr = meen::ISR::Two;
-				VideoFrameWrapper* videoFrameWrapper = nullptr;
+				auto eventData = GetEventData();
 
+				if (screen_ == Screen::Gameplay)
 				{
-					std::lock_guard<std::mutex> lg(videoFrameWrapperMutex_);
-
-					if(videoFrameWrapperPool_.empty() == false)
-					{
-						videoFrameWrapper = videoFrameWrapperPool_.back().release();
-					}
+					isr = meen::ISR::Two;
 				}
 
-				if(videoFrameWrapper != nullptr)
+				if(eventData != nullptr)
 				{
 					auto mc = static_cast<MemoryController*>(memoryController);
 
 					switch (screen_)
 					{
 						case Screen::RomSelect:
-							videoFrameWrapper->videoFrame = mc->GetRomSelectFrame(romIndex_, currTime);
+							*eventData = mc->GetRomSelectFrame(romIndex_, currTime);
 							break;
 						case Screen::Gameplay:
-							videoFrameWrapper->videoFrame = mc->GetGameplayFrame(currTime);
+							*eventData = mc->GetGameplayFrame(currTime);
 							break;
 						default:
-							printf("Invalid screen\n");
 							break;
 					}
-				}
 
-				SDL_Event e{};
-				e.type = siEvent_;
-				e.user.code = EventCode::RenderVideo;
-				// Allow events where the vram is nullptr to be pushed so we can track
-				// dropped frames in the main thread.
-				e.user.data1 = videoFrameWrapper;
-				e.user.data2 = nullptr;
-				SDL_PushEvent(&e);
+					auto videoFrame = std::get_if<meen_hw::MH_ResourcePool<std::vector<uint8_t>>::ResourcePtr>(eventData);
+
+					// The variant is in an invalid state or no video frame was generated.
+					if (videoFrame == nullptr || *videoFrame == nullptr)
+					{
+						*eventData = "Failed to get the frame from the memory controller, frame dropped";
+					}
+
+					SDL_Event e{ .type = static_cast<Uint32>(siEvent_) };
+					e.user.data1 = eventData;
+					e.user.data2 = nullptr;
+					SDL_PushEvent(&e);
+				}
+				else
+				{
+					printf("Failed to dispatch video frame, increase the event data pool size\n");
+//					assert(0);
+				}
 				break;
 			}
 			default:
@@ -509,172 +546,142 @@ namespace i8080_arcade
 	{
 		SDL_Event e;
 		bool quit = false;
-		bool eventTriggered = false;
 		const auto state = SDL_GetKeyboardState(nullptr);
-
-		if (runAsync_ == true)
-		{
-			eventTriggered = SDL_WaitEvent(&e);
-		}
-		else
-		{
-			eventTriggered = SDL_PollEvent(&e);
-		}
+		bool eventTriggered = runAsync_ == true ? SDL_WaitEvent(&e) : SDL_PollEvent(&e);
 
 		if (eventTriggered == true)
 		{
-			switch (e.type)
+			if(e.type == siEvent_)
 			{
-				case SDL_QUIT:
+				auto eventData = std::bit_cast<EventData*>(e.user.data1);
+
+				quit = std::visit(overloaded
 				{
-					quit_ = quit = true;
-					break;
-				}
-				default:
-				{
-					if(e.type == siEvent_)
+					[](const std::string& error)
 					{
-						switch (e.user.code)
+						printf("%s\n", error.c_str());
+						return false;
+					},
+					[this, state, &e](uint16_t port)
+					{
+						auto p = static_cast<std::promise<uint16_t>*>(e.user.data2);
+						state[SDL_SCANCODE_ESCAPE] ? p->set_value(0x100) : p->set_value(ReadInputDevice(port, state));
+						return false;
+					},
+					[this, &e](uint8_t port)
+					{
+						std::bitset<8> audio = reinterpret_cast<uint64_t>(e.user.data2);
+						// port will either be 3 or 5
+						// when port is 3 index will be 0 and when it is 5 it will be 8
+						// which will give the correct offset into the mixChunk_ array
+						auto offset = (port - 3) << 2;
+
+						for (int i = 0; i < 8; i++)
 						{
-							case EventCode::RenderVideo:
+							/*
+								todo: if the audio is ufo, we need to loop it rather than playing the sample again.
+										this should fix the stall in single threaded mode
+
+								if audio.test(i) is ufo and ufo not playing
+									mix play channel (repeat the sample)
+
+								if audio.test(i) != ufo and ufo playing
+									mix play channel (stop the sample)
+							*/
+
+							if (audio.test(i) == true)
 							{
-								quit = state[SDL_SCANCODE_Q];
-
-								if (quit == true)
-								{
-									quit_ = true;
-
-									if (runAsync_ == true)
-									{
-										if (SDL_PollEvent(&e))
-										{
-											if (e.type == siEvent_ && e.user.code == EventCode::ReadInput)
-											{
-												static_cast<std::promise<uint8_t>*>(e.user.data2)->set_value(0);
-											}
-										}
-									}
-									break;
-								}
-
-								auto videoFrameWrapper = std::bit_cast<VideoFrameWrapper*>(e.user.data1);
-
-								if (videoFrameWrapper != nullptr)
-								{
-									// Move the frame out of the wrapper. This must be done as it allows the
-									// video frame to be returned back to the memory controller, alternatively,
-									// one could set videoFrameWrapper->videoFrame to nullptr once it is no longer
-									// needed.
-									auto videoFrame = std::move(videoFrameWrapper->videoFrame);
-									// We are done with the wrapper, return it back to the wrapper pool
-									{
-										std::lock_guard<std::mutex> lg(videoFrameWrapperMutex_);
-										videoFrameWrapperPool_.push_back(std::unique_ptr<VideoFrameWrapper>(videoFrameWrapper));
-									}
-
-									if (videoFrame != nullptr)
-									{
-										uint8_t* dst = nullptr;
-										int rowBytes = 0;
-
-										if (SDL_LockTexture(texture_, nullptr, std::bit_cast<void**>(&dst), &rowBytes) == 0)
-										{
-											i8080ArcadeIO_->BlitVRAM(std::span(dst, dstRect_.h * rowBytes), dstRect_.w, rowBytes, std::span(*videoFrame), MemoryController::frameWidth);
-											SDL_UnlockTexture(texture_);
-										}
-										else
-										{
-											printf("Failed to lock texture, video frame dropped\n");
-										}
-									}
-									else
-									{
-										printf("Video frame dropped\n");
-									}
-								}
-								else
-								{
-									printf("Wrapper empty, video frame dropped\n");
-								}
-
-								SDL_RenderCopy(renderer_, texture_, nullptr, &dstRect_);
-								SDL_RenderPresent(renderer_);
-								
-								auto scrollIndex = [this](Uint8 key, Uint8 lastKey, int dir)
-								{
-									if (key ^ lastKey && key)
-									{
-										int romIndex = romIndex_;
-
-										romIndex = (romIndex + dir) % romCount_;
-
-										if (romIndex < 0)
-										{
-											romIndex = romCount_ - 1;
-										}
-
-										romIndex_ = romIndex;
-									}
-
-									return key;
-								};
-
-								lastUp_ = scrollIndex(state[SDL_SCANCODE_UP], lastUp_, 1);
-								lastDown_ = scrollIndex(state[SDL_SCANCODE_DOWN], lastDown_, -1);
-								// Check to see if the user wants to load a rom.
-								// This will only be acknowledged in ServiceInterrupts if screen_ is RomSelect,
-								// we could check screen_ for RomSelect here, but that would mean select_ would have
-								// to be atomic.
-								lastReturn_ = SetInterrupt(state[SDL_SCANCODE_RETURN], lastReturn_, meen::ISR::Load, false);
-								break;
-							}
-							case EventCode::RenderAudio:
-							{
-								uint8_t port = reinterpret_cast<uint64_t>(e.user.data1);
-								std::bitset<8> audio = reinterpret_cast<uint64_t>(e.user.data2);
-								// port will either be 3 or 5
-								// when port is 3 index will be 0 and when it is 5 it will be 8
-								// which will give the correct offset into the mixChunk_ array
-								auto offset = (port - 3) << 2;
-
-								for (int i = 0; i < 8; i++)
-								{
-									/*
-										todo: if the audio is ufo, we need to loop it rather than playing the sample again.
-											  this should fix the stall in single threaded mode
-
-										if audio.test(i) is ufo and ufo not playing
-											mix play channel (repeat the sample)
-
-										if audio.test(i) != ufo and ufo playing
-											mix play channel (stop the sample)
-									*/
-
-									if (audio.test(i) == true)
-									{
-										[[maybe_unused]] auto busy = Mix_PlayChannel(-1 /* use the next available channel */, mixChunk_[i + offset], 0 /* don't loop (play it once) */);
-										// We are playing 8 (default maximum) samples at the same time, this should not happen!
-										// We are trying to play a track which isn't loaded (an unknown data bit is set?!?!)
-										//assert(mixChunk_[i] == nullptr || busy != -1);
-									}
-								}
-								break;
-							}
-							case EventCode::ReadInput:
-							{
-								uint8_t port = reinterpret_cast<uint64_t>(e.user.data1);
-								auto p = static_cast<std::promise<uint16_t>*>(e.user.data2);
-								state[SDL_SCANCODE_ESCAPE] ? p->set_value(0x100) :  p->set_value(ReadInputDevice(port, state));
-								break;
-							}
-							default:
-							{
-								break;
+								[[maybe_unused]] auto busy = Mix_PlayChannel(-1 /* use the next available channel */, mixChunk_[i + offset], 0 /* don't loop (play it once) */);
+								// We are playing 8 (default maximum) samples at the same time, this should not happen!
+								// We are trying to play a track which isn't loaded (an unknown data bit is set?!?!)
+								//assert(mixChunk_[i] == nullptr || busy != -1);
 							}
 						}
+
+						return false;
+					},
+					[this, state, &e](meen_hw::MH_ResourcePool<std::vector<uint8_t>>::ResourcePtr& videoFrame)
+					{
+						if (state[SDL_SCANCODE_Q] != 0)
+						{
+							quit_ = true;
+
+							if (runAsync_ == true)
+							{
+								// We are done with the event data, return it back to the event data pool
+								std::lock_guard<std::mutex> lg(eventDataMutex_);
+
+								while (SDL_PeepEvents(&e, 1, SDL_GETEVENT, siEvent_, siEvent_) > 0)
+								{
+									auto ed = std::bit_cast<EventData*>(e.user.data1);
+									assert(ed != nullptr);
+									auto port = std::get_if<uint16_t>(ed);
+
+									if (port != nullptr)
+									{
+										auto p = static_cast<std::promise<uint8_t>*>(e.user.data2);
+										assert(p != nullptr);
+										p->set_value(0);
+									}
+
+									eventDataPool_.push_back(std::unique_ptr<EventData>(ed));
+								}
+							}
+
+							return true;
+						}
+
+						uint8_t* dst = nullptr;
+						int rowBytes = 0;
+						// For performance reasons we'll just run an assert on the following applicable SDL methods
+						auto err = SDL_LockTexture(texture_, nullptr, std::bit_cast<void**>(&dst), &rowBytes);
+						assert(err == 0);
+						i8080ArcadeIO_->BlitVRAM(std::span(dst, dstRect_.h * rowBytes), dstRect_.w, rowBytes, std::span(*(videoFrame.get())), MemoryController::frameWidth);
+						SDL_UnlockTexture(texture_);
+						// We are done with the frame, return it immediately to the memory controller by explicitly setting it to nullptr
+						videoFrame = nullptr;
+						err = SDL_RenderCopy(renderer_, texture_, nullptr, &dstRect_);
+						assert(err == 0);
+						SDL_RenderPresent(renderer_);
+
+						auto scrollIndex = [this](Uint8 key, Uint8 lastKey, int dir)
+						{
+							if (key ^ lastKey && key)
+							{
+								int romIndex = romIndex_;
+
+								romIndex = (romIndex + dir) % romCount_;
+
+								if (romIndex < 0)
+								{
+									romIndex = romCount_ - 1;
+								}
+
+								romIndex_ = romIndex;
+							}
+
+							return key;
+						};
+
+						lastUp_ = scrollIndex(state[SDL_SCANCODE_UP], lastUp_, 1);
+						lastDown_ = scrollIndex(state[SDL_SCANCODE_DOWN], lastDown_, -1);
+						// Check to see if the user wants to load a rom.
+						// This will only be acknowledged in ServiceInterrupts if screen_ is RomSelect,
+						// we could check screen_ for RomSelect here, but that would mean screen_ would have
+						// to be atomic.
+						lastReturn_ = SetInterrupt(state[SDL_SCANCODE_RETURN], lastReturn_, meen::ISR::Load, false);
+						return false;
 					}
-					break;
-				}
+				}, *eventData);
+
+				// We are done with the event data, return it back to the event data pool
+				std::lock_guard<std::mutex> lg(eventDataMutex_);
+				eventDataPool_.push_back(std::unique_ptr<EventData>(eventData));
+			}
+			else
+			{
+				assert(e.type == SDL_QUIT);
+				quit_ = quit = true;
 			}
 		}
 
@@ -683,6 +690,20 @@ namespace i8080_arcade
 
 	void SDLIoController::HandleError(std::string&& errorMsg)
 	{
-		printf("%s\n", errorMsg.c_str());
+		auto eventData = GetEventData();
+
+		if (eventData != nullptr)
+		{
+			*eventData = std::move(errorMsg);
+			SDL_Event e{ .type = static_cast<Uint32>(siEvent_) };
+			e.user.data1 = eventData;
+			e.user.data2 = nullptr;
+			SDL_PushEvent(&e);
+		}
+		else
+		{
+			printf("Failed to dispatch error message, increase the event data pool size\n");
+			//assert(0);
+		}
 	}
 } // namespace i8080_arcade
