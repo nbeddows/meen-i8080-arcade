@@ -346,7 +346,8 @@ namespace i8080_arcade
 							{
 								screen_ = Screen::RomSelect;
 								// Clear the memory controller ram and frame buffers
-								static_cast<MemoryController*>(controller)->Clear();
+								// We don't use a back buffer with this controller, pass nullptr
+								static_cast<MemoryController*>(controller)->Clear(nullptr);
 							}
 						}
 					}
@@ -378,7 +379,13 @@ namespace i8080_arcade
 							if (eventData != nullptr)
 							{
 								// The resource (if it exists) will get returned to the frame pool after the completion of this block
-								auto videoFrame = std::move(std::get_if<meen_hw::MH_ResourcePool<std::vector<uint8_t>>::ResourcePtr>(eventData));
+								auto videoFrame = std::get_if<meen_hw::MH_ResourcePool<std::vector<uint8_t>>::ResourcePtr>(eventData);
+								
+								if (videoFrame != nullptr)
+								{
+									*videoFrame = nullptr;
+								}
+
 								// We are single threaded, so we don't need to lock this.
 								eventDataPool_.push_back(std::unique_ptr<EventData>(eventData));
 							}
@@ -386,9 +393,8 @@ namespace i8080_arcade
 
 						screen_ = Screen::RomSelect;
 						// Clear the memory controller ram and frame buffers
-						static_cast<MemoryController*>(controller)->Clear();
-
-						// todo: for the RPIoController we need to clear the back buffer
+						// We don't use a back buffer with this controller, pass nullptr
+						static_cast<MemoryController*>(controller)->Clear(nullptr);
 					}
 				}
 			}
@@ -470,13 +476,20 @@ namespace i8080_arcade
 			}
 			case 1:
 			{
-				isr = meen::ISR::One;
+				if (screen_ == Screen::Gameplay)
+				{
+					isr = meen::ISR::One;
+				}
 				break;
 			}
 			case 2:
 			{
-				isr = meen::ISR::Two;
 				auto eventData = GetEventData();
+
+				if (screen_ == Screen::Gameplay)
+				{
+					isr = meen::ISR::Two;
+				}
 
 				if(eventData != nullptr)
 				{
@@ -494,11 +507,14 @@ namespace i8080_arcade
 							break;
 					}
 
-					if (*std::get_if<meen_hw::MH_ResourcePool<std::vector<uint8_t>>::ResourcePtr>(eventData) == nullptr)
+					auto videoFrame = std::get_if<meen_hw::MH_ResourcePool<std::vector<uint8_t>>::ResourcePtr>(eventData);
+
+					// The variant is in an invalid state or no video frame was generated.
+					if (videoFrame == nullptr || *videoFrame == nullptr)
 					{
 						*eventData = "Failed to get the frame from the memory controller, frame dropped";
 					}
-					
+
 					SDL_Event e{ .type = static_cast<Uint32>(siEvent_) };
 					e.user.data1 = eventData;
 					e.user.data2 = nullptr;
@@ -657,10 +673,10 @@ namespace i8080_arcade
 						return false;
 					}
 				}, *eventData);
-						
+
 				// We are done with the event data, return it back to the event data pool
 				std::lock_guard<std::mutex> lg(eventDataMutex_);
-				eventDataPool_.push_back(std::unique_ptr<EventData>(eventData));						
+				eventDataPool_.push_back(std::unique_ptr<EventData>(eventData));
 			}
 			else
 			{
@@ -687,6 +703,7 @@ namespace i8080_arcade
 		else
 		{
 			printf("Failed to dispatch error message, increase the event data pool size\n");
+			//assert(0);
 		}
 	}
 } // namespace i8080_arcade
