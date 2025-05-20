@@ -96,7 +96,7 @@ namespace i8080_arcade
 		*/
 		virtual std::tuple<bool, int> GetRomIndex() = 0;
 
-        /** Free any use resources
+        /** Free any used resources
             
         */
         virtual ~IIoController() = default;
