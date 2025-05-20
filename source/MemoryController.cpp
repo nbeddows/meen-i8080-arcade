@@ -83,7 +83,7 @@ namespace i8080_arcade
     {
         std::string txtToBlit;
 
-        for (auto& jsonRom : jsonRoms)
+        for (const auto& jsonRom : jsonRoms)
         {
             txtToBlit += " " + jsonRom.first + " \n\n\n";
         }

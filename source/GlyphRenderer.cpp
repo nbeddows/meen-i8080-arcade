@@ -26,10 +26,8 @@ namespace i8080_arcade
 {
     void GlyphRenderer::Configure()
     {
-        size_t currPos = 0;
         size_t found = 0;
         size_t lastPos = -1;
-        size_t txtHeight = 0;
 
         // clear all values;
         maxTxtWidth_ = 0;
@@ -39,8 +37,8 @@ namespace i8080_arcade
         do
         {
             found = text_.find('\n', ++lastPos);
-            currPos = found == std::string::npos ? text_.length() : found;
-            txtHeight = (currPos - lastPos) * 8; // 8 - store all heights in uncompressed bytes
+            auto currPos = found == std::string::npos ? text_.length() : found;
+            auto txtHeight = (currPos - lastPos) * 8; // 8 - store all heights in uncompressed bytes
 
             // skip consecutive new lines
             while (currPos + 1 < text_.length() && text_[currPos + 1] == '\n')
