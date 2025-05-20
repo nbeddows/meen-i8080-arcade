@@ -152,7 +152,7 @@ int main(int argc, char** argv)
 	{
 		JsonDocument json;
 #ifdef ENABLE_MH_RP2040
-		auto toPair = [](uint8_t* s, uint8_t* e)
+		auto toPair = [](uint8_t* s, const uint8_t* e)
 		{
 			return std::pair<uintptr_t, uintptr_t>(std::bit_cast<uintptr_t>(s), e - s);
 		};
@@ -231,10 +231,6 @@ int main(int argc, char** argv)
 		// Create our custom i8080 arcade I/O controller based on a specific configuration.
 		auto ioController = MakeIoController(meen["runAsync"], std::move(backBuffer), jsonRoms.size(), hardware["audio"], hardware["video"]);
 		CHECK_ERROR(!ioController, printf("Failed to create the i/o controller\n"));
-
-		// todo: call a method that will create the event pool
-		// auto err = ioController->MakeEventPool(2);
-		// CHECK_ERROR(err, printf("Failed to create the io controller event pool\n");
 
 		// Set up the custom controllers prior to configuring the machine.
 

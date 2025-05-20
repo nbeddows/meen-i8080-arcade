@@ -33,6 +33,12 @@ SOFTWARE.
 
 namespace i8080_arcade
 {
+    bool RPIoController::buttonPress_[Pin::MAX] = {};
+    bool RPIoController::prevEdgeFall_[Pin::MAX] = {};
+    bool RPIoController::prevEdgeRise_[Pin::MAX] = {};
+    // todo: this needs tp be removed once MEEN is updated with an initialisation handler.
+    bool RPIoController::gpioCallbackRegistered_ = false;
+
     RPIoController::RPIoController(bool runAsync, meen_hw::MH_ResourcePool<std::vector<uint8_t>>::ResourcePtr&& backBuffer, int romCount, const JsonVariantConst audioHardware, const JsonVariantConst videoHardware)
         : runAsync_{ runAsync }
         , romCount_{ romCount }
@@ -230,19 +236,6 @@ namespace i8080_arcade
         return std::make_error_code(std::errc::not_supported);
     }
 
-    bool RPIoController::ButtonPress(bool button, bool& lastButton)
-    {
-        bool press = false;
-
-        if ((button ^ lastButton) && button)
-        {
-            press = true;
-        }
-
-        lastButton = button;
-        return press;
-    }
-
     uint8_t RPIoController::Read(uint16_t port, [[maybe_unused]] meen::IController* memoryController)
     {
         uint8_t ret = i8080ArcadeIO_->ReadPort(port);
@@ -256,10 +249,14 @@ namespace i8080_arcade
                 // therefore we always set it (0x04) (it will be ignored if no credits exist)
                 ret = 0x08 | 0x04;
 
-                if (ButtonPress(!gpio_get(Pin::K1), lastK1_))
+                if (buttonPress_[Pin::K1] == true)
                 {
                     EventData* eventData = nullptr;
                     screen_ = Screen::RomSelect;
+                    buttonPress_[Pin::K1] = false;
+
+                    // Not used on rom select, displae it
+                    gpio_set_irq_enabled(Pin::K0, GPIO_IRQ_EDGE_FALL | GPIO_IRQ_EDGE_RISE, false);
 
                     if (runAsync_ == true)
                     {
@@ -300,15 +297,15 @@ namespace i8080_arcade
                 {
                     if (ships_ > 0)
                     {
-                        // We want button repeats during gameplay for player movement
-                        ret |= !gpio_get(Pin::K0) * 0x20; // 1P Left
-                        ret |= !gpio_get(Pin::K3) * 0x40; // 1P Right
-                        ret |= ButtonPress(!gpio_get(Pin::K2), lastK2_) * 0x10; // 1P Fire
+                        ret |= (RPIoController::buttonPress_[Pin::K0] * 0x20); // 1P Left
+                        ret |= (RPIoController::buttonPress_[Pin::K3] * 0x40); // 1P Right
+                        ret |= (RPIoController::buttonPress_[Pin::K2] * 0x10); // 1P Fire
                     }
                     else
                     {
-                        if (ButtonPress(!gpio_get(Pin::K0), lastK0_))
+                        if (RPIoController::buttonPress_[Pin::K0] == true)
                         {
+                            buttonPress_[Pin::K0] = false;
                             // Add a credit
                             ret |= 0x01;
                             // Move straight to a 1P game.
@@ -337,17 +334,45 @@ namespace i8080_arcade
             // port 3 bit 4 is extended play, need to increment the ships_ count by one
             if((audio >> 4) & 0x01)
             {
-                //printf("Extra ship!\n");
                 ++ships_;
             }
 
             // port 3 bit 2 is player killed, need to reduce the ships_ count by one
             if((audio >> 2) & 0x01)
             {
-                //printf("Player killed\n");
                 --ships_;
             }
         }
+    }
+
+    void RPIoController::RegisterGpioCallback()
+    {
+        gpio_set_irq_callback([](uint gpio, uint32_t eventMask)
+        {
+            // Ignore consecutive edge rise/fall on the same pin.
+            if ((eventMask & GPIO_IRQ_EDGE_FALL) != 0 && prevEdgeFall_[gpio] == false)
+            {
+                RPIoController::buttonPress_[gpio] = true;
+                // Keep track of the edge fall/rise to prevent spurious falls/rises.
+                RPIoController::prevEdgeFall_[gpio] = true;
+                RPIoController::prevEdgeRise_[gpio] = false;
+            }
+
+            if ((eventMask & GPIO_IRQ_EDGE_RISE) != 0 && prevEdgeRise_[gpio] == false)
+            {
+                RPIoController::buttonPress_[gpio] = false;
+                // keep track of the edge fall/rise to prevent spurious falls/rises.
+                RPIoController::prevEdgeFall_[gpio] = false;
+                RPIoController::prevEdgeRise_[gpio] = true;
+            }
+        });
+
+        // Enable the pin interrupts required for the rom select screen (the initial screen state)
+        gpio_set_irq_enabled(Pin::K0, GPIO_IRQ_EDGE_FALL | GPIO_IRQ_EDGE_RISE, false);
+        gpio_set_irq_enabled(Pin::K1, GPIO_IRQ_EDGE_FALL | GPIO_IRQ_EDGE_RISE, true);
+        gpio_set_irq_enabled(Pin::K2, GPIO_IRQ_EDGE_FALL | GPIO_IRQ_EDGE_RISE, true);
+        gpio_set_irq_enabled(Pin::K3, GPIO_IRQ_EDGE_FALL | GPIO_IRQ_EDGE_RISE, true);
+        irq_set_enabled(IO_IRQ_BANK0, true);
     }
 
     meen::ISR RPIoController::ServiceInterrupts(uint64_t currTime, uint64_t cycles, meen::IController* memoryController)
@@ -359,27 +384,43 @@ namespace i8080_arcade
         {
             case 0:
             {
+                /*
+                    THIS NEEDS TO BE REMOVED ONCE AN INITIALISATION REGISTRATION
+                    HANDLER HAS BEEN ADDED TO MEEN.
+                */
+                if(RPIoController::gpioCallbackRegistered_ == false)
+                {
+                    RPIoController::RegisterGpioCallback();
+                    RPIoController::gpioCallbackRegistered_ = true;
+                }
+
                 if (screen_ == Screen::RomSelect)
                 {
                     // Check button 1 press to trigger a rom load interrupt
-                    if (ButtonPress (!gpio_get(Pin::K1), lastK1_)) // we may need to set a callbcak on the pin since the press could be missed
+                    if (RPIoController::buttonPress_[Pin::K1] == true)
                     {
                         isr = meen::ISR::Load;
                         screen_ = Screen::Gameplay;
                         ships_ = 0;
+                        RPIoController::buttonPress_[Pin::K1] = false;
+                        // Only used for gameplay, enable it
+                        gpio_set_irq_enabled(Pin::K0, GPIO_IRQ_EDGE_FALL  | GPIO_IRQ_EDGE_RISE, true);
                     }
 
-                    if (ButtonPress (!gpio_get(Pin::K2), lastK2_)) // we may need to set a callbcak on the pin since the press could be missed
+                    if(RPIoController::buttonPress_[Pin::K2] == true)
                     {
                         romIndex_ = ++romIndex_ % romCount_;
+                        RPIoController::buttonPress_[Pin::K2] = false;
                     }
 
-                    if (ButtonPress (!gpio_get(Pin::K3), lastK3_)) // we may need to set a callbcak on the pin since the press could be missed
+                    if(RPIoController::buttonPress_[Pin::K3] == true)
                     {
                         if (--romIndex_ < 0)
                         {
                             romIndex_ = romCount_ - 1;
                         }
+
+                        RPIoController::buttonPress_[Pin::K3] = false;
                     }
                 }
                 break;
@@ -593,7 +634,6 @@ namespace i8080_arcade
         }, *eventData);
 
         queue_add_blocking(&eventDataFreeQueue_, static_cast<void*>(&eventData));
-
         return quit;
     }
 

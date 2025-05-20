@@ -26,6 +26,7 @@ SOFTWARE.
 #define ARDUINOJSON_ENABLE_STRING_VIEW 1
 #include <ArduinoJson.h>
 #include <atomic>
+#include <condition_variable>
 #include <SDL.h>
 #include <SDL_mixer.h>
 #include <variant>
@@ -104,14 +105,13 @@ namespace i8080_arcade
 
 				A using directve for ease of use. This will hold the active event data to be processed.
 
-				uint16_t:		Check if there is any input from the user. The SDL_Event data2 type is a promise to filled with the user input.
 				uint8_t:		Audio is ready to be played. The SDL_Event data2 type is the index into the mixChunk_ to be played.
 				std::string:	The application has encountered and error.
 				ResourcePtr:	The next video frame is ready to be rendered. This event drives the control loop.
 
 				The EventData will be used for the SDL_Event data1 property.
 			*/
-			using EventData = std::variant<std::string, uint8_t, uint16_t, meen_hw::MH_ResourcePool<std::vector<uint8_t>>::ResourcePtr>;
+			using EventData = std::variant<std::string, uint8_t, meen_hw::MH_ResourcePool<std::vector<uint8_t>>::ResourcePtr>;
 
 			/** A finite EventData resource pool
 
@@ -123,9 +123,30 @@ namespace i8080_arcade
 
 			/** Event data pool mutex
 
-				event data mutual exclusion between the main thread and the machine thread.
+				Event data mutual exclusion between the main thread and the machine thread.
 			*/
 			std::mutex eventDataMutex_;
+
+			/** Event data pool condition variable
+			
+				Used in conjuction with eventDataMutex_ to wait on all outstanding events to complete. This is required for screen transition (back to rom select)
+				so all video frames can be cleared preventing any stale video frames being rendered.
+
+			*/
+			std::condition_variable eventDataCv_;
+			
+			/** Event data pool atomic flag
+			
+				Used in conjuction with the main thread to wait on all outstanding events to complete. This is required for screen transition (back to rom select)
+				so all video frames can be cleared preventing any stale video frames from being rendered.
+			*/
+			//std::atomic_flag eventDataCv_;;
+
+	        /** The maximum number of events across all pools
+
+    	        This can be increased/decreased depending on requirements.
+        	*/
+        	static constexpr int maxEventData_{ 2 };
 
 			/** Prepare for shut down
 
@@ -191,7 +212,7 @@ namespace i8080_arcade
 				True if meen is to run on a different thread to the main application,
 				false otherwise.
 			*/
-			bool runAsync_{};
+			const bool runAsync_{};
 
 			/** The current screen
 
@@ -199,15 +220,18 @@ namespace i8080_arcade
 			*/
 			Screen screen_{};
 
-			/** Read input form the keyboard
-
-				@param	port	The emulated port to read from.
-				@param	state	The keyboard state.
-
-				@return			A uint8_t bitwise combination informing the rom
-								of the user input.
+			/** The SDL keyboard state
+			
+				This is the return value of the SDL_GetKeyboardState api call.
 			*/
-			uint8_t ReadInputDevice(uint8_t port, const uint8_t* state);
+			const uint8_t* sdlKbState_{};
+
+			/** The shared keyboard state
+			
+				We copy the required keyboard state into this array for non main thead access as we assume to pointer
+				returned from the SDL_GetKeyboardState method (sdlKbState_) should not be accessed from a non main thread.
+			*/
+			std::array<std::atomic_bool, SDL_NUM_SCANCODES> kbState_;
 
 			/** Assign a load or save machine interrupt
 
@@ -221,7 +245,7 @@ namespace i8080_arcade
 
 				@return					The current key state (the key parameter).
 			*/
-			Uint8 SetInterrupt(Uint8 key, Uint8 lastKey, meen::ISR isr, bool loadSaveState);
+			Uint8 SetInterrupt(bool key, bool lastKey, meen::ISR isr, bool loadSaveState);
 
 			/** Get event data from the event data pool
 
