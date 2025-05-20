@@ -22,7 +22,6 @@ SOFTWARE.
 
 #include <assert.h>
 #include <bitset>
-#include <future>
 
 #include "i8080_arcade/MemoryController.h"
 #include "i8080_arcade/SdlIoController.h"
@@ -93,7 +92,10 @@ namespace i8080_arcade
 		},
 		reinterpret_cast<void*>(siEvent_));
 
-		for(int i = 0; i < 2; i++)
+		// Monitor key presses/releases
+		sdlKbState_ = SDL_GetKeyboardState(nullptr);
+
+		for(int i = 0; i < maxEventData_; i++)
 		{
 			eventDataPool_.emplace_back(std::make_unique<EventData>());
 		}
@@ -243,7 +245,7 @@ namespace i8080_arcade
 	}
 
 	// Scan the keyboard for load and save requests
-	Uint8 SDLIoController::SetInterrupt(Uint8 key, Uint8 lastKey, meen::ISR isr, bool loadSaveState)
+	Uint8 SDLIoController::SetInterrupt(bool key, bool lastKey, meen::ISR isr, bool loadSaveState)
 	{
 		if (key ^ lastKey && key)
 		{
@@ -254,47 +256,7 @@ namespace i8080_arcade
 		return key;
 	}
 
-	uint8_t SDLIoController::ReadInputDevice(uint8_t port, const uint8_t* state)
-	{
-		uint8_t value = 0;
-		// We can only load from a save file or save if a rom is currently running (engine will generate an error otherwise)
-		// so we only allow the user to perform these operations when a rom is running only.
-		// (either from the Read method directly (runAsync == false) or via the Read method generating a ReadInput event (runAsync == true)
-		lastR_ = SetInterrupt(state[SDL_SCANCODE_R], lastR_, meen::ISR::Load, true);
-		lastY_ = SetInterrupt(state[SDL_SCANCODE_Y], lastY_, meen::ISR::Save, false);
-
-		if (port == 1)
-		{
-			value = 0x08;
-			value |= (state[SDL_SCANCODE_C] * 0x01); // Credit
-			value |= (state[SDL_SCANCODE_1] * 0x04); // 1P
-			value |= (state[SDL_SCANCODE_2] * 0x02); // 2P
-			value |= (state[SDL_SCANCODE_A] * 0x20); // 1P Left
-			value |= (state[SDL_SCANCODE_S] * 0x10); // 1P Fire
-			value |= (state[SDL_SCANCODE_D] * 0x40); // 1P Right
-		}
-		else if (port == 2)
-		{
-			value |= (state[SDL_SCANCODE_3] * 0x00); // 3 Ships
-			value |= (state[SDL_SCANCODE_4] * 0x01); // 4 Ships
-			value |= (state[SDL_SCANCODE_5] * 0x02); // 5 Ships
-			value |= (state[SDL_SCANCODE_6] * 0x03); // 6 Ships
-			value |= (state[SDL_SCANCODE_T] * 0x04); // Tilt
-			value |= (state[SDL_SCANCODE_E] * 0x08); // Extra Ship at
-			value |= (state[SDL_SCANCODE_J] * 0x20); // 2P Left
-			value |= (state[SDL_SCANCODE_K] * 0x10); // 2P Fire
-			value |= (state[SDL_SCANCODE_L] * 0x40); // 2P Right
-			value |= (state[SDL_SCANCODE_I] * 0x80); // Show coin info
-		}
-		else
-		{
-			printf("Invalid Read Port: %d\n", port);
-		}
-
-		return value;
-	}
-
-	std::variant<std::string, uint8_t, uint16_t, meen_hw::MH_ResourcePool<std::vector<uint8_t>>::ResourcePtr>* SDLIoController::GetEventData()
+	std::variant<std::string, uint8_t, meen_hw::MH_ResourcePool<std::vector<uint8_t>>::ResourcePtr>* SDLIoController::GetEventData()
 	{
 		EventData* eventData = nullptr;
 
@@ -317,53 +279,53 @@ namespace i8080_arcade
 		{
 			if (port == 1 || port == 2)
 			{
-				if (runAsync_ == true)
+				if (kbState_[SDL_SCANCODE_ESCAPE] == false)
 				{
-					auto eventData = GetEventData();
+					lastR_ = SetInterrupt(kbState_[SDL_SCANCODE_R], lastR_, meen::ISR::Load, true);
+					lastY_ = SetInterrupt(kbState_[SDL_SCANCODE_Y], lastY_, meen::ISR::Save, false);
 
-					if (eventData != nullptr)
+					if (port == 1)
 					{
-						// This block isn't ideal as it pushes a request to the main
-						// thread and waits for a result ... I don't think we can
-						// remove this and just perform the else case as I don't think
-						// it is safe to do so with SDL across threads.
-						std::promise<uint16_t> p;
-						SDL_Event e{ .type = static_cast<Uint32>(siEvent_) };
-						*eventData = port;
-						e.user.data1 = reinterpret_cast<void*>(eventData);
-						e.user.data2 = reinterpret_cast<void*>(&p);
-						SDL_PushEvent(&e);
-
-						if (quit_ == false)
-						{
-							auto val = p.get_future().get();
-
-							if (val <= 0xFF)
-							{
-								ret = static_cast<uint8_t>(val);
-							}
-							else
-							{
-								screen_ = Screen::RomSelect;
-								// Clear the memory controller ram and frame buffers
-								// We don't use a back buffer with this controller, pass nullptr
-								static_cast<MemoryController*>(controller)->Clear(nullptr);
-							}
-						}
+						ret = 0x08;
+						ret |= (kbState_[SDL_SCANCODE_C] * 0x01); // Credit
+						ret |= (kbState_[SDL_SCANCODE_1] * 0x04); // 1P
+						ret |= (kbState_[SDL_SCANCODE_2] * 0x02); // 2P
+						ret |= (kbState_[SDL_SCANCODE_A] * 0x20); // 1P Left
+						ret |= (kbState_[SDL_SCANCODE_S] * 0x10); // 1P Fire
+						ret |= (kbState_[SDL_SCANCODE_D] * 0x40); // 1P Right
+					}
+					else if (port == 2)
+					{
+						ret |= (kbState_[SDL_SCANCODE_3] * 0x00); // 3 Ships
+						ret |= (kbState_[SDL_SCANCODE_4] * 0x01); // 4 Ships
+						ret |= (kbState_[SDL_SCANCODE_5] * 0x02); // 5 Ships
+						ret |= (kbState_[SDL_SCANCODE_6] * 0x03); // 6 Ships
+						ret |= (kbState_[SDL_SCANCODE_T] * 0x04); // Tilt
+						ret |= (kbState_[SDL_SCANCODE_E] * 0x08); // Extra Ship at
+						ret |= (kbState_[SDL_SCANCODE_J] * 0x20); // 2P Left
+						ret |= (kbState_[SDL_SCANCODE_K] * 0x10); // 2P Fire
+						ret |= (kbState_[SDL_SCANCODE_L] * 0x40); // 2P Right
+						ret |= (kbState_[SDL_SCANCODE_I] * 0x80); // Show coin info
 					}
 					else
 					{
-						printf("Failed to dispatch keyboard read, increase the event data pool size\n");
-						//assert(0);
+						assert(0);
+						printf("Invalid Read Port: %d\n", port);
 					}
 				}
 				else
 				{
-					auto kbState = SDL_GetKeyboardState(nullptr);
-
-					if (kbState[SDL_SCANCODE_ESCAPE] == false)
+					if (runAsync_ == true)
 					{
-						ret = ReadInputDevice(port, kbState);
+						// Wait until all outstanding events have been handled before attempting to clear the memory controller.
+						
+						// This uses a condition variable
+						std::unique_lock<std::mutex> lg(eventDataMutex_);
+						eventDataCv_.wait(lg, [this] { return eventDataPool_.size() == maxEventData_; });
+
+						// This uses std::atomic_flag (not quite right, hence using std:condition_variable
+						//eventDataCv_.wait(false);
+						//eventDataCv_.clear();
 					}
 					else
 					{
@@ -380,7 +342,7 @@ namespace i8080_arcade
 							{
 								// The resource (if it exists) will get returned to the frame pool after the completion of this block
 								auto videoFrame = std::get_if<meen_hw::MH_ResourcePool<std::vector<uint8_t>>::ResourcePtr>(eventData);
-								
+
 								if (videoFrame != nullptr)
 								{
 									*videoFrame = nullptr;
@@ -390,12 +352,12 @@ namespace i8080_arcade
 								eventDataPool_.push_back(std::unique_ptr<EventData>(eventData));
 							}
 						}
-
-						screen_ = Screen::RomSelect;
-						// Clear the memory controller ram and frame buffers
-						// We don't use a back buffer with this controller, pass nullptr
-						static_cast<MemoryController*>(controller)->Clear(nullptr);
 					}
+
+					screen_ = Screen::RomSelect;
+					// Clear the memory controller ram and frame buffers.
+					// We don't use a back buffer with this controller, pass nullptr.
+					static_cast<MemoryController*>(controller)->Clear(nullptr);
 				}
 			}
 		}
@@ -546,7 +508,6 @@ namespace i8080_arcade
 	{
 		SDL_Event e;
 		bool quit = false;
-		const auto state = SDL_GetKeyboardState(nullptr);
 		bool eventTriggered = runAsync_ == true ? SDL_WaitEvent(&e) : SDL_PollEvent(&e);
 
 		if (eventTriggered == true)
@@ -560,12 +521,6 @@ namespace i8080_arcade
 					[](const std::string& error)
 					{
 						printf("%s\n", error.c_str());
-						return false;
-					},
-					[this, state, &e](uint16_t port)
-					{
-						auto p = static_cast<std::promise<uint16_t>*>(e.user.data2);
-						state[SDL_SCANCODE_ESCAPE] ? p->set_value(0x100) : p->set_value(ReadInputDevice(port, state));
 						return false;
 					},
 					[this, &e](uint8_t port)
@@ -600,34 +555,11 @@ namespace i8080_arcade
 
 						return false;
 					},
-					[this, state, &e](meen_hw::MH_ResourcePool<std::vector<uint8_t>>::ResourcePtr& videoFrame)
+					[this, &e](meen_hw::MH_ResourcePool<std::vector<uint8_t>>::ResourcePtr& videoFrame)
 					{
-						if (state[SDL_SCANCODE_Q] != 0)
+						if (sdlKbState_[SDL_SCANCODE_Q] != 0)
 						{
 							quit_ = true;
-
-							if (runAsync_ == true)
-							{
-								// We are done with the event data, return it back to the event data pool
-								std::lock_guard<std::mutex> lg(eventDataMutex_);
-
-								while (SDL_PeepEvents(&e, 1, SDL_GETEVENT, siEvent_, siEvent_) > 0)
-								{
-									auto ed = std::bit_cast<EventData*>(e.user.data1);
-									assert(ed != nullptr);
-									auto port = std::get_if<uint16_t>(ed);
-
-									if (port != nullptr)
-									{
-										auto p = static_cast<std::promise<uint8_t>*>(e.user.data2);
-										assert(p != nullptr);
-										p->set_value(0);
-									}
-
-									eventDataPool_.push_back(std::unique_ptr<EventData>(ed));
-								}
-							}
-
 							return true;
 						}
 
@@ -663,20 +595,56 @@ namespace i8080_arcade
 							return key;
 						};
 
-						lastUp_ = scrollIndex(state[SDL_SCANCODE_UP], lastUp_, 1);
-						lastDown_ = scrollIndex(state[SDL_SCANCODE_DOWN], lastDown_, -1);
+						// Copy out the values that will be accessed from a different thread.
+						// (Do it regardless in single threaded mode, its here for demo purposes only)
+						kbState_[SDL_SCANCODE_C] = sdlKbState_[SDL_SCANCODE_C];
+						kbState_[SDL_SCANCODE_1] = sdlKbState_[SDL_SCANCODE_1];
+						kbState_[SDL_SCANCODE_2] = sdlKbState_[SDL_SCANCODE_2];
+						kbState_[SDL_SCANCODE_A] = sdlKbState_[SDL_SCANCODE_A];
+						kbState_[SDL_SCANCODE_S] = sdlKbState_[SDL_SCANCODE_S];
+						kbState_[SDL_SCANCODE_D] = sdlKbState_[SDL_SCANCODE_D];
+						kbState_[SDL_SCANCODE_3] = sdlKbState_[SDL_SCANCODE_3];
+						kbState_[SDL_SCANCODE_4] = sdlKbState_[SDL_SCANCODE_4];
+						kbState_[SDL_SCANCODE_5] = sdlKbState_[SDL_SCANCODE_5];
+						kbState_[SDL_SCANCODE_6] = sdlKbState_[SDL_SCANCODE_6];
+						kbState_[SDL_SCANCODE_T] = sdlKbState_[SDL_SCANCODE_T];
+						kbState_[SDL_SCANCODE_E] = sdlKbState_[SDL_SCANCODE_E];
+						kbState_[SDL_SCANCODE_J] = sdlKbState_[SDL_SCANCODE_J];
+						kbState_[SDL_SCANCODE_K] = sdlKbState_[SDL_SCANCODE_K];
+						kbState_[SDL_SCANCODE_L] = sdlKbState_[SDL_SCANCODE_L];
+						kbState_[SDL_SCANCODE_I] = sdlKbState_[SDL_SCANCODE_I];
+						kbState_[SDL_SCANCODE_R] = sdlKbState_[SDL_SCANCODE_R];
+						kbState_[SDL_SCANCODE_Y] = sdlKbState_[SDL_SCANCODE_Y];
+						kbState_[SDL_SCANCODE_ESCAPE] = sdlKbState_[SDL_SCANCODE_ESCAPE];
+
+						lastUp_ = scrollIndex(sdlKbState_[SDL_SCANCODE_UP], lastUp_, 1);
+						lastDown_ = scrollIndex(sdlKbState_[SDL_SCANCODE_DOWN], lastDown_, -1);
 						// Check to see if the user wants to load a rom.
 						// This will only be acknowledged in ServiceInterrupts if screen_ is RomSelect,
 						// we could check screen_ for RomSelect here, but that would mean screen_ would have
 						// to be atomic.
-						lastReturn_ = SetInterrupt(state[SDL_SCANCODE_RETURN], lastReturn_, meen::ISR::Load, false);
+						lastReturn_ = SetInterrupt(sdlKbState_[SDL_SCANCODE_RETURN], lastReturn_, meen::ISR::Load, false);
 						return false;
 					}
 				}, *eventData);
 
-				// We are done with the event data, return it back to the event data pool
-				std::lock_guard<std::mutex> lg(eventDataMutex_);
-				eventDataPool_.push_back(std::unique_ptr<EventData>(eventData));
+				{
+					// We are done with the event data, return it back to the event data pool
+					std::lock_guard<std::mutex> lg(eventDataMutex_);
+					eventDataPool_.push_back(std::unique_ptr<EventData>(eventData));
+				}
+				
+				if (runAsync_ == true)
+				{
+					if (sdlKbState_[SDL_SCANCODE_ESCAPE] && eventDataPool_.size() == maxEventData_)
+					{
+						eventDataCv_.notify_one();
+
+						// This uses std::atomic_flag (not quite right, hence using std:condition_variable
+						//eventDataCv_.test_and_set();
+						//eventDataCv_.notify_one();
+					}
+				}
 			}
 			else
 			{

@@ -24,6 +24,7 @@ SOFTWARE.
 #define RPIOCONTROLLER_H
 
 #include <ArduinoJson.h>
+#include <atomic>
 #include <pico/util/queue.h>
 #include <variant>
 #include <vector>
@@ -33,7 +34,7 @@ SOFTWARE.
 
 namespace i8080_arcade
 {
-    /** Custom SDL io controller.
+    /** Custom Raspberry Pi Pico  io controller.
 
         A custom io controller targetting Space Invaders i8080 arcade hardware compatible ROMs.
     */
@@ -53,8 +54,43 @@ namespace i8080_arcade
             K0 = 15,
             K1 = 17,
             K2 = 2,
-            K3 = 3
+            K3 = 3,
+            MAX = 18
         };
+
+        /** The current active button
+
+            True if the button (pin) is pressed, false otherwise
+
+            @remark    Only the pins K0, K1, K2, K3 are tracked (the remaining entries are unused).
+        */
+        static bool buttonPress_[Pin::MAX];
+
+        /** The previous edge fall state
+
+            Track the previous edge fall state to prevent spurious edge falls (when an edge fall is
+            detected but the previous edge fall for that pin is set, then this is a spurious edge fall).
+
+            @remark    Only the pins K0, K1, K2, K3 are tracked (the remaining entries are unused).
+        */
+        static bool prevEdgeFall_[Pin::MAX];
+
+        /** The previous edge rise state
+
+            Track the previous edge rise state to prevent spurious edge rises (when an edge rise is
+            detected but the previous edge rise for that pin is set, then this is a spurious edge rise).
+
+            @remark    Only the pins K0, K1, K2, K3 are tracked (the remaining entries are unused).
+        */
+        static bool prevEdgeRise_[Pin::MAX];
+
+        /** One time callback registration
+
+            TODO: this needs to be removed once an initialisation registration
+                  handler has been added to MEEN.
+
+        */
+        static bool gpioCallbackRegistered_;
 
         /** Output device width
 
@@ -122,29 +158,29 @@ namespace i8080_arcade
         */
         std::unique_ptr<meen_hw::MH_II8080ArcadeIO> i8080ArcadeIO_;
 
-	    /** Helper type for functional style visitor for std::visit
+        /** Helper type for functional style visitor for std::visit
 
-	        This template helper type is taken straight from cppreference std::visit examples (https://en.cppreference.com/w/cpp/utility/variant/visit2)
-	    */
-	    template<class... Ts>
-	    struct overloaded : Ts... { using Ts::operator()...; };
+            This template helper type is taken straight from cppreference std::visit examples (https://en.cppreference.com/w/cpp/utility/variant/visit2)
+        */
+        template<class... Ts>
+        struct overloaded : Ts... { using Ts::operator()...; };
 
-	    /** Generated event data
+        /** Generated event data
 
             A using directve for ease of use. This will hold the active event data to be processed.
 
             bool:        True to clear the vram area of the lcd display, false otherwise.
             std::string: The application has encountered and error.
             ResourcePtr: The next video frame is ready to be rendered. This event drives the control loop.
-	    */
-	    using EventData = std::variant<std::string, bool, meen_hw::MH_ResourcePool<std::vector<uint8_t>>::ResourcePtr>;
+        */
+        using EventData = std::variant<std::string, bool, meen_hw::MH_ResourcePool<std::vector<uint8_t>>::ResourcePtr>;
 
-	    /** A finite EventData resource pool
+        /** A finite EventData resource pool
 
-            A vector of EventData variants to be used during the event handleing process.
+            A vector of EventData variants to be used during the event handling process.
 
             @remark    Populate from a fnite array of EventData objects
-	    */
+        */
         queue_t eventDataQueue_;
 
         /** Available event data queue
@@ -214,7 +250,7 @@ namespace i8080_arcade
             True if meen is to run on core 1, false to run on core 0 with
             the main application.
         */
-        bool runAsync_{};
+        const bool runAsync_{};
 
         /** The current screen
 
@@ -248,17 +284,10 @@ namespace i8080_arcade
         */
         static void SetRegion(uint16_t Xstart, uint16_t Ystart, uint16_t Xend, uint16_t Yend);
 
-        /** Single button press
+        /** One time callback registration for gpio handling
 
-            Returns the state of tthe button (ignoring repeats).
-
-            bool    button        True of the button is currently pressed.
-            bool    lastButton    The prevos state of the button parameter.
-                                  True this is a button repeat, false otherwise.
-
-            return                True for a single press, false otherwise.
         */
-        bool ButtonPress(bool button, bool& lastButton);
+        static void RegisterGpioCallback();
 
     public:
         /** Initialisation constructor
