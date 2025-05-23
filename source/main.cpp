@@ -297,7 +297,7 @@ int main(int argc, char** argv)
 		machine->OnInit([](meen::IController* ioController)
 		{
 #ifdef ENABLE_MH_RP2040
-			RPIoController::Init();
+			i8080_arcade::RPIoController::Init();
 #endif
 			return meen::errc::no_error;
 		});
