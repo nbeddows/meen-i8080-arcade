@@ -36,8 +36,6 @@ namespace i8080_arcade
     bool RPIoController::buttonPress_[Pin::MAX] = {};
     bool RPIoController::prevEdgeFall_[Pin::MAX] = {};
     bool RPIoController::prevEdgeRise_[Pin::MAX] = {};
-    // todo: this needs tp be removed once MEEN is updated with an initialisation handler.
-    bool RPIoController::gpioCallbackRegistered_ = false;
 
     RPIoController::RPIoController(bool runAsync, meen_hw::MH_ResourcePool<std::vector<uint8_t>>::ResourcePtr&& backBuffer, int romCount, const JsonVariantConst audioHardware, const JsonVariantConst videoHardware)
         : runAsync_{ runAsync }
