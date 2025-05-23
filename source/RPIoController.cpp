@@ -36,8 +36,6 @@ namespace i8080_arcade
     bool RPIoController::buttonPress_[Pin::MAX] = {};
     bool RPIoController::prevEdgeFall_[Pin::MAX] = {};
     bool RPIoController::prevEdgeRise_[Pin::MAX] = {};
-    // todo: this needs tp be removed once MEEN is updated with an initialisation handler.
-    bool RPIoController::gpioCallbackRegistered_ = false;
 
     RPIoController::RPIoController(bool runAsync, meen_hw::MH_ResourcePool<std::vector<uint8_t>>::ResourcePtr&& backBuffer, int romCount, const JsonVariantConst audioHardware, const JsonVariantConst videoHardware)
         : runAsync_{ runAsync }
@@ -345,12 +343,12 @@ namespace i8080_arcade
         }
     }
 
-    void RPIoController::RegisterGpioCallback()
+    void RPIoController::Init()
     {
         gpio_set_irq_callback([](uint gpio, uint32_t eventMask)
         {
             // Ignore consecutive edge rise/fall on the same pin.
-            if ((eventMask & GPIO_IRQ_EDGE_FALL) != 0 && prevEdgeFall_[gpio] == false)
+            if ((eventMask & GPIO_IRQ_EDGE_FALL) != 0 && RPIoController::prevEdgeFall_[gpio] == false)
             {
                 RPIoController::buttonPress_[gpio] = true;
                 // Keep track of the edge fall/rise to prevent spurious falls/rises.
@@ -358,7 +356,7 @@ namespace i8080_arcade
                 RPIoController::prevEdgeRise_[gpio] = false;
             }
 
-            if ((eventMask & GPIO_IRQ_EDGE_RISE) != 0 && prevEdgeRise_[gpio] == false)
+            if ((eventMask & GPIO_IRQ_EDGE_RISE) != 0 && RPIoController::prevEdgeRise_[gpio] == false)
             {
                 RPIoController::buttonPress_[gpio] = false;
                 // keep track of the edge fall/rise to prevent spurious falls/rises.
@@ -384,16 +382,6 @@ namespace i8080_arcade
         {
             case 0:
             {
-                /*
-                    THIS NEEDS TO BE REMOVED ONCE AN INITIALISATION REGISTRATION
-                    HANDLER HAS BEEN ADDED TO MEEN.
-                */
-                if(RPIoController::gpioCallbackRegistered_ == false)
-                {
-                    RPIoController::RegisterGpioCallback();
-                    RPIoController::gpioCallbackRegistered_ = true;
-                }
-
                 if (screen_ == Screen::RomSelect)
                 {
                     // Check button 1 press to trigger a rom load interrupt
@@ -536,7 +524,7 @@ namespace i8080_arcade
         }
 
         auto quit = std::visit(overloaded
-	{
+	    {
             [](const std::string& error)
             {
                 printf("%s\n", error.c_str());

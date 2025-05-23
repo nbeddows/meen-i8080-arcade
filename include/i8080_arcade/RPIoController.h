@@ -84,14 +84,6 @@ namespace i8080_arcade
         */
         static bool prevEdgeRise_[Pin::MAX];
 
-        /** One time callback registration
-
-            TODO: this needs to be removed once an initialisation registration
-                  handler has been added to MEEN.
-
-        */
-        static bool gpioCallbackRegistered_;
-
         /** Output device width
 
             Width in pixels.
@@ -218,16 +210,6 @@ namespace i8080_arcade
         */
         int ships_{};
 
-        /** Button state tracking
-
-            Store the previous state of the buttons to eliminate
-            repeated presses when the button is held down.
-        */
-        bool lastK0_{};
-        bool lastK1_{};
-        bool lastK2_{};
-        bool lastK3_{};
-
         /** The currently selected rom
 
             When the user presses the up and down arrows, this will keep track
@@ -284,11 +266,6 @@ namespace i8080_arcade
         */
         static void SetRegion(uint16_t Xstart, uint16_t Ystart, uint16_t Xend, uint16_t Yend);
 
-        /** One time callback registration for gpio handling
-
-        */
-        static void RegisterGpioCallback();
-
     public:
         /** Initialisation constructor
 
@@ -308,6 +285,11 @@ namespace i8080_arcade
             Free the various required RP2040 objects.
         */
         ~RPIoController();
+
+        /** One time callback registration for gpio handling
+
+        */
+        static void Init();
 
         /** IController Read override
 

@@ -294,6 +294,14 @@ int main(int argc, char** argv)
 		machine->AttachIoController(meen::IControllerPtr(std::move(ioController)));
 		machine->AttachMemoryController(meen::IControllerPtr(std::move(memoryController)));
 
+		machine->OnInit([](meen::IController* ioController)
+		{
+#ifdef ENABLE_MH_RP2040
+			i8080_arcade::RPIoController::Init();
+#endif
+			return meen::errc::no_error;
+		});
+
 		// Will be called from a different thread if the 'runAsync' or 'saveAsync' options are set to true.
 		// This is a simple implementation which will overwrite the previous save file
 #ifndef ENABLE_MH_RP2040
