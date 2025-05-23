@@ -330,6 +330,12 @@ namespace i8080_arcade
 			*/
 			void HandleError(std::string&& errorMsg) final;
 
+			/** Load complete handler
+
+				Handle the transition into game play when a rom has been sucessfully loaded.
+			*/
+			void HandleLoadComplete() final;
+
 			/** Load Audio Samples
 
 				Use SDL Mixer to load the audio samples.

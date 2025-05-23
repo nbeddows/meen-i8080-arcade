@@ -247,9 +247,30 @@ int main(int argc, char** argv)
 		// Log any error messages generated, do this as early as possible for best meen error coverage
 		err = machine->OnError([](std::error_code ec, const char* fileName, const char* functionName, uint32_t line, uint32_t column, meen::IController* ioController)
 		{
-			auto len = snprintf(nullptr, 0, "file: %s(%u:%u) `%s`: %s\n", fileName, line, column, functionName, ec.message().c_str());
+			// We only want the fileName starting from the repository root, search for the third last '/\' from the end of the file name
+			std::string_view fn(fileName, strlen(fileName));
+			int count;
+			int index = fn.size();
+
+			for(count = 0; count < 3; count++)
+			{
+				index = fn.find_last_of("/\\", index - 1);
+				
+				if (index == std::string::npos)
+				{
+					index = 0;
+					break;
+				}
+			}
+
+			if (index > 0)
+			{
+				fn.remove_prefix(index + 1); // + 1 - remove the leading slash
+			}
+
+			auto len = snprintf(nullptr, 0, "file: %s(%u:%u) `%s`: %s\n", fn.data(), line, column, functionName, ec.message().c_str());
 			std::string errorMsg(len, '\0');
-			len = snprintf(errorMsg.data(), len, "file: %s(%u:%u) `%s`: %s\n", fileName, line, column, functionName, ec.message().c_str());
+			len = snprintf(errorMsg.data(), len, "file: %s(%u:%u) `%s`: %s\n", fn.data(), line, column, functionName, ec.message().c_str());
 
 			// It's possible for this to be nullptr if the io controller has been removed (should not happen in this demo,
 			// but we perform the check for correctness and print a warning message).
@@ -336,6 +357,11 @@ int main(int argc, char** argv)
 				// todo: return the number of bytes loaded
 			}
 
+			return meen::errc::no_error;
+		// The load complete handler will be called from a different thread if the 'runAsync' configuration option is set to true
+		}, [](meen::IController* ioController)
+		{
+			static_cast<i8080_arcade::IIoController*>(ioController)->HandleLoadComplete();
 			return meen::errc::no_error;
 		});
 

@@ -388,6 +388,12 @@ namespace i8080_arcade
         */
         void HandleError(std::string&& errorMsg) final;
 
+        /** Load complete handler
+
+            Handle the transition into game play when a rom has been sucessfully loaded.
+        */
+        void HandleLoadComplete() final;
+
         /** Load the selected rom or the save state of the currently selected rom
 
             @return    A tuple holding two values:

@@ -400,11 +400,7 @@ namespace i8080_arcade
                     if (RPIoController::buttonPress_[Pin::K1] == true)
                     {
                         isr = meen::ISR::Load;
-                        screen_ = Screen::Gameplay;
-                        ships_ = 0;
                         RPIoController::buttonPress_[Pin::K1] = false;
-                        // Only used for gameplay, enable it
-                        gpio_set_irq_enabled(Pin::K0, GPIO_IRQ_EDGE_FALL  | GPIO_IRQ_EDGE_RISE, true);
                     }
 
                     if(RPIoController::buttonPress_[Pin::K2] == true)
@@ -653,6 +649,15 @@ namespace i8080_arcade
             printf("Failed to dispatch error message, increase the event data pool size\n");
             //assert(0);
         }
+    }
+
+    void RPIoController::HandleLoadComplete()
+    {
+        // We successfully loaded the rom, transition into gameplay.
+        screen_ = Screen::Gameplay;
+        ships_ = 0;
+        // Only used for gameplay, enable it
+        gpio_set_irq_enabled(Pin::K0, GPIO_IRQ_EDGE_FALL  | GPIO_IRQ_EDGE_RISE, true);
     }
 
     std::tuple<bool, int> RPIoController::GetRomIndex()
