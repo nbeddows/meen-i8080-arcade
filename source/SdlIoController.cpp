@@ -411,18 +411,6 @@ namespace i8080_arcade
 							// drop the interrupt
 							isr = meen::ISR::NoInterrupt;
 						}
-
-						// We are attempting to load from a rom and not a save file
-						//if (loadSaveState_ == false)
-						//{
-							// We are loading a rom, move to the game play screen
-						//	screen_ = Screen::Gameplay;
-						//}
-						//else
-						//{
-							// We don't load state from the rom select screen, drop the interrupt
-						//	isr = meen::ISR::NoInterrupt;
-						//}
 					}
 					else
 					{
