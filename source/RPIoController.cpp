@@ -655,6 +655,12 @@ namespace i8080_arcade
         }
     }
 
+    void RPIoController::HandleLoadComplete()
+	{
+		// We successfully loaded the rom, transition into gameplay.
+		screen_ = Screen::Gameplay;
+	}
+
     std::tuple<bool, int> RPIoController::GetRomIndex()
     {
         return std::tuple(false, romIndex_);

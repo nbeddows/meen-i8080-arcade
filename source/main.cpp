@@ -337,6 +337,11 @@ int main(int argc, char** argv)
 			}
 
 			return meen::errc::no_error;
+		// The load complete handler will be called from a different thread if the 'runAsync' configuration option is set to true
+		}, [](meen::IController* ioController)
+		{
+			static_cast<i8080_arcade::IIoController*>(ioController)->HandleLoadComplete();
+			return meen::errc::no_error;
 		});
 
 		// Will always be called from the same thread from which IMachine::Run was called (in this case, the main thread)

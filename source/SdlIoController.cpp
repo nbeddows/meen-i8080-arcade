@@ -405,17 +405,24 @@ namespace i8080_arcade
 				{
 					if (screen_ == Screen::RomSelect)
 					{
-						// We are attempting to load from a rom and not a save file
-						if (loadSaveState_ == false)
+						// We can't save anything from the rom select screen
+						if (loadSaveState_ == true)
 						{
-							// We are loading a rom, move to the game play screen
-							screen_ = Screen::Gameplay;
-						}
-						else
-						{
-							// We don't load state from the rom select screen, drop the interrupt
+							// drop the interrupt
 							isr = meen::ISR::NoInterrupt;
 						}
+
+						// We are attempting to load from a rom and not a save file
+						//if (loadSaveState_ == false)
+						//{
+							// We are loading a rom, move to the game play screen
+						//	screen_ = Screen::Gameplay;
+						//}
+						//else
+						//{
+							// We don't load state from the rom select screen, drop the interrupt
+						//	isr = meen::ISR::NoInterrupt;
+						//}
 					}
 					else
 					{
@@ -622,7 +629,8 @@ namespace i8080_arcade
 						// Check to see if the user wants to load a rom.
 						// This will only be acknowledged in ServiceInterrupts if screen_ is RomSelect,
 						// we could check screen_ for RomSelect here, but that would mean screen_ would have
-						// to be atomic.
+						// to be atomic. There is logic in the ServiceInterrupts noInterrupt switch case to handle this.
+						// One could remove that logic by making screen_ atomic.
 						lastReturn_ = SetInterrupt(sdlKbState_[SDL_SCANCODE_RETURN], lastReturn_, meen::ISR::Load, false);
 						return false;
 					}
@@ -673,5 +681,11 @@ namespace i8080_arcade
 			printf("Failed to dispatch error message, increase the event data pool size\n");
 			//assert(0);
 		}
+	}
+
+	void SDLIoController::HandleLoadComplete()
+	{
+		// We successfully loaded the rom, transition into gameplay.
+		screen_ = Screen::Gameplay;
 	}
 } // namespace i8080_arcade

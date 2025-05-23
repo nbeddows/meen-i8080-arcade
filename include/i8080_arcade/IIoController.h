@@ -66,6 +66,12 @@ namespace i8080_arcade
 		*/
 		virtual void HandleError(std::string&& errorMsg) = 0;
 
+		/** Load complete handler
+		
+			Handle the transition into game play when a rom has been sucessfully loaded.
+		*/
+		virtual void HandleLoadComplete() = 0;
+
 		/** Load Audio Samples
 
             Loads the audio samples from the configuration file.
