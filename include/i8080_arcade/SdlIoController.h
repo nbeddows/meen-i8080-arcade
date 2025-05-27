@@ -233,6 +233,15 @@ namespace i8080_arcade
 			*/
 			std::array<std::atomic_bool, SDL_NUM_SCANCODES> kbState_;
 
+			/** Samples that are currently playing.
+			
+				Dedicate an individual channel to each sample (while not all samples can be played at the same time,
+				it just makes things easier).
+
+				@remark		Declare 16 channels as this is what is supported, even though some slots remain unused.
+			*/
+			static std::array<std::atomic_bool, MIX_CHANNELS * 2> channelPlaying_;
+
 			/** Assign a load or save machine interrupt
 
 				Peforms a check of the key once during a key press and release sequence.

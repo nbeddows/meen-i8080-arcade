@@ -29,6 +29,8 @@ SOFTWARE.
 
 namespace i8080_arcade
 {
+	std::array<std::atomic_bool, MIX_CHANNELS * 2> SDLIoController::channelPlaying_ = {};
+
     SDLIoController::SDLIoController(bool runAsync, int romCount, const JsonVariantConst audioHardware, const JsonVariantConst videoHardware)
 		: runAsync_{ runAsync }
 		, romCount_{ romCount }
@@ -95,6 +97,11 @@ namespace i8080_arcade
 		// Monitor key presses/releases
 		sdlKbState_ = SDL_GetKeyboardState(nullptr);
 
+		Mix_ChannelFinished([](int channel)
+		{
+			SDLIoController::channelPlaying_[channel] = false;
+		});
+
 		for(int i = 0; i < maxEventData_; i++)
 		{
 			eventDataPool_.emplace_back(std::make_unique<EventData>());
@@ -147,6 +154,16 @@ namespace i8080_arcade
 			mixChunk.emplace_back(chunk);
 			return std::error_code{};
 		};
+		
+		if (audio["sample"].size() != MIX_CHANNELS * 2)
+		{
+			return std::make_error_code(std::errc::invalid_argument);
+		}
+
+		if (Mix_AllocateChannels(audio["sample"].size()) != MIX_CHANNELS * 2)
+		{
+			return std::make_error_code(std::errc::not_supported);
+		}
 
 		for(const auto& sample : audio["sample"].as<JsonArrayConst>())
 		{
@@ -375,15 +392,46 @@ namespace i8080_arcade
 
 			if (eventData != nullptr)
 			{
-				SDL_Event e{ .type = static_cast<Uint32>(siEvent_) };
-				*eventData = static_cast<uint8_t>(port);
-				e.user.data1 = reinterpret_cast<void*>(eventData);
-				e.user.data2 = reinterpret_cast<void*>(audio);
-				SDL_PushEvent(&e);
+				// port will either be 3 or 5
+				// when port is 3 index will be 0 and when it is 5 it will be 8
+				// which will give the correct offset into the mixChunk_ array
+				auto offset = (port - 3) << 2;
+
+				for (int i = 0; i < 8; i++)
+				{
+					if ((audio >> i) & 0x01)
+					{
+						// Don't repeat a sample until it has finished
+						if (SDLIoController::channelPlaying_[i + offset] == true)
+						{
+							audio &= ~(0x01 << i);
+						}
+						else
+						{
+							SDLIoController::channelPlaying_[i + offset] = true;
+						}
+					}
+				}
+
+				// We may have turned off all audio, check it again
+				if (audio > 0)
+				{
+					SDL_Event e{ .type = static_cast<Uint32>(siEvent_) };
+					*eventData = static_cast<uint8_t>(port);
+					e.user.data1 = reinterpret_cast<void*>(eventData);
+					e.user.data2 = reinterpret_cast<void*>(audio);
+					SDL_PushEvent(&e);
+				}	
+				else
+				{
+					// We have no audio to send, return the data back to the pool
+					std::lock_guard<std::mutex> lg(eventDataMutex_);
+					eventDataPool_.push_back(std::unique_ptr<EventData>(eventData));
+				}
 			}
 			else
 			{
-				printf("Failed dispatch audio, increase the event data pool size\n");
+				printf("Failed to dispatch audio, increase the event data pool size\n");
 				//assert(0);
 			}
 		}
@@ -528,23 +576,11 @@ namespace i8080_arcade
 
 						for (int i = 0; i < 8; i++)
 						{
-							/*
-								todo: if the audio is ufo, we need to loop it rather than playing the sample again.
-										this should fix the stall in single threaded mode
-
-								if audio.test(i) is ufo and ufo not playing
-									mix play channel (repeat the sample)
-
-								if audio.test(i) != ufo and ufo playing
-									mix play channel (stop the sample)
-							*/
-
 							if (audio.test(i) == true)
 							{
-								[[maybe_unused]] auto busy = Mix_PlayChannel(-1 /* use the next available channel */, mixChunk_[i + offset], 0 /* don't loop (play it once) */);
-								// We are playing 8 (default maximum) samples at the same time, this should not happen!
-								// We are trying to play a track which isn't loaded (an unknown data bit is set?!?!)
-								//assert(mixChunk_[i] == nullptr || busy != -1);
+								[[maybe_unused]] auto busy = Mix_PlayChannel(i + offset /* use a dedicated channel */, mixChunk_[i + offset], 0 /* don't loop (play it once) */);
+								// We have a channel for each sound, so busy should only be -1 when we don't have a sound for that channel
+								assert(mixChunk_[i] == nullptr || busy != -1);
 							}
 						}
 
@@ -675,5 +711,7 @@ namespace i8080_arcade
 	{
 		// We successfully loaded the rom, transition into gameplay.
 		screen_ = Screen::Gameplay;
+		// Reset the internal state of the hardware
+		i8080ArcadeIO_->Reset();
 	}
 } // namespace i8080_arcade
