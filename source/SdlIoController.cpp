@@ -626,6 +626,13 @@ namespace i8080_arcade
 							return key;
 						};
 
+						// Halt all channels when returning to the rom select screen
+						if (sdlKbState_[SDL_SCANCODE_ESCAPE] == SDL_TRUE)
+						{
+							// -1: since we don't set any channel tags, use the default
+							Mix_HaltGroup(-1);
+						}
+
 						// Copy out the values that will be accessed from a different thread.
 						// (Do it regardless in single threaded mode, its here for demo purposes only)
 						kbState_[SDL_SCANCODE_C] = sdlKbState_[SDL_SCANCODE_C];
