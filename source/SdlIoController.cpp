@@ -43,6 +43,8 @@ namespace i8080_arcade
 			printf("Failed to initialise SDL");
 		}
 
+		Mix_Init(0);
+
 		window_ = SDL_CreateWindow("meen i8080 arcade",
 								SDL_WINDOWPOS_UNDEFINED,
 								SDL_WINDOWPOS_UNDEFINED,
@@ -126,7 +128,7 @@ namespace i8080_arcade
 		}
 
 		Mix_CloseAudio();
-
+		Mix_Quit();
 		SDL_Quit();
 	}
 
