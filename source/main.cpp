@@ -251,11 +251,16 @@ int main(int argc, char** argv)
 			{
 				// Check the names of the audio files and set the correct audio address accordingly
 				auto name = s["bytes"].as<std::string_view>();
-				CHECK_ERROR(!audioNameToAddr.contains(name), printf("The audio samples is missing bytes: %s\n", std::string(name).c_str()));
-				// The size parameter must be set before bytes as name is a string_view.
-				// Reversing the order would cause ub as the view would be looking at the address rather than the name.
-				s["size"] = audioNameToAddr.at(name).second;
-				s["bytes"] = std::to_string(audioNameToAddr.at(name).first);
+
+				// Ignore unused entries
+				if (name.empty() == false)
+				{
+					CHECK_ERROR(!audioNameToAddr.contains(name), printf("The audio samples is missing bytes: %s\n", std::string(name).c_str()));
+					// The size parameter must be set before bytes as name is a string_view.
+					// Reversing the order would cause ub as the view would be looking at the address rather than the name.
+					s["size"] = audioNameToAddr.at(name).second;
+					s["bytes"] = std::to_string(audioNameToAddr.at(name).first);
+				}
 			}
 		}
 #endif // ENABLE_MH_RP2040
@@ -297,7 +302,7 @@ int main(int argc, char** argv)
 			for(count = 0; count < 3; count++)
 			{
 				index = fn.find_last_of("/\\", index - 1);
-				
+
 				if (index == std::string::npos)
 				{
 					index = 0;
