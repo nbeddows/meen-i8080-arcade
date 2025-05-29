@@ -306,7 +306,7 @@ namespace i8080_arcade
             {
                 // The first sample read in sets the expected properties of the remaining samples to be read
                 channels_ = channels;
-                sampleRate_ = samplesRate;
+                sampleRate_ = sampleRate;
                 bytesPerSecond_ = bytesPerSecond;
                 nBlockAlign_ = nBlockAlign;
                 bitsPerSample_ = bitsPerSample;
@@ -315,7 +315,7 @@ namespace i8080_arcade
             // Copy the sample data from flash to ram
             audioSamples_.emplace_back(wav + 44, wav + len);
             return std::errc();
-        }
+        };
 
         for(const auto& sample : audioSamples["sample"].as<JsonArrayConst>())
         {
