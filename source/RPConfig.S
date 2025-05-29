@@ -135,3 +135,54 @@ lrescue6Start:
 .incbin "lrescue-6.bin"
 .global lrescue6End
 lrescue6End:
+
+.global ufoHStart
+ufoHStart:
+.incbin "ufo_highpitch.wav"
+.global ufoHEnd
+ufoHEnd:
+.global ufoLStart
+ufoLStart:
+.incbin "ufo_lowpitch.wav"
+.global ufoLEnd
+ufoLEnd:
+.global shootStart
+shootStart:
+.incbin "shoot.wav"
+.global shootEnd
+shootEnd:
+.global explStart
+explStart:
+.incbin "explosion.wav"
+.global explEnd
+explEnd:
+.global invkStart
+invkStart:
+.incbin "invaderkilled.wav"
+.global invkEnd
+invkEnd:
+.global extpStart
+extpStart:
+.incbin "extendedplay.wav"
+.global extpEnd
+extpEnd:
+.global mvt1Start
+mvt1Start:
+.incbin "fastinvader1.wav"
+.global mvt1End
+mvt1End:
+.global mvt2Start
+mvt2Start:
+.incbin "fastinvader2.wav"
+.global mvt2End
+mvt2End:
+.global mvt3Start
+mvt3Start:
+.incbin "fastinvader3.wav"
+.global mvt3End
+mvt3End:
+.global mvt4Start
+mvt4Start:
+.incbin "fastinvader4.wav"
+.global mvt4End
+mvt4End:
