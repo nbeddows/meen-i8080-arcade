@@ -170,7 +170,7 @@ namespace i8080_arcade
 		for(const auto& sample : audio["sample"].as<JsonArrayConst>())
 		{
 			auto dir = directory;
-			auto resource = sample.as<std::string_view>();
+			auto resource = sample["bytes"].as<std::string_view>();
 
 			if (resource.starts_with("file://"))
 			{
@@ -722,5 +722,10 @@ namespace i8080_arcade
 		screen_ = Screen::Gameplay;
 		// Reset the internal state of the hardware
 		i8080ArcadeIO_->Reset();
+
+		// Based on what rom we have loaded, we may need to reconfigure the hardware,
+		// for example, audio effects which repeat (ufo for space invaders) may not be the same for other roms,
+		// need to confirm this.
+		// i8080ArcadeIO_->SetOptions(R"({"repeat_samples":[1, 2, 4]})")
 	}
 } // namespace i8080_arcade
