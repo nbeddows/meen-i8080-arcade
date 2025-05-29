@@ -189,7 +189,7 @@ int main(int argc, char** argv)
 			{ "explosion.wav", toPair(&explStart, &explEnd) }, { "invaderkilled.wav", toPair(&invkStart, &invkEnd) }, { "extendedplay.wav", toPair(&extpStart, &extpEnd) },
 			{ "fastinvader1.wav", toPair(&mvt1Start, &mvt1End) }, { "fastinvader2.wav", toPair(&mvt2Start, &mvt2End) }, { "fastinvader3.wav", toPair(&mvt3Start, &mvt3End) },
 			{ "fastinvader4.wav", toPair(&mvt4Start, &mvt4End) }
-		}
+		};
 
 		stdio_init_all();
 		// Open the configuration file, see the README for an explanation of each configuration option
@@ -254,8 +254,8 @@ int main(int argc, char** argv)
 				CHECK_ERROR(!audioNameToAddr.contains(name), printf("The audio samples is missing bytes: %s\n", std::string(name).c_str()));
 				// The size parameter must be set before bytes as name is a string_view.
 				// Reversing the order would cause ub as the view would be looking at the address rather than the name.
-				block["size"] = audioNameToAddr.at(name).second;
-				block["bytes"] = std::to_string(audioNameToAddr.at(name).first);
+				s["size"] = audioNameToAddr.at(name).second;
+				s["bytes"] = std::to_string(audioNameToAddr.at(name).first);
 			}
 		}
 #endif // ENABLE_MH_RP2040
