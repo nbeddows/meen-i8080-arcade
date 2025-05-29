@@ -119,7 +119,7 @@ endif()
 target_include_directories(${project_name} PRIVATE ${CMAKE_SOURCE_DIR}/include)
 
 if(${build_os} STREQUAL "baremetal")
-  target_include_directories(${project_name} PRIVATE ${CMAKE_SOURCE_DIR}/conf ${CMAKE_SOURCE_DIR}/rom-files)
+  target_include_directories(${project_name} PRIVATE ${CMAKE_SOURCE_DIR}/conf ${CMAKE_SOURCE_DIR}/rom-files ${CMAKE_SOURCE_DIR}/audio-files)
 endif()
 
 target_link_libraries(${project_name} PRIVATE ${${project_name}_deps})
