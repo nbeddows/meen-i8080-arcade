@@ -231,9 +231,9 @@ namespace i8080_arcade
 
     std::error_code RPIoController::LoadAudioSamples([[maybe_unused]] const JsonVariantConst audioSamples)
     {
-        auto scheme = audio["scheme"].as<std::string_view>();
+        auto scheme = audioSamples["scheme"].as<std::string_view>();
 
-        auto addSample = [&audioSamples_](uint8_t* wav, int len)
+        auto addSample = [this](const uint8_t* wav, int len)
         {
             if (len < 8)
             {
@@ -249,7 +249,7 @@ namespace i8080_arcade
             // The length of our resource is different to what is reported
             if (len != *(std::bit_cast<uint32_t*>(wav + 4)))
             {
-                return std::errc::value_to_large;
+                return std::errc::value_too_large;
             }
 
             // Check for 'WAVE' fourcc
@@ -291,7 +291,7 @@ namespace i8080_arcade
             // The WAV header is 44 bytes, make sure the remaining length is whats reported
             if (*(std::bit_cast<uint32_t*>(wav + 40)) != len - 44)
             {
-                return std::errc::value_to_large;
+                return std::errc::value_too_large;
             }
 
             if (audioSamples_.empty() == false)
@@ -306,53 +306,54 @@ namespace i8080_arcade
             {
                 // The first sample read in sets the expected properties of the remaining samples to be read
                 channels_ = channels;
-                samplesRate_ = samplesRate;
+                sampleRate_ = samplesRate;
                 bytesPerSecond_ = bytesPerSecond;
                 nBlockAlign_ = nBlockAlign;
-                bitsPerSample_ = butsPerSamples;
+                bitsPerSample_ = bitsPerSample;
             }
 
             // Copy the sample data from flash to ram
             audioSamples_.emplace_back(wav + 44, wav + len);
+            return std::errc();
         }
 
-        for(const auto& sample : audio["sample"].as<JsonArrayConst>())
+        for(const auto& sample : audioSamples["sample"].as<JsonArrayConst>())
         {
-			auto resource = sample["bytes"].as<std::string_view>();
+            auto resource = sample["bytes"].as<std::string_view>();
 
-			if (resource.starts_with("mem://"))
-			{
-				resource.remove_prefix(strlen("mem://"));
-			}
-			else
-			{
-				if (scheme != "mem://")
-				{
-					return std::make_error_code (std::errc::not_supported);
-				}
-			}
+            if (resource.starts_with("mem://"))
+            {
+                resource.remove_prefix(strlen("mem://"));
+            }
+            else
+            {
+                if (scheme != "mem://")
+                {
+                    return std::make_error_code (std::errc::not_supported);
+                }
+            }
 
             if (resource.empty() == false)
             {
                 uintptr_t value = 0;
                 auto [ptr, ec] = std::from_chars (resource.data(), resource.data() + resource.size(), value, 10);
 
-                if (ec || ptr != resource.data() + resource.size())
+                if (ec != std::errc() || ptr != resource.data() + resource.size())
                 {
-                    return ec;
+                    return std::make_error_code(ec);
                 }
 
-                ec = addSample(reinterpret_cast<const uint8_t*>(value), sample["size"].as<int>());
+                auto err = addSample(reinterpret_cast<const uint8_t*>(value), sample["size"].as<int>());
 
-                if (ec)
+                if (err != std::errc())
                 {
-                    return ec;
+                    return err;
                 }
             }
         }
 
         return std::error_code{};
-    }
+    };
 
     uint8_t RPIoController::Read(uint16_t port, [[maybe_unused]] meen::IController* memoryController)
     {
