@@ -236,61 +236,71 @@ namespace i8080_arcade
 
         auto addSample = [this](const uint8_t* wav, int len)
         {
+            auto getUint32 = [](const uint8_t* ptr)
+            {
+                return (static_cast<uint32_t>(ptr[3]) << 24) | (static_cast<uint32_t>(ptr[2]) << 16) | (static_cast<uint32_t>(ptr[1]) << 8) | static_cast<uint32_t>(ptr[0]);
+            };
+
+            auto getUint16 = [](const uint8_t* ptr)
+            {
+                return (static_cast<uint16_t>(ptr[1]) << 8) | static_cast<uint16_t>(ptr[0]);
+            };
+
             if (len < 8)
             {
                 return std::errc::invalid_argument;
             }
 
             // Check the 'RIFF' fourcc
-            if (*(std::bit_cast<uint32_t*>(wav)) != 0x46464952)
+            if (getUint32(wav) != 0x46464952)
             {
                 return std::errc::protocol_not_supported;
             }
 
             // The length of our resource is different to what is reported
-            if (len != *(std::bit_cast<uint32_t*>(wav + 4)))
+            if (len - 8 != getUint32(wav + 4))
             {
                 return std::errc::value_too_large;
             }
 
             // Check for 'WAVE' fourcc
-            if (*(std::bit_cast<uint32_t*>(wav + 8)) != 0x45564157)
+            if (getUint32(wav + 8) != 0x45564157)
             {
                 return std::errc::protocol_not_supported;
             }
 
             // Check for 'fmt ' fourcc
-            if (*(std::bit_cast<uint32_t*>(wav + 12)) != 0x20746D66)
+            if (getUint32(wav + 12) != 0x20746D66)
             {
                 return std::errc::protocol_not_supported;
             }
 
             // Not supporting extended data
-            if (*(std::bit_cast<uint32_t*>(wav + 16)) != 16)
+            if (getUint32(wav + 16) != 16)
             {
                 return std::errc::no_protocol_option;
             }
 
             // Only supporting PCM format
-            if (*(std::bit_cast<uint16_t*>(wav + 20)) != 1)
+            if (getUint16(wav + 20) != 1)
             {
                 return std::errc::no_protocol_option;
             }
 
-            auto channels = *(std::bit_cast<uint16_t*>(wav + 22));
-            auto sampleRate = *(std::bit_cast<uint32_t*>(wav + 24));
-            auto bytesPerSecond = *(std::bit_cast<uint32_t*>(wav + 28));
-            auto nBlockAlign = *(std::bit_cast<uint16_t*>(wav + 32));
-            auto bitsPerSample = *(std::bit_cast<uint16_t*>(wav + 34));
+            auto channels = getUint16(wav + 22);
+            auto sampleRate = getUint32(wav + 24);
+            auto bytesPerSecond = getUint32(wav + 28);
+            auto nBlockAlign = getUint16(wav + 32);
+            auto bitsPerSample = getUint16(wav + 34);
 
             // Check for 'data' fourcc
-            if (*(std::bit_cast<uint32_t*>(wav + 36)) != 0x61746164)
+            if (getUint32(wav + 36) != 0x61746164)
             {
                 return std::errc::protocol_not_supported;
             }
 
             // The WAV header is 44 bytes, make sure the remaining length is whats reported
-            if (*(std::bit_cast<uint32_t*>(wav + 40)) != len - 44)
+            if (getUint32(wav + 40) != len - 44)
             {
                 return std::errc::value_too_large;
             }
@@ -344,7 +354,7 @@ namespace i8080_arcade
                     return std::make_error_code(ec);
                 }
 
-                auto err = addSample(reinterpret_cast<const uint8_t*>(value), sample["size"].as<int>());
+                auto err = addSample(std::bit_cast<const uint8_t*>(value), sample["size"].as<int>());
 
                 if (err != std::errc())
                 {
