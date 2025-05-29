@@ -231,7 +231,127 @@ namespace i8080_arcade
 
     std::error_code RPIoController::LoadAudioSamples([[maybe_unused]] const JsonVariantConst audioSamples)
     {
-        return std::make_error_code(std::errc::not_supported);
+        auto scheme = audio["scheme"].as<std::string_view>();
+
+        auto addSample = [&audioSamples_](uint8_t* wav, int len)
+        {
+            if (len < 8)
+            {
+                return std::errc::invalid_argument;
+            }
+
+            // Check the 'RIFF' fourcc
+            if (*(std::bit_cast<uint32_t*>(wav)) != 0x46464952)
+            {
+                return std::errc::protocol_not_supported;
+            }
+
+            // The length of our resource is different to what is reported
+            if (len != *(std::bit_cast<uint32_t*>(wav + 4)))
+            {
+                return std::errc::value_to_large;
+            }
+
+            // Check for 'WAVE' fourcc
+            if (*(std::bit_cast<uint32_t*>(wav + 8)) != 0x45564157)
+            {
+                return std::errc::protocol_not_supported;
+            }
+
+            // Check for 'fmt ' fourcc
+            if (*(std::bit_cast<uint32_t*>(wav + 12)) != 0x20746D66)
+            {
+                return std::errc::protocol_not_supported;
+            }
+
+            // Not supporting extended data
+            if (*(std::bit_cast<uint32_t*>(wav + 16)) != 16)
+            {
+                return std::errc::no_protocol_option;
+            }
+
+            // Only supporting PCM format
+            if (*(std::bit_cast<uint16_t*>(wav + 20)) != 1)
+            {
+                return std::errc::no_protocol_option;
+            }
+
+            auto channels = *(std::bit_cast<uint16_t*>(wav + 22));
+            auto sampleRate = *(std::bit_cast<uint32_t*>(wav + 24));
+            auto bytesPerSecond = *(std::bit_cast<uint32_t*>(wav + 28));
+            auto nBlockAlign = *(std::bit_cast<uint16_t*>(wav + 32));
+            auto bitsPerSample = *(std::bit_cast<uint16_t*>(wav + 34));
+
+            // Check for 'data' fourcc
+            if (*(std::bit_cast<uint32_t*>(wav + 36)) != 0x61746164)
+            {
+                return std::errc::protocol_not_supported;
+            }
+
+            // The WAV header is 44 bytes, make sure the remaining length is whats reported
+            if (*(std::bit_cast<uint32_t*>(wav + 40)) != len - 44)
+            {
+                return std::errc::value_to_large;
+            }
+
+            if (audioSamples_.empty() == false)
+            {
+                // All samples must be of the same format
+                if (channels_ != channels || sampleRate_ != sampleRate || bytesPerSecond_ != bytesPerSecond || nBlockAlign_ != nBlockAlign || bitsPerSample != bitsPerSample)
+                {
+                    return std::errc::not_supported;
+                }
+            }
+            else
+            {
+                // The first sample read in sets the expected properties of the remaining samples to be read
+                channels_ = channels;
+                samplesRate_ = samplesRate;
+                bytesPerSecond_ = bytesPerSecond;
+                nBlockAlign_ = nBlockAlign;
+                bitsPerSample_ = butsPerSamples;
+            }
+
+            // Copy the sample data from flash to ram
+            audioSamples_.emplace_back(wav + 44, wav + len);
+        }
+
+        for(const auto& sample : audio["sample"].as<JsonArrayConst>())
+        {
+			auto resource = sample["bytes"].as<std::string_view>();
+
+			if (resource.starts_with("mem://"))
+			{
+				resource.remove_prefix(strlen("mem://"));
+			}
+			else
+			{
+				if (scheme != "mem://")
+				{
+					return std::make_error_code (std::errc::not_supported);
+				}
+			}
+
+            if (resource.empty() == false)
+            {
+                uintptr_t value = 0;
+                auto [ptr, ec] = std::from_chars (resource.data(), resource.data() + resource.size(), value, 10);
+
+                if (ec || ptr != resource.data() + resource.size())
+                {
+                    return ec;
+                }
+
+                ec = addSample(reinterpret_cast<const uint8_t*>(value), sample["size"].as<int>());
+
+                if (ec)
+                {
+                    return ec;
+                }
+            }
+        }
+
+        return std::error_code{};
     }
 
     uint8_t RPIoController::Read(uint16_t port, [[maybe_unused]] meen::IController* memoryController)
