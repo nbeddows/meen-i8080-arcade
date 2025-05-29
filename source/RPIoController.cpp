@@ -22,6 +22,7 @@ SOFTWARE.
 
 #include <assert.h>
 #include <bitset>
+#include <charconv>
 #include <cstring>
 #include <hardware/gpio.h>
 #include <hardware/pwm.h>
@@ -347,7 +348,7 @@ namespace i8080_arcade
 
                 if (err != std::errc())
                 {
-                    return err;
+                    return std::make_error_code(err);
                 }
             }
         }
