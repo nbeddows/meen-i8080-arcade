@@ -77,7 +77,13 @@ namespace i8080_arcade
 			printf("Failed to create i8080 arcade hardware");
 		}
 
-		if (Mix_OpenAudio(audioHardware["sampleRate"].as<int>(), 8 /* format (mono) */, audioHardware["channels"].as<int>(), audioHardware["sampleSize"].as<int>()) < 0)
+		int sampleRate = audioHardware["sampleRate"].as<int>();
+		// Allocate a sample buffer large enough to span one video frame duration.
+		// Note: depending on the sample rate this may not be a whole number and will be truncated,
+		// hence it could be one sample less than a video frame duration (this should be fine).
+		int sampleSize = sampleRate / 60; // 60 - video runs a 60hz
+
+		if (Mix_OpenAudio(sampleRate, 8 /* format (mono) */, audioHardware["channels"].as<int>(), sampleSize) < 0)
 		{
 			printf("Failed to open SDL Mixer");
 		}
@@ -170,7 +176,7 @@ namespace i8080_arcade
 		for(const auto& sample : audio["sample"].as<JsonArrayConst>())
 		{
 			auto dir = directory;
-			auto resource = sample.as<std::string_view>();
+			auto resource = sample["bytes"].as<std::string_view>();
 
 			if (resource.starts_with("file://"))
 			{
@@ -423,7 +429,7 @@ namespace i8080_arcade
 					e.user.data1 = reinterpret_cast<void*>(eventData);
 					e.user.data2 = reinterpret_cast<void*>(audio);
 					SDL_PushEvent(&e);
-				}	
+				}
 				else
 				{
 					// We have no audio to send, return the data back to the pool
@@ -722,5 +728,10 @@ namespace i8080_arcade
 		screen_ = Screen::Gameplay;
 		// Reset the internal state of the hardware
 		i8080ArcadeIO_->Reset();
+
+		// Based on what rom we have loaded, we may need to reconfigure the hardware,
+		// for example, audio effects which repeat (ufo for space invaders) may not be the same for other roms,
+		// need to confirm this.
+		// i8080ArcadeIO_->SetOptions(R"({"repeat_samples":[1, 2, 4]})")
 	}
 } // namespace i8080_arcade

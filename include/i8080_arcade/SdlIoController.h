@@ -128,25 +128,25 @@ namespace i8080_arcade
 			std::mutex eventDataMutex_;
 
 			/** Event data pool condition variable
-			
+
 				Used in conjuction with eventDataMutex_ to wait on all outstanding events to complete. This is required for screen transition (back to rom select)
 				so all video frames can be cleared preventing any stale video frames being rendered.
 
 			*/
 			std::condition_variable eventDataCv_;
-			
+
 			/** Event data pool atomic flag
-			
+
 				Used in conjuction with the main thread to wait on all outstanding events to complete. This is required for screen transition (back to rom select)
 				so all video frames can be cleared preventing any stale video frames from being rendered.
 			*/
 			//std::atomic_flag eventDataCv_;;
 
-	        /** The maximum number of events across all pools
+			/** The maximum number of events across all pools
 
-    	        This can be increased/decreased depending on requirements.
-        	*/
-        	static constexpr int maxEventData_{ 2 };
+				This can be increased/decreased depending on requirements.
+			*/
+			static constexpr int maxEventData_{ 2 };
 
 			/** Prepare for shut down
 
@@ -221,20 +221,20 @@ namespace i8080_arcade
 			Screen screen_{};
 
 			/** The SDL keyboard state
-			
+
 				This is the return value of the SDL_GetKeyboardState api call.
 			*/
 			const uint8_t* sdlKbState_{};
 
 			/** The shared keyboard state
-			
+
 				We copy the required keyboard state into this array for non main thead access as we assume to pointer
 				returned from the SDL_GetKeyboardState method (sdlKbState_) should not be accessed from a non main thread.
 			*/
 			std::array<std::atomic_bool, SDL_NUM_SCANCODES> kbState_;
 
 			/** Samples that are currently playing.
-			
+
 				Dedicate an individual channel to each sample (while not all samples can be played at the same time,
 				it just makes things easier).
 

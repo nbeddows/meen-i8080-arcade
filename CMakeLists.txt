@@ -82,7 +82,7 @@ find_package(ArduinoJson REQUIRED)
 set(${project_name}_source_files
   source/GlyphRenderer.cpp
   source/main.cpp
-  source/MemoryController.cpp  
+  source/MemoryController.cpp
 )
 set(${project_name}_include_files
   include/i8080_arcade/GlyphRenderer.h
@@ -95,7 +95,7 @@ if(${build_os} STREQUAL "baremetal")
   if(${enable_rp2040} STREQUAL ON)
     set(${project_name}_include_files ${${project_name}_include_files} include/i8080_arcade/RPIoController.h)
     set(${project_name}_source_files ${${project_name}_source_files} source/RPConfig.S source/RPIoController.cpp)
-    set(${project_name}_deps ${${project_name}_deps} pico_stdlib hardware_spi hardware_gpio hardware_pwm)
+    set(${project_name}_deps ${${project_name}_deps} pico_stdlib hardware_dma hardware_spi hardware_gpio hardware_pio hardware_pwm)
   endif()
 else()
   if(${enable_sdl} STREQUAL ON)
@@ -119,7 +119,7 @@ endif()
 target_include_directories(${project_name} PRIVATE ${CMAKE_SOURCE_DIR}/include)
 
 if(${build_os} STREQUAL "baremetal")
-  target_include_directories(${project_name} PRIVATE ${CMAKE_SOURCE_DIR}/conf ${CMAKE_SOURCE_DIR}/rom-files)
+  target_include_directories(${project_name} PRIVATE ${CMAKE_SOURCE_DIR}/conf ${CMAKE_SOURCE_DIR}/rom-files ${CMAKE_SOURCE_DIR}/audio-files)
 endif()
 
 target_link_libraries(${project_name} PRIVATE ${${project_name}_deps})
@@ -136,9 +136,10 @@ if(${build_os} STREQUAL "baremetal")
 
   if(${enable_rp2040} STREQUAL ON)
     target_compile_definitions(${project_name} PRIVATE ENABLE_MH_RP2040)
+    pico_generate_pio_header(${project_name} ${CMAKE_SOURCE_DIR}/source/RPAudioOut.pio)
     pico_enable_stdio_usb(${project_name} 1)
     pico_enable_stdio_uart(${project_name} 0)
-    pico_set_program_url(${project_name} "https://github.com/neddows/meen-${project_name}")
+    pico_set_program_url(${project_name} "https://github.com/neddows/${project_name}")
     pico_add_extra_outputs(${project_name})
     install(PROGRAMS ${CMAKE_BINARY_DIR}/${project_name}.bin DESTINATION ${runtime_dir})
     install(FILES ${CMAKE_BINARY_DIR}/${project_name}.uf2 DESTINATION ${runtime_dir})

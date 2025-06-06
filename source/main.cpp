@@ -96,6 +96,27 @@ extern uint8_t lrescue5End;
 extern uint8_t lrescue6Start;
 extern uint8_t lrescue6End;
 
+extern uint8_t ufoHStart;
+extern uint8_t ufoHEnd;
+extern uint8_t ufoLStart;
+extern uint8_t ufoLEnd;
+extern uint8_t shootStart;
+extern uint8_t shootEnd;
+extern uint8_t explStart;
+extern uint8_t explEnd;
+extern uint8_t invkStart;
+extern uint8_t invkEnd;
+extern uint8_t extpStart;
+extern uint8_t extpEnd;
+extern uint8_t mvt1Start;
+extern uint8_t mvt1End;
+extern uint8_t mvt2Start;
+extern uint8_t mvt2End;
+extern uint8_t mvt3Start;
+extern uint8_t mvt3End;
+extern uint8_t mvt4Start;
+extern uint8_t mvt4End;
+
 extern char rpConfigStart;
 extern char rpConfigEnd;
 #else
@@ -118,16 +139,12 @@ if(value)\
 
 static i8080_arcade::MemoryController* MakeMemoryController(const std::vector<std::pair<std::string, std::string>>&jsonRoms)
 {
-#ifdef ENABLE_MH_RP2040
 	return new i8080_arcade::MemoryController(jsonRoms);
-#else
-	return new i8080_arcade::MemoryController(jsonRoms);
-#endif
 }
 
 static i8080_arcade::IIoController* MakeIoController(bool runAsync, meen_hw::MH_ResourcePool<std::vector<uint8_t>>::ResourcePtr&& backBuffer, int romCount, JsonVariantConst audioHardware, JsonVariantConst videoHardware)
 {
-	if (!audioHardware|| !videoHardware)
+	if (!audioHardware || !videoHardware)
 	{
 		return nullptr;
 	}
@@ -164,6 +181,14 @@ int main(int argc, char** argv)
 			{ "PV.01", toPair(&pv01Start, &pv01End) }, { "PV.02", toPair(&pv02Start, &pv02End) }, { "PV.03", toPair(&pv03Start, &pv03End) }, { "PV.04", toPair(&pv04Start, &pv04End) }, { "PV.05", toPair(&pv05Start, &pv05End) },
 			{ "tn01.bin", toPair(&tn01Start, &tn01End) }, { "tn02.bin", toPair(&tn02Start, &tn02End) }, { "tn03.bin", toPair(&tn03Start, &tn03End) }, { "tn04.bin", toPair(&tn04Start, &tn04End) }, { "tn05-1.bin", toPair(&tn05Start, &tn05End) },
 			{ "lrescue-1.bin", toPair(&lrescue1Start, &lrescue1End) }, { "lrescue-2.bin", toPair(&lrescue2Start, &lrescue2End) }, { "lrescue-3.bin", toPair(&lrescue3Start, &lrescue3End) }, { "lrescue-4.bin", toPair(&lrescue4Start, &lrescue4End) }, { "lrescue-5.bin", toPair(&lrescue5Start, &lrescue5End) }, { "lrescue-6.bin", toPair(&lrescue6Start, &lrescue6End) }
+		};
+
+		const std::unordered_map<std::string_view, std::pair<uintptr_t, uint16_t>> audioNameToAddr
+		{
+			{ "ufo_highpitch.wav", toPair(&ufoHStart, &ufoHEnd) }, { "ufo_lowpitch.wav", toPair(&ufoLStart, &ufoLEnd) }, { "shoot.wav", toPair(&shootStart, &shootEnd) },
+			{ "explosion.wav", toPair(&explStart, &explEnd) }, { "invaderkilled.wav", toPair(&invkStart, &invkEnd) }, { "extendedplay.wav", toPair(&extpStart, &extpEnd) },
+			{ "fastinvader1.wav", toPair(&mvt1Start, &mvt1End) }, { "fastinvader2.wav", toPair(&mvt2Start, &mvt2End) }, { "fastinvader3.wav", toPair(&mvt3Start, &mvt3End) },
+			{ "fastinvader4.wav", toPair(&mvt4Start, &mvt4End) }
 		};
 
 		stdio_init_all();
@@ -203,7 +228,6 @@ int main(int argc, char** argv)
 				// Check the names of the roms and set the correct rom address accordingly
 				auto name = block["bytes"].as<std::string_view>();
 				CHECK_ERROR(!romNameToAddr.contains(name), printf("The memory rom block is missing bytes: %s\n", std::string(name).c_str()));
-
 				// The size parameter must be set before bytes as name is a string_view.
 				// Reversing the order would cause ub as the view would be looking at the address rather than the name.
 				block["size"] = romNameToAddr.at(name).second;
@@ -217,6 +241,29 @@ int main(int argc, char** argv)
 			jsonRoms.emplace_back (r["name"].as<std::string>(), std::move(str));
 		}
 
+#ifdef ENABLE_MH_RP2040
+		if (software["audio"])
+		{
+			// Update the scheme
+			software["audio"]["scheme"] = "mem://";
+
+			for(auto&& s : software["audio"]["sample"].as<JsonArray>())
+			{
+				// Check the names of the audio files and set the correct audio address accordingly
+				auto name = s["bytes"].as<std::string_view>();
+
+				// Ignore unused entries
+				if (name.empty() == false)
+				{
+					CHECK_ERROR(!audioNameToAddr.contains(name), printf("The audio samples is missing bytes: %s\n", std::string(name).c_str()));
+					// The size parameter must be set before bytes as name is a string_view.
+					// Reversing the order would cause ub as the view would be looking at the address rather than the name.
+					s["size"] = audioNameToAddr.at(name).second;
+					s["bytes"] = std::to_string(audioNameToAddr.at(name).first);
+				}
+			}
+		}
+#endif // ENABLE_MH_RP2040
 		auto meen = hardware["meen"];
 		CHECK_ERROR(!meen, printf("Invalid json config file format: meen section not found\n"));
 
@@ -255,7 +302,7 @@ int main(int argc, char** argv)
 			for(count = 0; count < 3; count++)
 			{
 				index = fn.find_last_of("/\\", index - 1);
-				
+
 				if (index == std::string::npos)
 				{
 					index = 0;

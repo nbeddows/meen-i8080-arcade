@@ -1,4 +1,3 @@
-
 ### Introduction
 
 This is a binary distribution of an [emulated i8080 arcade machine](https://github.com/nbeddows/i8080-arcade) based on the Space Invaders Taito/Midway arcade hardware using [meen](http://github.com/nbeddows/mach-emu/) and [meen-hw](http://github.com/nbeddows/meen-hw/).
@@ -19,8 +18,8 @@ This project has been tested against the following roms (which can be found else
 - Balloon Bomber (This one looks to have issues which go beyond the superficial that require further investigation).
 - Lunar Rescue.
 
-For supported desktop platforms The Simple Direct MediaLayer (SDL) is used to render the output and requires a keyboard for interaction (keyboard controls are documented towards the end of this document).
-For supported embedded platforms an st7789 based lcd screen is required for rendering the output (tested with 320x240) with a minimum of 4 buttons for interaction (button controls are documented towards the end of this document).
+For supported desktop platforms The Simple Direct MediaLayer (SDL) is used to render the video and audio and requires a keyboard for interaction (keyboard controls are documented towards the end of this document).
+For supported embedded platforms an st7789 based lcd screen is requried for video rendering (tested with [this lcd](https://www.waveshare.com/wiki/Pico-LCD-2)), for audio rendering, an audio module that can transmit pcm mono 8/16it samples over the I2S bus (tested with [version 1 of this module](https://www.waveshare.com/wiki/Pico-Audio)) and a minimum of 4 buttons for interaction (button controls are documented towards the end of this document).
 
 I don't consider the emulation to be the most efficient, accurate or to be extensively tested, but I'm happy with where it is at.
 
@@ -70,10 +69,9 @@ Audio hardware options. The current settings for these options should be suffici
 
 `channels:1` - The number of audio output channels.<br>
 `sampleRate:11025` - The audio output sample rate.<br>
-`sampleSize:512` - The audio output sample size.<br>
 
 **NOTE**: these options can be changed if using custom audio samples.
-**NOTE**: the RP IO Controller does not support audio, these options have no affect.
+**NOTE**: the RP IO Controller only supports mono @ 8/16bit.
 
 #### Software
 
@@ -93,25 +91,24 @@ These settings affect visual output and can be changed. They apply to all game r
 
 These settings affect audio output. They can be changed if different audio samples are desired. They apply to all game roms loaded.
 
-`audio:file` - The name of the audio sample to load (empty entries are ignored and **must** not be removed).<br>
+`audio:file` - The name of the audio sample to load (empty entries are ignored and **must not** be removed).<br>
 
-**NOTE**: the position of the audio files in the array **must** not be changed.<br>
+**NOTE**: the position of the audio files in the array **must not** be changed.<br>
 **NOTE**: if changing the audio files, the audio hardware properties may need to be updated (untested).<br>
-**NOTE**: the RP IO Controller does not support audio, these setting have no affect.
+**NOTE**: the audio file names for the RP IO Controller are fixed (file contents may be different, see previous note) and **must not** be changed.
 
 ##### Space Invaders/Space Invaders Deluxe/Space Invaders II/Balloon Bomber/Lunar Rescue
 
 These settings are fixed to the specified rom.
 
-`roms:name` - The name of the rom. This is used as the name of the save state json file.<br>
-`roms:cpu:pc` - The meen cpu program counter. It **must** not be changed, doing so will yield undefined behaviour.<br>
-`roms:cpu:sp` - The meen cpu stack pointer. It **must** not be changed, doing so will yield undefined behaviour.<br>
+`roms:name` - The name of the rom. This is used as the name of the save state json file as well as the entries for the rom selection screen.<br>
 `memory:rom:scheme` - An optional parameter specifying the type of the rom resource to load, either `file://` or `json://`.<br>
 `memory:rom:directory` - An optional parameter specifying the path to the rom resource to load.<br>
 `memory:rom:[block]:bytes`: The rom resource to load. When the resource is fully qualified it will ignore the scheme and directory parameters.
-`memory:rom:[block]:offset`: The offset into memory where the rom will be loaded, this value **must** not be changed, doing so will yield undefined behaviour.<br>
+`memory:rom:[block]:offset`: The offset into memory where the rom will be loaded, this value **must not** be changed, doing so will yield undefined behaviour.<br>
 
-**NOTE**: The rom name is used for the entry in the rom selection screen. It **must** not have any new line characters and **must** only contain characters defined in the supported font defined in `GlyphRenderer.cpp`. The maximum number of characters supported per entry is 26 ((the vram width (224) / the supported font width (8)) - 2 spaces (one is prepended and one is appeneded to the name)). 
+**NOTE**: The `roms:name` parameter **must not** contain any new line characters and **must only** contain characters defined in the supported font defined in `GlyphRenderer.cpp`. The maximum number of characters supported per entry is 26 ((the vram width (224) / the supported font width (8)) - 2 spaces (one is prepended and one is appeneded to the name)). 
+**NOTE**: When targetting the RP2040, the `memory:rom:[block]:bytes` parameter **can't** be changed.
 
 ### Desktop Keyboard Controls
 
