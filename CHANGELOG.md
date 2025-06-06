@@ -1,5 +1,5 @@
 0.7.0
-* Added RP2040 support (no audio).
+* Added RP2040 support.
 * Added 16bpp video output support.
 * Updated to meen/2.0.0.
 * Removed all command line arguments other than
