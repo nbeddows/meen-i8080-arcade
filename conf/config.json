@@ -15,8 +15,7 @@
             },
             "audio": {
                 "channels":1,
-                "sampleRate":11025,
-                "sampleSize":512
+                "sampleRate":11025
             }
         },
         "software": {
