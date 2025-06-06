@@ -34,9 +34,12 @@ SOFTWARE.
 
 namespace i8080_arcade
 {
-    /** Custom Raspberry Pi Pico  io controller.
+    /** Custom Raspberry Pi Pico io controller.
 
         A custom io controller targetting Space Invaders i8080 arcade hardware compatible ROMs.
+
+        For video output it requires an st7789vw driver compatible display for video output over spi
+        and for audio output it requires a PCM5101A audio decoder to output audio over I2S.
     */
     class RPIoController final : public IIoController
     {
@@ -45,17 +48,20 @@ namespace i8080_arcade
         //       may be best to pass them in via the config file.
         enum Pin
         {
-            DIN = 11,
+            DIN = 11,  //< Video data input
             CLK = 10,
             CS = 9,
             DC = 8,
             RST = 12,
             BL = 13,
-            K0 = 15,
-            K1 = 17,
-            K2 = 2,
-            K3 = 3,
-            MAX = 18
+            K0 = 15,   //< Button 0
+            K1 = 17,   //< Button 1
+            K2 = 2,    //< Button 2
+            K3 = 3,    //< Button 3
+            ADIN = 26, //< Audio data input
+            BCK = 27,  //< Audio data bit clock input
+            LRCK = 28, //< Audio data word clock input
+            MAX = 29
         };
 
         /** The current active button
@@ -132,44 +138,75 @@ namespace i8080_arcade
         */
         int textureHeight_{};
 
-        /** The number of channels in the sample
-        
-            @remark    all samples must have the same number of channels.
+        /** A collection of audio samples with identical properties
+
         */
-        uint16_t channels_{};
+        struct AudioChunk
+        {
+            /** The number of channels in the sample
 
-        /** Sample rate in samples per second (hertz)
-        
-            @remark    all samples must have the same sample rate.
+                @remark    all samples must have the same number of channels.
+            */
+            uint16_t channels{};
+
+            /** Sample rate in samples per second (hertz)
+
+                @remark    all samples must have the same sample rate.
+            */
+            uint32_t sampleRate{};
+
+            /** Average data transfer rate in byes per second
+
+                @remark    all samples must have the same bytes per second.
+            */
+            uint32_t bytesPerSecond{};
+
+            /** Block alignment in bytes
+
+                @remark    MUST be equal to product of channels and wBitsPerSample divided by 8 (bits per byte)
+            */
+            uint16_t nBlockAlign{};
+
+            /** PCM sample size
+
+                Should be 8 or 16.
+            */
+            uint16_t bitsPerSample{};
+
+            /** The index of the next sample to be rendered
+
+                @remark    A -1 index indicates that this sample is currently not being rendered
+            */
+            int32_t sampleIndex{ -1 };
+
+            /** Audio samples
+
+                A collection of audio samples described by the above properties.
+            */
+            std::vector<uint8_t> samples;
+        };
+
+        /** Audio sample group
+
+            A collection of audio samples that will be mixed into the dma audio buffer for audio playback.
         */
-        uint32_t sampleRate_{};
+        std::vector<AudioChunk> audioChunks_;
 
-        /** Average data transfer rate in byes per second
-        
-            @remark    all samples must have the same bytes per second.
+        /** The current samples to be mixed.
+
+            The audio chunks that will be fed into the mix and sent to the speaker via the dmac
         */
-        uint32_t bytesPerSecond_{};
+        std::list<AudioChunk*> audioMixChunks_;
 
-        /** Block alignment in bytes
-        
-            @remark    all samples must have the same block alignment.
-            @remark    MUST be equal to product of the sample rate and nBlockAlign.
+        /** Audio output buffer
+
+            This buffer is the final mix of the current playing audio samples.
+
+            @remark    The size of the final output buffer is the audio hardware sample rate / video hardware frame rate.
+                       Essentially, this buffer will transfer to the speaker via dma the number of audio samples required
+                       for one video frame duration.
         */
-        uint16_t nBlockAlign_{};
-
-        /** PCM sample size
-        
-            Should be 8 or 16.
-
-            @remark    all samples must have the same sample size.
-        */
-        uint16_t bitsPerSample_{};
-
-        /** Audio samples
-
-            The various audio samples to be played.
-        */
-        std::vector<std::vector<uint8_t>> audioSamples_;
+        std::vector<uint32_t> audioDmaBuffer_;
 
         /** The previous video frame
 
@@ -200,8 +237,8 @@ namespace i8080_arcade
 
             A using directve for ease of use. This will hold the active event data to be processed.
 
-            bool:        True to clear the vram area of the lcd display, false otherwise.
             std::string: The application has encountered and error.
+            bool:        True to clear the vram area of the lcd display, false otherwise.
             ResourcePtr: The next video frame is ready to be rendered. This event drives the control loop.
         */
         using EventData = std::variant<std::string, bool, meen_hw::MH_ResourcePool<std::vector<uint8_t>>::ResourcePtr>;

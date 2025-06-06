@@ -20,17 +20,22 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
+#include <algorithm>
 #include <assert.h>
 #include <bitset>
 #include <charconv>
 #include <cstring>
+#include <hardware/clocks.h>
+#include <hardware/dma.h>
 #include <hardware/gpio.h>
+#include <hardware/pio.h>
 #include <hardware/pwm.h>
 #include <hardware/spi.h>
 #include <pico/stdio.h>
 
 #include "i8080_arcade/MemoryController.h"
 #include "i8080_arcade/RPIoController.h"
+#include "RPAudioOut.pio.h"
 
 namespace i8080_arcade
 {
@@ -140,6 +145,47 @@ namespace i8080_arcade
 
         gpio_put(Pin::DC, 1);
         gpio_put(Pin::CS, 0);
+
+        //channels_ = audioHardware["channels"].as<int>();
+        auto sampleRate = audioHardware["sampleRate"].as<int>();
+
+        if (sampleRate > 0)
+        {
+            // Setup and configure programmable io
+            gpio_set_function(Pin::ADIN, GPIO_FUNC_PIO0);
+            gpio_set_function(Pin::BCK, GPIO_FUNC_PIO0);
+            gpio_set_function(Pin::LRCK, GPIO_FUNC_PIO0);
+
+            pio_sm_claim(pio0, 0);
+            uint offset = pio_add_program(pio0, &audio_pio_program);
+            audio_pio_program_init(pio0, 0 /* state machine index */, offset, Pin::ADIN, Pin::BCK);
+            uint32_t system_clock_frequency = clock_get_hz(clk_sys);
+            uint32_t divider = system_clock_frequency * 4 / sampleRate; // avoid arithmetic overflow
+            pio_sm_set_clkdiv_int_frac(pio0, 0 /* state machine index */, divider >> 8u, divider & 0xffu);
+            pio_sm_set_enabled(pio0, 0 /* state machine index */, true);
+
+            // Setup and configure direct memory access (dma) for audio output
+            dma_channel_claim(0);
+            dma_channel_config c = dma_channel_get_default_config(0);
+            channel_config_set_transfer_data_size(&c, DMA_SIZE_32);
+            channel_config_set_read_increment(&c, true);
+            channel_config_set_write_increment(&c, false);
+            channel_config_set_dreq(&c, DREQ_PIO0_TX0);
+
+            // Resize the output buffer so it writes a video frame duration (or close to) of audio frames to the speaker.
+            // Note: depending on the sample rate this may not be a whole number and will be truncated,
+            // hence it could be one sample less than a video frame duration (this should be fine).
+            audioDmaBuffer_.resize(sampleRate / 60);
+
+            dma_channel_configure(
+                0,                         // Channel to be configured
+                &c,                        // The configuration we just created
+                &pio0_hw->txf[0],          // The initial write address
+                audioDmaBuffer_.data(),    // The initial read address (this will be set later)
+                audioDmaBuffer_.size(),    // Number of transfers (this will be set later)
+                false                      // We will start the tansfers later
+            );
+        }
     }
 
     RPIoController::~RPIoController()
@@ -155,6 +201,8 @@ namespace i8080_arcade
         spi_deinit(spi1);
         queue_free(&eventDataFreeQueue_);
         queue_free(&eventDataQueue_);
+        dma_channel_cleanup(0);
+        dma_channel_unclaim(0);
     }
 
     std::error_code RPIoController::LoadVideoTextures(const JsonVariantConst videoTextures, int textureWidth, int textureHeight)
@@ -236,12 +284,12 @@ namespace i8080_arcade
 
         auto addSample = [this](const uint8_t* wav, int len)
         {
-            auto getUint32 = [](const uint8_t* ptr)
+            auto getUint32 = [](const uint8_t* ptr) -> uint32_t
             {
                 return (static_cast<uint32_t>(ptr[3]) << 24) | (static_cast<uint32_t>(ptr[2]) << 16) | (static_cast<uint32_t>(ptr[1]) << 8) | static_cast<uint32_t>(ptr[0]);
             };
 
-            auto getUint16 = [](const uint8_t* ptr)
+            auto getUint16 = [](const uint8_t* ptr) -> uint16_t
             {
                 return (static_cast<uint16_t>(ptr[1]) << 8) | static_cast<uint16_t>(ptr[0]);
             };
@@ -257,8 +305,8 @@ namespace i8080_arcade
                 return std::errc::protocol_not_supported;
             }
 
-            // The length of our resource is different to what is reported
-            if (len - 8 != getUint32(wav + 4))
+            // Make sure we have enough buffer
+            if (len - 8 < getUint32(wav + 4))
             {
                 return std::errc::value_too_large;
             }
@@ -287,44 +335,42 @@ namespace i8080_arcade
                 return std::errc::no_protocol_option;
             }
 
-            auto channels = getUint16(wav + 22);
-            auto sampleRate = getUint32(wav + 24);
-            auto bytesPerSecond = getUint32(wav + 28);
-            auto nBlockAlign = getUint16(wav + 32);
-            auto bitsPerSample = getUint16(wav + 34);
-
             // Check for 'data' fourcc
             if (getUint32(wav + 36) != 0x61746164)
             {
                 return std::errc::protocol_not_supported;
             }
 
-            // The WAV header is 44 bytes, make sure the remaining length is whats reported
-            if (getUint32(wav + 40) != len - 44)
+            // The WAV header is 44 bytes, make sure we have enough buffer
+            if (len - 44 < getUint32(wav + 40))
             {
                 return std::errc::value_too_large;
             }
 
-            if (audioSamples_.empty() == false)
+            auto nBlockAlign = getUint16(wav + 32);
+            auto dataLen = getUint32(wav + 40);
+
+            // The WAV data is not aligned correctly
+            if (dataLen % nBlockAlign != 0)
             {
-                // All samples must be of the same format
-                if (channels_ != channels || sampleRate_ != sampleRate || bytesPerSecond_ != bytesPerSecond || nBlockAlign_ != nBlockAlign || bitsPerSample != bitsPerSample)
-                {
-                    return std::errc::not_supported;
-                }
-            }
-            else
-            {
-                // The first sample read in sets the expected properties of the remaining samples to be read
-                channels_ = channels;
-                sampleRate_ = sampleRate;
-                bytesPerSecond_ = bytesPerSecond;
-                nBlockAlign_ = nBlockAlign;
-                bitsPerSample_ = bitsPerSample;
+                return std::errc::illegal_byte_sequence;
             }
 
-            // Copy the sample data from flash to ram
-            audioSamples_.emplace_back(wav + 44, wav + len);
+            std::vector<uint8_t> samples(dataLen);
+
+            // We will be writing to stereo, scale back accordingly
+            std::transform(wav + 44, wav + 44 + dataLen, samples.begin(), [](uint8_t sample){ return sample >> 1; });
+            audioChunks_.emplace_back
+            (
+                getUint16(wav + 22),  // channels
+                getUint32(wav + 24),  // sample rate
+                getUint32(wav + 28),  // bytes per second
+                nBlockAlign        ,  // nblock align
+                getUint16(wav + 34),  // its per second
+                -1,                   // sample index
+                samples               // audio samples
+            );
+
             return std::errc();
         };
 
@@ -361,6 +407,11 @@ namespace i8080_arcade
                     return std::make_error_code(err);
                 }
             }
+            else
+            {
+                // Add the empty sample to maintain the correct indicies
+                audioChunks_.emplace_back();
+            }
         }
 
         return std::error_code{};
@@ -385,8 +436,10 @@ namespace i8080_arcade
                     screen_ = Screen::RomSelect;
                     buttonPress_[Pin::K1] = false;
 
-                    // Not used on rom select, displae it
+                    // Not used on rom select, disable it
                     gpio_set_irq_enabled(Pin::K0, GPIO_IRQ_EDGE_FALL | GPIO_IRQ_EDGE_RISE, false);
+                    // Abort any current dmac operation
+                    dma_channel_abort(0);
 
                     if (runAsync_ == true)
                     {
@@ -456,21 +509,49 @@ namespace i8080_arcade
 
     void RPIoController::Write(uint16_t port, uint8_t data, [[maybe_unused]] meen::IController* memoryController)
     {
-        // audio output is not supported, we use the audio to help track the state of the gameplay
-        auto audio = i8080ArcadeIO_->WritePort(port, data);
+        std::bitset<8> audio = i8080ArcadeIO_->WritePort(port, data);
 
-        if(port == 3)
+        if (audio.count() > 0)
         {
-            // port 3 bit 4 is extended play, need to increment the ships_ count by one
-            if((audio >> 4) & 0x01)
+            if(port == 3)
             {
-                ++ships_;
+                // port 3 bit 4 is extended play, need to increment the ships_ count by one
+                if(audio.test(4) == true)
+                {
+                    ++ships_;
+                }
+
+                // port 3 bit 2 is player killed, need to reduce the ships_ count by one
+                if(audio.test(2) == true)
+                {
+                    --ships_;
+                }
             }
 
-            // port 3 bit 2 is player killed, need to reduce the ships_ count by one
-            if((audio >> 2) & 0x01)
+            auto offset = (port - 3) << 2;
+
+            for(int i = 0; i < 8; i++)
             {
-                --ships_;
+                auto audioChunk = &audioChunks_[i + offset];
+
+                // Drop the sample if it is still playing
+                if (audio.test(i) == true && audioChunk->sampleIndex == -1)
+                {
+                    if (audioChunk->samples.empty() == false && audioChunk->channels == 1 && (audioChunk->bitsPerSample == 8 || audioChunk->bitsPerSample == 16))
+                    {
+                        audioChunk->sampleIndex = 0;
+                        // Push it to the list of chunks to be played
+                        audioMixChunks_.emplace_back(audioChunk);
+                    }
+                    else
+                    {
+                         // We didn't load this chunk or its properties are incompatible with the audio hardware
+                         EventData* eventData = nullptr;
+                         queue_remove_blocking(&eventDataFreeQueue_, static_cast<void*>(&eventData));
+                         *eventData = std::string("Audio chunk ") + std::to_string(i) + " is incompatible";
+                         queue_add_blocking(&eventDataQueue_, static_cast<void*>(&eventData));
+                    }
+                }
             }
         }
     }
@@ -589,6 +670,70 @@ namespace i8080_arcade
                     printf("Failed to dispatch video frame, increase the event data pool size\n");
                     // assert(0);
                 }
+
+                // Write a frame duration worth of any pending audio to the dmac
+                if (audioMixChunks_.empty() == false)
+                {
+                    // The timing won't be precise (but close enough), so we need to possibly wait for the dmac to finish.
+                    // This is good enough for this application.
+                    if (dma_channel_is_busy(0) == true)
+                    {
+                        dma_channel_wait_for_finish_blocking(0);
+                    }
+
+                    int transferCount = 0;
+
+                    // Apply some very basic and crude mixing (requires a proper audio mixer, output is a little dicey, but it will do)
+                    // Currently only supports 8/16 bit mono samples (should always be using 8 bit due to memory requirements)
+                    while(transferCount < audioDmaBuffer_.size() && audioMixChunks_.empty() == false)
+                    {
+                        int mixChannelCount = audioMixChunks_.size();
+                        auto audioMixChunk = audioMixChunks_.cbegin();
+                        uint32_t sample = 0;
+
+                        while(audioMixChunk != audioMixChunks_.cend())
+                        {
+                            // Using nBlockAlign here isn't correct, it should be bitsPerSamples / 8,
+                            // however, since we are only supporting 1 channel @ 8/16 bit, it works (ie; it would be wrong to use it for stereo)
+                            auto nBlockAlign = (*audioMixChunk)->nBlockAlign;
+
+                            if (nBlockAlign == 1)
+                            {
+                                // convert sample to 16bit
+                                sample += ((*audioMixChunk)->samples[(*audioMixChunk)->sampleIndex] << 8) / mixChannelCount;
+                            }
+                            else if (nBlockAlign == 2)
+                            {
+                                sample += std::bit_cast<uint16_t*>((*audioMixChunk)->samples.data())[(*audioMixChunk)->sampleIndex / 2] / mixChannelCount;
+                            }
+                            else
+                            {
+                                assert(nBlockAlign == 1 || nBlockAlign == 2);
+                                // Unsupported audio sample
+                            }
+
+                            (*audioMixChunk)->sampleIndex += nBlockAlign;
+                            auto prevAudioMixChunk = audioMixChunk;
+                            audioMixChunk++;
+
+                            if ((*prevAudioMixChunk)->sampleIndex >= (*prevAudioMixChunk)->samples.size())
+                            {
+                                // Reset the sample count for when this chunk is next played
+                                (*prevAudioMixChunk)->sampleIndex = -1;
+                                // We are done with this chunk, remove it from the list
+                                audioMixChunks_.erase(prevAudioMixChunk);
+                            }
+                        }
+
+                        // Clamp to 16bit to prevent distortion
+                        sample = std::min<uint32_t>(sample, 0xFFFF);
+                        // Duplicate the 16bit mono sample on both channels
+                        audioDmaBuffer_[transferCount++] = (sample << 16) | sample;
+                    }
+
+                    // Start the audio transfer
+                    dma_channel_transfer_from_buffer_now(0, audioDmaBuffer_.data(), transferCount);
+                }
                 break;
             }
             default:
@@ -656,7 +801,7 @@ namespace i8080_arcade
         }
 
         auto quit = std::visit(overloaded
-	    {
+        {
             [](const std::string& error)
             {
                 printf("%s\n", error.c_str());
