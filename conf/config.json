@@ -129,6 +129,6 @@
                 }
             ]
         },
-        "saveFilePath":"save-files/"
+        "saveFilePath":"file://save-files"
     }
 }
