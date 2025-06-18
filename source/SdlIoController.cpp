@@ -445,7 +445,7 @@ namespace i8080_arcade
 		}
 	}
 
-	meen::ISR SDLIoController::ServiceInterrupts(uint64_t currTime, uint64_t cycles, meen::IController* memoryController)
+	meen::ISR SDLIoController::GenerateInterrupt(uint64_t currTime, uint64_t cycles, meen::IController* memoryController)
 	{
 		meen::ISR isr{};
 
