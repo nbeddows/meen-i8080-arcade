@@ -203,7 +203,7 @@ int main(int argc, char** argv)
 #endif // ENABLE_MH_RP2040
 		CHECK_ERROR(e, printf("Parse error while deserializing json config file\n"));
 
-		saveFilePath = json["saveFilePath"] ? json["saveFilePath"].as<std::string>() : "file://save-files";
+		saveFilePath = json["i8080Arcade"]["saveFilePath"] ? json["i8080Arcade"]["saveFilePath"].as<std::string>():"file://save-files";
 
 		auto hardware = json["i8080Arcade"]["hardware"];
 		CHECK_ERROR(!hardware, printf("Invalid json config file format: hardware section not found\n"));
