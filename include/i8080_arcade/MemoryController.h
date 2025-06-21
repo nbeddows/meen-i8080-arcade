@@ -147,7 +147,7 @@ namespace i8080_arcade
         */
         meen_hw::MH_ResourcePool<std::vector<uint8_t>>::ResourcePtr MakeFramePool(int framePoolSize);
 
-        /** Read from controller
+        /** IController::Read override
 
             Reads 8 bits of data from the specifed 16 bit memory address.
 
@@ -155,7 +155,7 @@ namespace i8080_arcade
         */
         uint8_t Read(uint16_t address, meen::IController* controller) final;
 
-        /** Write to controller
+        /** IController::Write override
 
             Write 8 bits of data to the specifed 16 bit memory address.
 
@@ -163,13 +163,13 @@ namespace i8080_arcade
         */
         void Write(uint16_t address, uint8_t value, meen::IController* controller) final;
 
-        /** Service memory interrupts
+        /** IController::GenerateInterrupt override
 
             Memory interrupts are never generated.
 
             The function will always return ISR::NoInterrupt.
         */
-        meen::ISR ServiceInterrupts(uint64_t currTime, uint64_t cycles, meen::IController* controller) final;
+        meen::ISR GenerateInterrupt(uint64_t currTime, uint64_t cycles, meen::IController* controller) final;
 
         /** Uuid
 

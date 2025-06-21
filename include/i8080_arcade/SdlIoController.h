@@ -283,7 +283,7 @@ namespace i8080_arcade
 			*/
 			~SDLIoController();
 
-			/** IController Read override
+			/** IController::Read override
 
 				Sample the keyboard so the CPU can take any required action.
 
@@ -293,7 +293,7 @@ namespace i8080_arcade
 			*/
 			uint8_t Read(uint16_t port, meen::IController* controller) final;
 
-			/** IController write override
+			/** IController::Write override
 
 				Write the relevant audio sample to the output audio device.
 
@@ -302,14 +302,14 @@ namespace i8080_arcade
 			*/
 			void Write(uint16_t port, uint8_t data, meen::IController* controller) final;
 
-			/** IController::ServiceInterrupts override
+			/** IController::GenerateInterrupt override
 
 				Render the video ram texture to the window via the rendering context.
 
 				@param	currTime	The current CPU run time in nanoseconds.
 				@param	cycles		The number of CPU cycles completed.
 			*/
-			meen::ISR ServiceInterrupts(uint64_t currTime, uint64_t cycles, meen::IController* controller) final;
+			meen::ISR GenerateInterrupt(uint64_t currTime, uint64_t cycles, meen::IController* controller) final;
 
 			/**	Uuid
 

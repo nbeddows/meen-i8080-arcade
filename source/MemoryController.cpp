@@ -297,7 +297,7 @@ namespace i8080_arcade
         memory_[addr] = data;
     }
 
-    meen::ISR MemoryController::ServiceInterrupts([[maybe_unused]] uint64_t currTime, [[maybe_unused]] uint64_t cycles, [[maybe_unused]] meen::IController* controller)
+    meen::ISR MemoryController::GenerateInterrupt([[maybe_unused]] uint64_t currTime, [[maybe_unused]] uint64_t cycles, [[maybe_unused]] meen::IController* controller)
     {
         return meen::ISR::NoInterrupt;
     }

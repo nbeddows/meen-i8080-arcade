@@ -131,7 +131,6 @@ if(value)\
 };\
 
 #include <fstream>
-#include <filesystem>
 #include <memory>
 
 #include "i8080_arcade/SdlIoController.h"
@@ -193,7 +192,7 @@ int main(int argc, char** argv)
 
 		stdio_init_all();
 		// Open the configuration file, see the README for an explanation of each configuration option
-		//cppcheck-suppress comparePointers
+		//cppcheck-suppress subtractPointers
 		auto e = deserializeJson(json, std::string_view(&rpConfigStart, &rpConfigEnd - &rpConfigStart));
 #else
 		std::ifstream fin;
@@ -204,7 +203,7 @@ int main(int argc, char** argv)
 #endif // ENABLE_MH_RP2040
 		CHECK_ERROR(e, printf("Parse error while deserializing json config file\n"));
 
-		saveFilePath = json["saveFilePath"] ? json["saveFilePath"].as<std::string>() : "save-files";
+		saveFilePath = json["i8080Arcade"]["saveFilePath"] ? json["i8080Arcade"]["saveFilePath"].as<std::string>():"file://save-files";
 
 		auto hardware = json["i8080Arcade"]["hardware"];
 		CHECK_ERROR(!hardware, printf("Invalid json config file format: hardware section not found\n"));
@@ -294,30 +293,9 @@ int main(int argc, char** argv)
 		// Log any error messages generated, do this as early as possible for best meen error coverage
 		err = machine->OnError([](std::error_code ec, const char* fileName, const char* functionName, uint32_t line, uint32_t column, meen::IController* ioController)
 		{
-			// We only want the fileName starting from the repository root, search for the third last '/\' from the end of the file name
-			std::string_view fn(fileName, strlen(fileName));
-			int count;
-			int index = fn.size();
-
-			for(count = 0; count < 3; count++)
-			{
-				index = fn.find_last_of("/\\", index - 1);
-
-				if (index == std::string::npos)
-				{
-					index = 0;
-					break;
-				}
-			}
-
-			if (index > 0)
-			{
-				fn.remove_prefix(index + 1); // + 1 - remove the leading slash
-			}
-
-			auto len = snprintf(nullptr, 0, "file: %s(%u:%u) `%s`: %s\n", fn.data(), line, column, functionName, ec.message().c_str());
+			auto len = snprintf(nullptr, 0, "file: %s(%u:%u) `%s`: %s\n", fileName, line, column, functionName, ec.message().c_str());
 			std::string errorMsg(len, '\0');
-			len = snprintf(errorMsg.data(), len, "file: %s(%u:%u) `%s`: %s\n", fn.data(), line, column, functionName, ec.message().c_str());
+			len = snprintf(errorMsg.data(), len, "file: %s(%u:%u) `%s`: %s\n", fileName, line, column, functionName, ec.message().c_str());
 
 			// It's possible for this to be nullptr if the io controller has been removed (should not happen in this demo,
 			// but we perform the check for correctness and print a warning message).
@@ -341,6 +319,7 @@ int main(int argc, char** argv)
 		machine->AttachIoController(meen::IControllerPtr(std::move(ioController)));
 		machine->AttachMemoryController(meen::IControllerPtr(std::move(memoryController)));
 
+		//cppcheck-suppress constParameterPointer
 		machine->OnInit([](meen::IController* ioController)
 		{
 #ifdef ENABLE_MH_RP2040
@@ -351,29 +330,13 @@ int main(int argc, char** argv)
 
 		// Will be called from a different thread if the 'runAsync' or 'saveAsync' options are set to true.
 		// This is a simple implementation which will overwrite the previous save file
-#ifndef ENABLE_MH_RP2040
-		machine->OnSave([&jsonRoms, &saveFilePath](const char* json, meen::IController* ioController)
+		machine->OnSave([&jsonRoms, &saveFilePath](char* uri, int* uriLen, meen::IController* ioController)
 		{
-			std::error_code ec;
-			std::filesystem::create_directory(saveFilePath, ec);
-
-			if (ec)
-			{
-				return meen::errc::invalid_argument;
-			}
-
 			auto [unused, romIndex] = static_cast<i8080_arcade::IIoController*>(ioController)->GetRomIndex();
-			std::ofstream fout(saveFilePath + "/" + jsonRoms[romIndex].first + ".json", std::ios::trunc);
-
-			if (!fout.good())
-			{
-				return meen::errc::invalid_argument;
-			}
-
-			fout.write(json, strlen(json));
+			*uriLen = snprintf(uri, *uriLen, "%s/%s.json", saveFilePath.c_str(), jsonRoms[romIndex].first.c_str());
 			return meen::errc::no_error;
-		});
-#endif // ENABLE_MH_RP2040
+		}, nullptr);
+
 		// Will be called from a different thread if the 'runAsync' or 'loadAsync' configuration options are set to true
 		machine->OnLoad([&jsonRoms, &saveFilePath](char* json, int* jsonLen, meen::IController* ioController)
 		{
@@ -381,35 +344,11 @@ int main(int argc, char** argv)
 
 			if (loadSaveState == true)
 			{
-#ifdef ENABLE_MH_RP2040
-				return meen::errc::not_implemented;
-#else
-				// The engine will generate a parse error if a truncation occurs, however, if one wanted to
-				// check for that here they could by storing the return value in a different variable and then
-				// compare that value to *jsonLen. When that variable is greater than or equal to *jsonLen then
-				// a truncation has occurred.
-				*jsonLen = snprintf(json, *jsonLen, "file://%s/%s.json", saveFilePath.c_str(), jsonRoms[romIndex].first.c_str());
-#endif // ENABLE_MH_RP2040
+				*jsonLen = snprintf(json, *jsonLen, "%s/%s.json", saveFilePath.c_str(), jsonRoms[romIndex].first.c_str());
 			}
 			else
 			{
-				// The engine will generate a parse error if a truncation occurs, however, if one wanted to
-				// check for that here they could by comparing the return value (the number of bytes written
-				// excluding the null terminator) against the capacity (*jsonLen). When the return value is
-				// equal to *jsonLen then a truncation has occurred.
-				if (jsonRoms[romIndex].second.length() < *jsonLen)
-				{
-					*jsonLen = jsonRoms[romIndex].second.length();
-				}
-				else
-				{
-					printf("TRUNCATED ROM!\n");
-					// should return an error here, whilst is ok not to, it can produce ub depending on what got written
-				}
-
-				std::ranges::copy_n(jsonRoms[romIndex].second.data(), *jsonLen, json);
-
-				// todo: return the number of bytes loaded
+				*jsonLen = snprintf(json, *jsonLen, "%s", jsonRoms[romIndex].second.c_str());
 			}
 
 			return meen::errc::no_error;

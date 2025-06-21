@@ -586,7 +586,7 @@ namespace i8080_arcade
         irq_set_enabled(IO_IRQ_BANK0, true);
     }
 
-    meen::ISR RPIoController::ServiceInterrupts(uint64_t currTime, uint64_t cycles, meen::IController* memoryController)
+    meen::ISR RPIoController::GenerateInterrupt(uint64_t currTime, uint64_t cycles, meen::IController* memoryController)
     {
         auto isr = meen::ISR::NoInterrupt;
         auto interrupt = i8080ArcadeIO_->GenerateInterrupt(currTime, cycles);
