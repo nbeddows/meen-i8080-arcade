@@ -256,7 +256,7 @@ Audio hardware options. The current settings for these options should be suffici
 | `channels`          | 1     | The number of audio output channels |
 | `sampleRate`        | 11025 | The audio output sample rate        |
 
-**NOTE**: these options can be changed if using custom audio samples.
+**NOTE**: these options can be changed if using custom audio samples.<br>
 **NOTE**: the RP IO Controller only supports mono @ 8/16bit.
 
 #### Software
@@ -270,7 +270,7 @@ These settings affect visual output and can be changed. They apply to all game r
 | Option              | Value      | Remarks                                                                                                                                             |
 |:--------------------|:-----------|:----------------------------------------------------------------------------------------------------------------------------------------------------|
 | `bpp`               | 16         | Bits per pixel, supported values are 1 (experimental and not universally supported), 8 (rgb332) and 16 (rgb565)                                     |
-| `colour`            | "white"    | The forground colour (the background is always black), supported values are "white", "red", "green", "blue", "random" and a 16 bit custom hex value |
+| `colour`            | "white"    | The foreground colour (the background is always black), supported values are "white", "red", "green", "blue", "random" and a 16 bit custom hex value |
 | `orientation`       | "cocktail" | The window layout, "cocktail" for horizontal and "upright" for vertical                                                                             |
 
 **NOTE**: the RP IO Controller only supports cocktail orientation @ 16bpp.
@@ -290,7 +290,7 @@ These settings affect audio output. They can be changed if different audio sampl
 **NOTE**: if changing the audio files, the audio hardware properties may need to be updated (untested).<br>
 **NOTE**: the audio file names for the RP IO Controller are fixed (file contents may be different, see previous note) and **must not** be changed.
 
-##### Space Invaders/Space Invaders Deluxe/Space Invaders II/Balloon Bomber/Lunar Rescue
+##### Space Invaders/Space Invaders II (Midway)/Space Invaders II (Taito)/Balloon Bomber/Lunar Rescue
 
 These settings are fixed to the specified rom.
 
