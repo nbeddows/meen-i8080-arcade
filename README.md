@@ -36,8 +36,9 @@ This project uses [CMake (minimum version 3.23)](https://cmake.org/) for its bui
 
 ##### Linux
 
-- [Install Conan](https://conan.io/downloads/).
+- [Install Conan](https://conan.io/downloads/)
 - `sudo apt install cmake`
+- `sudo apt install texlive-font-utils`
 - cross compilation:
   - armv7hf:
     - `sudo apt install gcc-arm-linux-gnueabihf g++-arm-linux-gnueabihf`
@@ -66,8 +67,8 @@ This project uses [CMake (minimum version 3.23)](https://cmake.org/) for its bui
 
 ##### Windows
 
-- [Install Conan](https://conan.io/downloads).
-- [Install CMake](https://cmake.org/download/).
+- [Install Conan](https://conan.io/downloads)
+- [Install CMake](https://cmake.org/download/)
 
 **1.** Install the supported meen conan configurations (v0.1.0) (if not done so already):
 - `conan config install -sf profiles -tf profiles https://github.com/nbeddows/meen-conan-config.git --args "--branch v0.1.0"`
@@ -79,7 +80,7 @@ This project uses [CMake (minimum version 3.23)](https://cmake.org/) for its bui
 - Linux x86_64 build, Linux armv8 host: `conan install . --build=missing --profile:build=Linux-x86_64-gcc-13 --profile:host=profiles/Linux-armv8-gcc-13-sdl`
 - Linux x86_64 build, RP2040 microcontroller (baremetal armv6-m) host: `conan install . --build=missing --profile:build=Linux-x86_64-gcc-13 --profile:host=profiles/rp2040-armv6-gcc-13-st7789vw`<br>
 
-**NOTE**: when performing a cross compile using a host profile you must install the requisite toolchain of the target architecture, [see pre-requisites](#pre-requisites).
+**NOTE**: when performing a cross compile using a host profile you must install the requisite toolchain of the target architecture, see pre-requisites.
 
 **NOTE**: under Linux with an sdl host profile errors similar to the following, `ERROR: xorg/system: Error in system_requirements() method` require additional package installations as denoted by the above console messages: "`dpkg-query: no packages found matching ${pkg0}`": `sudo apt install ${pkg0} ${pkg1} ${pkgn}`
 When cross compiling for arm you may need to add the arm development repositories to your apt sources if the packages previously installed could not be found, for example (at the time of writing):
@@ -119,7 +120,7 @@ When cross compiling for arm you may need to add the arm development repositorie
       Architectures: arm64
       Components: main multiverse universe
       Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg
-- Save and exit
+- Save and exit.
 - `sudo dpkg --add-architecture arm64`
 - `sudo dpkg --print-foreign-architectures`
 - `sudo apt-get update`
@@ -226,7 +227,7 @@ The current settings for these options should be sufficient, changing them may h
 | Option              | Value | Remarks                                                           |
 |:--------------------|:------|:------------------------------------------------------------------|
 | `clockSamplingFreq` | 120   | The i8080 arcade hardware runs at 60Hz with 2 interrupts per frame
-| `isrFreq`           | 132   | 4 interrupts are required, 2 for i8080-arcade and 2 machine level interrupts for loading and saving. Ideally this would be locked clock sampling frequency ("isrFreq":120), however, we need to spare some time for checking for load and save requests, so we bump the `isrFreq` up by ten percent ("isrFreq":132). One could increase it further (increased host cpu usage), this would make it more responsive (132 should be good enough) |
+| `isrFreq`           | 132   | 4 interrupts are required, 2 for i8080-arcade and 2 machine level interrupts for loading and saving. Ideally this would be locked to the clock sampling frequency ("isrFreq":120), however, we need to spare some time for checking for load and save requests, so we bump the `isrFreq` up by ten percent ("isrFreq":132). One could increase it further (increased host cpu usage), this would make it more responsive (132 should be good enough) |
 | `loadAsync`         | true  | Load the machine state asynchronously                             |
 | `runAsync`          | true  | Run the machine and io asynchronously                             |
 | `saveAsync`         | true  | Save the machine state asynchronously                             |
@@ -267,11 +268,11 @@ These settings apply to the various arcade roms that can be loaded.
 
 These settings affect visual output and can be changed. They apply to all game roms loaded.
 
-| Option              | Value      | Remarks                                                                                                                                             |
-|:--------------------|:-----------|:----------------------------------------------------------------------------------------------------------------------------------------------------|
-| `bpp`               | 16         | Bits per pixel, supported values are 1 (experimental and not universally supported), 8 (rgb332) and 16 (rgb565)                                     |
+| Option              | Value      | Remarks                                                                                                                                              |
+|:--------------------|:-----------|:-----------------------------------------------------------------------------------------------------------------------------------------------------|
+| `bpp`               | 16         | Bits per pixel, supported values are 1 (experimental and not universally supported), 8 (rgb332) and 16 (rgb565)                                      |
 | `colour`            | "white"    | The foreground colour (the background is always black), supported values are "white", "red", "green", "blue", "random" and a 16 bit custom hex value |
-| `orientation`       | "cocktail" | The window layout, "cocktail" for horizontal and "upright" for vertical                                                                             |
+| `orientation`       | "cocktail" | The window layout, "cocktail" for horizontal and "upright" for vertical                                                                              |
 
 **NOTE**: the RP IO Controller only supports cocktail orientation @ 16bpp.
 
@@ -297,7 +298,7 @@ These settings are fixed to the specified rom.
 `roms:name` - The name of the rom. This is used as the name of the save state json file as well as the entries for the rom selection screen.<br>
 `memory:rom:scheme` - An optional parameter specifying the type of the rom resource to load, either `file://` or `json://`.<br>
 `memory:rom:directory` - An optional parameter specifying the path to the rom resource to load.<br>
-`memory:rom:[block]:bytes`: The rom resource to load. When the resource is fully qualified it will ignore the scheme and directory parameters.
+`memory:rom:[block]:bytes`: The rom resource to load. When the resource is fully qualified it will ignore the scheme and directory parameters.<br>
 `memory:rom:[block]:offset`: The offset into memory where the rom will be loaded, this value **must not** be changed, doing so will yield undefined behaviour.<br>
 
 **NOTE**: The `roms:name` parameter **must not** contain any new line characters and **must only** contain characters defined in the supported font defined in `GlyphRenderer.cpp`. The maximum number of characters supported per entry is 26 ((the vram width (224) / the supported font width (8)) - 2 spaces (one is prepended and one is appeneded to the name)).<br>

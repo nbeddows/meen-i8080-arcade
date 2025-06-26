@@ -138,8 +138,9 @@ namespace i8080_arcade
         */
         int textureHeight_{};
 
-        /** A collection of audio samples with identical properties
+        /** A chunk of audio samples
 
+            A collection of audio samples with identical properties.
         */
         struct AudioChunk
         {
@@ -364,6 +365,8 @@ namespace i8080_arcade
 
         /** One time callback registration for gpio handling
 
+            This method is to be registered with MEEN who will invoke it on a thread determined
+            by the MEEN `runAsync` configuration parameter.            
         */
         static void Init();
 
@@ -371,9 +374,10 @@ namespace i8080_arcade
 
             Sample the keyboard so the CPU can take any required action.
 
-            @param  port    The device to read from.
+            @param  port                The device to read from.
+            @param  memoryController    The memory controller that has been registered with MEEN.
 
-            @return int             A bitfield indicating the action to take.
+            @return                     A bitfield indicating the action to take.
         */
         uint8_t Read(uint16_t port, meen::IController* memoryController) final;
 
@@ -381,8 +385,9 @@ namespace i8080_arcade
 
             Write the relevant audio sample to the output audio device.
 
-            @param  port    The output device to write to.
-            @param  data    A bitfield indicating what data to write.
+            @param  port                The output device to write to.
+            @param  data                A bitfield indicating what data to write.
+            @param  memoryController    The memory controller that has been registered with MEEN.
         */
         void Write(uint16_t port, uint8_t data, meen::IController* memoryController) final;
 
@@ -390,8 +395,16 @@ namespace i8080_arcade
 
             Render the video ram texture to the window via the rendering context.
 
-            @param  currTime        The current CPU run time in nanoseconds.
-            @param  cycles          The number of CPU cycles completed.
+            @param  currTime            The current CPU run time in nanoseconds.
+            @param  cycles              The number of CPU cycles completed.
+            @param  memoryController    The memory controller that has been registered with MEEN.
+
+            @return                     One of the following meen ISRs:<br><br>
+                                        `ISR::NoInterrupt`: the method did not generate an iterrupt.<br>
+                                        `ISR::One`: signal MEEN that the first 96 scanlines have been rendered.<br>
+                                        `ISR::Two`: signal MEEN that the remaining scanlines (up to 224) have
+                                        been rendered (start of vblank).<br>
+										`ISR::Load`: attempt to load a new rom.
         */
         meen::ISR GenerateInterrupt(uint64_t currTime, uint64_t cycles, meen::IController* memoryController) final;
 
@@ -411,7 +424,9 @@ namespace i8080_arcade
             @param  textureWidth    The width of the video texture in pixels.
             @param  textureHeight   The height of the video texture in pixels.
 
-            @return                 An error in the form of a std::error_code.
+            @return                 On failure, a `std::error_code` with one of the following values:<br><br>
+                                    `std::errc::not_supported`: the video configuration parameters are invalid.<br>
+                                    `std::errc:io_error`: video configuration serialisation failure.
         */
         std::error_code LoadVideoTextures(const JsonVariantConst videoTextures, int textureWidth, int textureHeight) final;
 
@@ -419,9 +434,15 @@ namespace i8080_arcade
 
             Loads the audio samples from the configuration file.
 
-            @param     audioSamples    JSON object representing the audio sample files.
+            @param     audioSamples     JSON object representing the audio sample files.
 
-            @return    An error in the form of a std::error_code.
+            @return                     On failure, a `std::error_code` with one of the following values:<br><br>
+                                        `std::errc::protocol_not_supported`: The format of the audio sample is not supported.<br>
+                                        `std::errc::value_to_large`: the size of the data in the audio sample is too large.<br>
+                                        `std::errc::illegal_byte_sequence`: the audio sample is aligned incorrctly.<br>
+                                        `std::errc::not_supported`: the audio file scheme in the cofiguration file is invalid.<br>
+                                        `std::errc::invalid_argument`: the audio sample address is invalid.<br>
+                                        `std::errc::result_out_of_range`: the audio sample address is invalid. 
         */
         std::error_code LoadAudioSamples(const JsonVariantConst audioSamples) final;
 
@@ -438,11 +459,11 @@ namespace i8080_arcade
 
         /** Error handler
 
-            Process any generated errors
+            Process any generated errors.
 
-            These errors may come from meen or i8080-arcade itself.
+            These errors may come from MEEN or meen-i8080-arcade itself.
 
-            @param    errorMsg      The error message.
+            @param    errorMsg      The error message as a `std::string`.
         */
         void HandleError(std::string&& errorMsg) final;
 
@@ -452,12 +473,14 @@ namespace i8080_arcade
         */
         void HandleLoadComplete() final;
 
-        /** Load the selected rom or the save state of the currently selected rom
+		/** Get the rom index
 
-            @return    A tuple holding two values:
-                       bool - only valid when loading roms, true if the save file is to be loaded, false if the rom is to be loaded.
-                       int - the index into the roms array for the rom to be loaded or saved
-        */
+			Load the selected rom or the save state of the currently selected rom.
+
+			@return					A tuple holding two values:<br><br>
+									`bool`: only valid when loading roms, true if the save file is to be loaded, false if the rom is to be loaded.<br>
+									`int`: the index into the roms array for the rom to be loaded or saved.
+		*/
         std::tuple<bool, int> GetRomIndex() final;
     };
 } // namespace i8080_arcade
