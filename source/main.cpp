@@ -290,7 +290,7 @@ int main(int argc, char** argv)
 
 		// Configure the machine.
 
-		// Log any error messages generated, do this as early as possible for best meen error coverage
+		// Log any error messages generated, do this as early as possible for best MEEN error coverage
 		err = machine->OnError([](std::error_code ec, const char* fileName, const char* functionName, uint32_t line, uint32_t column, meen::IController* ioController)
 		{
 			auto len = snprintf(nullptr, 0, "file: %s(%u:%u) `%s`: %s\n", fileName, line, column, functionName, ec.message().c_str());
@@ -312,7 +312,7 @@ int main(int argc, char** argv)
 		// Need to manually check the error here as the method could fail before the handler is registered
 		CHECK_ERROR(err, printf("Failed to set the OnError handler: %s\n", err.message().c_str()));
 
-		// Beyond this point, all meen generated errors will be picked up by our error handler
+		// Beyond this point, all MEEN generated errors will be picked up by our error handler
 
 		// Load our controllers into the machine - do this immediately after the OnError handler has been registered
 		// so the io controller will be available in the OnError handler.
