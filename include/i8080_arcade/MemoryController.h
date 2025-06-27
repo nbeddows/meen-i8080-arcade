@@ -93,11 +93,10 @@ namespace i8080_arcade
             ram frame pool for single/double/triple buffered video frames for
             optimised rendering.
 
-            @param      framePoolSize       The number of frames to allocate, each frame will be framWidth * frameHeight bytes in length.
+            @param      jsonRoms            A vector of pairs with first being the rom name and second being the rom json configuration.
+            @param      framePoolSize       The number of frames to allocate, each frame will be MemoryController::frameWidth * MemoryController::frameHeight bytes in length.
 
-            @remark     default frame pool size is 1.
-
-            @see framePool_
+            @remark     The default frame pool size is 1.
         */
         MemoryController(const std::vector<std::pair<std::string, std::string>>& jsonRoms, int framePoolSize = 1);
 
@@ -137,7 +136,7 @@ namespace i8080_arcade
 
         /** Populate the memory controller frame pool
 
-            This function MUST be called before attaching the controller to the machine.
+            This function MUST be called before registering this controller with MEEN.
 
             @param    framePoolSize    The number of frames to allocate in the native pixel format with the specified
                                        resolution.
@@ -168,8 +167,14 @@ namespace i8080_arcade
             Memory interrupts are never generated.
 
             The function will always return ISR::NoInterrupt.
+
+            @param  currTime        The current CPU run time in nanoseconds.
+            @param  cycles          The number of CPU cycles completed.
+            @param  ioController    The io controller that has been registered with MEEN.
+
+            @return                 `ISR::NoInterrupt`: the method did not generate an iterrupt.
         */
-        meen::ISR GenerateInterrupt(uint64_t currTime, uint64_t cycles, meen::IController* controller) final;
+        meen::ISR GenerateInterrupt(uint64_t currTime, uint64_t cycles, meen::IController* ioController) final;
 
         /** Uuid
 

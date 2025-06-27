@@ -296,7 +296,7 @@ namespace i8080_arcade
 
             if (len < 8)
             {
-                return std::errc::invalid_argument;
+                return std::errc::protocol_not_supported;
             }
 
             // Check the 'RIFF' fourcc

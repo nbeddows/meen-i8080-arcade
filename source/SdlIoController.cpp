@@ -598,7 +598,6 @@ namespace i8080_arcade
 					{
 						if (sdlKbState_[SDL_SCANCODE_Q] != 0)
 						{
-							quit_ = true;
 							return true;
 						}
 
@@ -680,7 +679,7 @@ namespace i8080_arcade
 					std::lock_guard<std::mutex> lg(eventDataMutex_);
 					eventDataPool_.push_back(std::unique_ptr<EventData>(eventData));
 				}
-				
+
 				if (runAsync_ == true)
 				{
 					if (sdlKbState_[SDL_SCANCODE_ESCAPE] && eventDataPool_.size() == maxEventData_)
@@ -696,7 +695,7 @@ namespace i8080_arcade
 			else
 			{
 				assert(e.type == SDL_QUIT);
-				quit_ = quit = true;
+				quit = true;
 			}
 		}
 

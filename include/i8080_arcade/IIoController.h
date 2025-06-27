@@ -31,7 +31,13 @@ SOFTWARE.
 
 namespace i8080_arcade
 {
-    struct IIoController : public meen::IController
+    /** An abstract base class describing a generic io controller
+	
+		Ths is the foundation for all i8080 arcade io controllers. Along with implementing
+		the IController base class methods, this extension allows for the ability to allocate
+		space for audio and video buffers.
+	*/
+	struct IIoController : public meen::IController
     {
 		/** Game play screens
 
@@ -52,17 +58,17 @@ namespace i8080_arcade
 
 			Events include audio/video rendering, keyboard processing and window close.
 
-	        @return                 True to quit the machine, false otherwise.
+	        @return                 True to quit MEEN, false otherwise.
 		*/
 		virtual bool HandleEvent() = 0;
 
 		/** Error handler
 
-			Process any generated errors
+			Process any generated errors.
 
-			These errors may come from meen or i8080-arcade itself.
+			These errors may come from MEEN or meen-i8080-arcade itself.
 
-			@param	errorMsg		The error message.
+			@param	errorMsg		A `std::string` containing the error message.
 		*/
 		virtual void HandleError(std::string&& errorMsg) = 0;
 
@@ -78,7 +84,7 @@ namespace i8080_arcade
 
 			@param	audioSamples	JSON object representing the audio sample files.
 
-			@return					An error in the form of a std::error_code.
+			@return					An `std::error_code` determined by the implementation.
 		*/
 		virtual std::error_code LoadAudioSamples(const JsonVariantConst audioSamples) = 0;
 
@@ -90,20 +96,23 @@ namespace i8080_arcade
 			@param	frameWidth		The width in pixels of the memory controller video frame.
 			@param	frameHeight		The height in pixels of the memory controller video frame.
 
-			@return					An error in the form of a std::error_code.
+			@return					A `std::error_code` determined by the implemntation.
 		*/
 		virtual std::error_code LoadVideoTextures(const JsonVariantConst videoTextures, int frameWidth, int frameHeight) = 0;
 
-		/** Load the selected rom or the save state of the currently selected rom
+		/** Get the rom index
 
-			@return					A tuple holding two values:
-									bool - only valid when loading roms, true if the save file is to be loaded, false if the rom is to be loaded.
-									int - the index into the roms array for the rom to be loaded or saved
+			Load the selected rom or the save state of the currently selected rom.
+
+			@return					A tuple holding two values:<br><br>
+									`bool`: only valid when loading roms, true if the save file is to be loaded, false if the rom is to be loaded.<br>
+									`int`: the index into the roms array for the rom to be loaded or saved.
 		*/
 		virtual std::tuple<bool, int> GetRomIndex() = 0;
 
-        /** Free any used resources
-            
+        /** Virtual destructor
+
+            Free any used resources
         */
         virtual ~IIoController() = default;
     };

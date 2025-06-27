@@ -18,6 +18,9 @@
 * Added rendered Midway/Taito copyright.
 * Refactored the event handling.
 * Improved SDL IO controller audio rendering.
+* Updated all documentation.
+* Added a PDF reference manual to the binary
+  package. 
 
 0.6.1 [04/08/24]
 * Added profiles for improved build support.

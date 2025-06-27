@@ -49,21 +49,24 @@ namespace i8080_arcade
                     A packed 8x8 font for the ascii range 47 (/) to 90 (Z) defined in the native i8080 arcade video format (1 bit cocktail orientation).
                     Each glyph consumes 40 bits. When written to the upper 40 bits of a 64 bit number the remaining 24 bits represents the space
                     between glyphs. This gives us a quick monospace font based on the Space Invaders arcade hardware. Each glyph is placed in the
-                    upper left giving 3 pixles of space after the glyph and one pixel of space below yielding a 5x7 glyph in an 8x8 surface.
+                    upper left giving 3 pixles of space after the glyph and one pixel of space below yielding a 5x7 glyph in an 8x8 surface.<br>
                     NOTE: any entries with all zeros are unused and are reserved for future use.
                 */
                 I8080ArcadeRegular8x8
             };
 
-            /** Methods of aligning the text
+            /** Methods of aligning the glyphs
 
-                The justification is relative to the anchor point set via SetAnchorPoint.
+                The justification is relative to the anchor point set via GlyphRenderer::SetAnchorPoint.
             */
             enum class Justification
             {
-                Left,   //< Left justify the glyphs.
-                Centre, //< Centre justify the glyphs.
-                Right   //< Right justify the glyphs (not supported).
+                /** Left justify the glyphs. */
+                Left,
+                /** Centre justify the glyphs. */
+                Centre,
+                /** Right justify the glyphs (not supported). */
+                Right
             };
 
             /** Default constructor
@@ -71,15 +74,20 @@ namespace i8080_arcade
                 Deleted since a blittable surface row bytes value needs to be set before use.
             */
             GlyphRenderer() = delete;
+
+            /** Default destructor
+            
+                Free all used resources.
+            */
             ~GlyphRenderer() = default;
 
             /** Initialisation constructor.
 
                 @param      rowBytes    The number of bytes per row in the blittable surface passed to
-                                        the Blit method.
+                                        the GlyphRenderer::Blit method.
 
-                @remark     Setting a negative rowbytes will cause the Blit method to return std::errc::invalid_argument
-                @remark     Setting a rowBytes value of 0 will cause the Blit method to return success
+                @remark     Setting a negative rowbytes will cause the GlyphRenderer::Blit method to return `std::errc::invalid_argument`
+                @remark     Setting a rowBytes value of 0 will cause the GlyphRenderer::Blit method to return success
                             immediatley without performing any action.
             */
             explicit GlyphRenderer(int rowBytes);
@@ -90,37 +98,34 @@ namespace i8080_arcade
 
                 @param  anchorPoint     The desired anchor point.
 
-                @return                 std::error_code.
-
-                                        std::error_code::invalid_arguemnt if the specified anchor point is less tham 0.
+                @return                 On failure, a `std::error_code` with one of the following values:<br><br>
+                                        `std::error_code::invalid_arguemnt`: the specified anchor point is less than 0.
             */
             std::error_code SetAnchorPoint(int anchorPoint);
 
             /** Set Font
 
-                The monospace font to use, see the Font enumeration for more details.
+                The monospace font to use, see the GlyphRenderer::Font enumeration for more details.
 
                 @param  font            The desired font to render the glyphs in.
 
-                @return                 std::error_code.
-
-                                        std::errc::not_suported if the specified font is not supported.
+                @return                 On failure, a `std::error_code` with one of the following values:<br><br>
+                                        `std::errc::not_suported`: the specified font is not supported.
             */
             std::error_code SetFont(Font font);
 
             /** Glyph positioning
-            
+
                 Justify the glyphs lines relative to the anchor point.
 
-                @return                 std::error_code.
-
-                                        std::errc::not_supported if Justification::Right is specified.
+                @return                 On failure, a `std::error_code` with one of the following values:<br><br>
+                                        `std::errc::not_supported`: Justification::Right was specified.
             */
             std::error_code SetJustification (Justification justification);
 
             /** The blittable text (std::string_view overload)
 
-                Set the text that will be rendered when the Blit method is called.
+                Set the text that will be rendered when the GlyphRenderer::Blit method is called.
 
                 @param  text            The text to render.
             */
@@ -128,7 +133,7 @@ namespace i8080_arcade
 
             /** The blittable text (std::string&& overload)
 
-                Set the text that will be rendered when the Blit method is called.
+                Set the text that will be rendered when the GlyphRenderer::Blit method is called.
 
                 @param  text            The text to render.
             */
@@ -136,40 +141,41 @@ namespace i8080_arcade
 
             /** Glyph lines height
 
-                @return     The number of lines (the height of the lines in bytes) of the glyphs represented by the string passed to the SetText method.
+                @return     The number of lines (the height of the lines in bytes) of the glyphs represented by the string passed to the GlyphRenderer::SetText method.
             */
             int GetWidth() const;
 
             /** Maximum glyph line width
 
-                @return     The maximum width in bytes of a line of glyphs represented by the string passed to the SetText method.
+                @return     The maximum width in bytes of a line of glyphs represented by the string passed to the GlyphRenderer::SetText method.
             */
             int GetHeight() const;
 
-            /**
-                @param      text        The characters to update the text set with SetText.
-                @param      position    The index into the text set via SetText at which it will be updated with
-                                        the text parameter.
+            /** Update the renderer with new glyphs
 
-                @return                 A std::error_code
+                @param      text        The characters to update the text set with GlyphRenderer::SetText.
+                @param      position    The index into the text set via GlyphRenderer::SetText at which it will be updated with the text parameter.
 
-                                        std::errc::interrupted: the text parameter has caused a change to the values that are returned
-                                                                by the methods GetWidth and/or GetHeight.
+                @return                 On failure, a `std::error_code` with one of the following values:<br><br>
+                                        `std::errc::interrupted`: the text parameter has caused a change to the values that are returned
+                                        by the methods GlyphRenderer::GetWidth and/or GlyphRenderer::GetHeight.<br>
+                                        `std::errc::invalid_argument`: the glyph renderer can't be updated with the specifed text at the
+                                        given position. 
 
-                @remark                 Acting on the error is important in certain scenarios, for example, if you want to make sure that
+                @remark                 Acting on `std::errc::interrupted` is important in certain scenarios, for example, if you want to make sure that
                                         the glyphs rendered are centered on the surface. In this case, you would need to call the method
-                                        SetAnchorPoint again with a new point based on the updated values returned by the methods GetWidth
-                                        and GetHeight.
+                                        GlyphRenderer::SetAnchorPoint again with a new anchor point based on the updated values returned by the methods
+                                        GlyphRenderer::GetWidth and GlyphRenderer::GetHeight.
             */
             std::error_code Update(std::string_view text, int position = 0);
 
             /** Blit the configured string to the given iterator
 
-                Blit the text set via the SetText method with the configured font to the location pointed to by the supplied
+                Blit the text set via the GlyphRenderer::SetText method with the configured font to the location pointed to by the supplied
                 iterator. New lines can be used in the given string to blit the text in rows.
 
                 @param      start               An iterator to std::vector holding the beginning of the blittable surface.
-                @param      end                 An iterator to std::vector holding the end of the blittable surface
+                @param      end                 An iterator to std::vector holding the end of the blittable surface.
                 @param      invertLineCount     The number of lines of glyphs that will blit inverted (black instead of white).
                                                 The default value is 0 (disable inversion).
                                                 The value of -1 can be used to invert all lines from the invertLineStart
@@ -177,19 +183,17 @@ namespace i8080_arcade
                 @param      invertLineStart     The line index to start inverting glyphs from. The default value is 0 (start from
                                                 the first line).
 
-                @return                         A std::error_code.
-
-                                                std::errc::invalid_argument: the supplied anchor point is out of range of the suppiled iterators.
-                                                                             the invertLineCount parameter is < -1 or greater than
-                                                                             GetMaxWidth - invertLineStart.
-                                                                             the invertLineStart parameter is < 0 or greater than GetMaxWidth.
-                                                std::errc::no_buffer_space: when word wrapping or an out bounds write has been detected.
+                @return                         On failure, a `std::error_code` with one of the following values:<br><br>
+                                                `std::errc::invalid_argument`: the supplied anchor point is out of range of the suppiled iterators,
+                                                the invertLineCount parameter is < -1 or greater than GlyphRenderer::GetWidth - invertLineStart,
+                                                the invertLineStart parameter is < 0 or greater than GlyphRenderer::GetWidth.<br>
+                                                `std::errc::no_buffer_space`: when word wrapping or an out bounds write has been detected.
 
                 @remark                         Center justification has no effect on a string without new lines.
-                @remark                         The SetText method needs to be called with a string to render, otherwise this method does nothing.
-                @remark                         The SetFont method needs to be called with a valid GlyphRenerer::Font, otherwise this method does nothing.
+                @remark                         The GlyphRenderer::SetText method needs to be called with a string to render, otherwise this method does nothing.
+                @remark                         The GlyphRenderer::SetFont method needs to be called with a valid GlyphRenderer::Font, otherwise this method does nothing.
                 @remark                         Unknown font glyphs print a space (clear to black (or white if inversion is enabled)).
-                @remark                         The method GetMaxWidth can be used to obtain to total number of lines of glyphs.
+                @remark                         The method GlyphRenderer::GetWidth can be used to obtain to total number of lines of glyphs.
                 @remark                         The parameters invertLineCount and invertLineStart refer to lines of text that have printable glyphs, ie,
                                                 new lines are ignored.
             */
@@ -207,7 +211,7 @@ namespace i8080_arcade
                 A packed 8x8 font for the ascii range 47 (/) to 90 (Z) defined in the native i8080 arcade video format (1 bit cocktail orientation).
                 Each glyph consumes 40 bits. When written to the upper 40 bits of a 64 bit number the remaining 24 bits represents the space
                 between glyphs. This gives us a quick monospace font based on the Space Invaders arcade hardware. Each glyph is placed in the
-                upper left giving 3 pixles of space after the glyph and one pixel of space below yielding a 5x7 glyph in an 8x8 surface.
+                upper left giving 3 pixles of space after the glyph and one pixel of space below yielding a 5x7 glyph in an 8x8 surface.<br>
                 NOTE: any entries with all zeros are unused and are reserved for future use.
             */
             static constexpr std::array<uint64_t, 28> i8080ArcadeRegular8x8_
@@ -264,13 +268,13 @@ namespace i8080_arcade
 
             /** Bytes per row
 
-               The number of bytes per row in the blittable surface iterator passed to the Blit method.
+               The number of bytes per row in the blittable surface iterator passed to the GlyphRenderer::Blit method.
             */
             int rowBytes_{};
 
             /** Total glyph lines
 
-                The total number of lines in the string passed to the SetText method.
+                The total number of lines in the string passed to the GlyphRenderer::SetText method.
 
                 @remark this is equivalent to the total number of bytes.
             */
@@ -284,13 +288,13 @@ namespace i8080_arcade
 
             /** The point from which text is rendered
 
-                Set via the AnchorPoint method.
+                Set via the GlyphRenderer::AnchorPoint method.
             */
             int anchorPoint_{};
 
-            /** Recalcuate the required metadata of the text set via the SetText method
+            /** Recalcuate the required metadata of the text set via the GlyphRenderer::SetText method
 
-                This will update the values obtained from the GetWidth and GetHeight methods.
+                This will update the values obtained from the GlyphRenderer::GetWidth and GlyphRenderer::GetHeight methods.
             */
             void Configure();
     };
