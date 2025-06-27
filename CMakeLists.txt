@@ -201,7 +201,7 @@ install(DIRECTORY "audio-files" DESTINATION .)
 install(DIRECTORY "rom-files" DESTINATION .)
 # Latex to PDF generation under Windows is currently not working, remove the if protection once fixed
 if(NOT DEFINED MSVC)
-  install(FILES ${CMAKE_BINARY_DIR}/latex/refman.pdf RENAME MEEN_I8080Arcade_Reference.pdf DESTINATION .)
+  install(FILES ${CMAKE_BINARY_DIR}/latex/refman.pdf RENAME ${project_name}.pdf DESTINATION .)
 endif()
 
 if(DEFINED meenBinDir)
