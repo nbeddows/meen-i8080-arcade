@@ -38,7 +38,11 @@ This project uses [CMake (minimum version 3.23)](https://cmake.org/) for its bui
 
 - [Install Conan](https://conan.io/downloads/)
 - `sudo apt install cmake`
-- `sudo apt install texlive-font-utils`
+- `sudo apt install cppcheck` (if building a binary development package)
+- `sudo apt install doxygen` (if building a binary development package)
+- `sudo apt install texlive-latex-base` (if building a binary development package)
+- `sudo apt install texlive-latex-extra` (if building a binary developemnt package)
+- `sudo apt install texlive-font-utils` (if building a binary development package)
 - cross compilation:
   - armv7hf:
     - `sudo apt install gcc-arm-linux-gnueabihf g++-arm-linux-gnueabihf`
@@ -69,6 +73,9 @@ This project uses [CMake (minimum version 3.23)](https://cmake.org/) for its bui
 
 - [Install Conan](https://conan.io/downloads)
 - [Install CMake](https://cmake.org/download/)
+- [Install CppCheck](http://cppcheck.net/) (if building a binary development package)
+- [Install Doxygen](https://www.doxygen.nl/download.html) (if building a binary development package)
+- [Install Tex Live](https://www.tug.org/texlive/windows.html) (if building a binary development package)
 
 **1.** Install the supported meen conan configurations (v0.1.0) (if not done so already):
 - `conan config install -sf profiles -tf profiles https://github.com/nbeddows/meen-conan-config.git --args "--branch v0.1.0"`
