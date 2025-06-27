@@ -192,7 +192,7 @@ int main(int argc, char** argv)
 
 		stdio_init_all();
 		// Open the configuration file, see the README for an explanation of each configuration option
-		//cppcheck-suppress subtractPointers
+		//cppcheck-suppress[comparePointers,subtractPointers]
 		auto e = deserializeJson(json, std::string_view(&rpConfigStart, &rpConfigEnd - &rpConfigStart));
 #else
 		std::ifstream fin;
