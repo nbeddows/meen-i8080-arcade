@@ -32,7 +32,7 @@ SOFTWARE.
 #include <variant>
 #include <vector>
 
-#include "i8080_arcade/IIoController.h"
+#include "meen_i8080_arcade/IIoController.h"
 #include "meen_hw/MH_Factory.h"
 #include "meen_hw/MH_ResourcePool.h"
 

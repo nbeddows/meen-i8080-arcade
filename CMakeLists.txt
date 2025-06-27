@@ -89,9 +89,9 @@ set(${project_name}_source_files
 )
 
 set(${project_name}_include_files
-  include/i8080_arcade/GlyphRenderer.h
-  include/i8080_arcade/IIoController.h
-  include/i8080_arcade/MemoryController.h
+  include/meen_i8080_arcade/GlyphRenderer.h
+  include/meen_i8080_arcade/IIoController.h
+  include/meen_i8080_arcade/MemoryController.h
 )
 
 if(DEFINED MSVC)
@@ -118,7 +118,7 @@ set(${project_name}_deps meen::meen meen_hw::meen_hw ArduinoJson)
 
 if(${build_os} STREQUAL "baremetal")
   if(${enable_rp2040} STREQUAL ON)
-    set(${project_name}_include_files ${${project_name}_include_files} include/i8080_arcade/RPIoController.h)
+    set(${project_name}_include_files ${${project_name}_include_files} include/meen_i8080_arcade/RPIoController.h)
     set(${project_name}_source_files ${${project_name}_source_files} source/RPConfig.S source/RPIoController.cpp)
     set(${project_name}_deps ${${project_name}_deps} pico_stdlib hardware_dma hardware_spi hardware_gpio hardware_pio hardware_pwm)
   endif()
@@ -126,7 +126,7 @@ else()
   if(${enable_sdl} STREQUAL ON)
     find_package(SDL2 REQUIRED)
     find_package(SDL2_mixer REQUIRED)
-    set(${project_name}_include_files ${${project_name}_include_files} include/i8080_arcade/SdlIoController.h)
+    set(${project_name}_include_files ${${project_name}_include_files} include/meen_i8080_arcade/SdlIoController.h)
     set(${project_name}_source_files ${${project_name}_source_files} source/SdlIoController.cpp)
     set(${project_name}_deps ${${project_name}_deps} SDL2::SDL2 SDL2_mixer::SDL2_mixer)
   endif()

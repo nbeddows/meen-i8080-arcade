@@ -32,7 +32,7 @@ SOFTWARE.
 #include <fstream>
 #endif // WIN32
 
-#include "i8080_arcade/MemoryController.h"
+#include "meen_i8080_arcade/MemoryController.h"
 
 namespace meen_i8080_arcade
 {

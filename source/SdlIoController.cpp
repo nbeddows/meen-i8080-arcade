@@ -23,8 +23,8 @@ SOFTWARE.
 #include <assert.h>
 #include <bitset>
 
-#include "i8080_arcade/MemoryController.h"
-#include "i8080_arcade/SdlIoController.h"
+#include "meen_i8080_arcade/MemoryController.h"
+#include "meen_i8080_arcade/SdlIoController.h"
 #include "meen/Base.h"
 
 namespace meen_i8080_arcade

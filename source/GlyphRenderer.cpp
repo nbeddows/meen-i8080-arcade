@@ -20,7 +20,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-#include "i8080_arcade/GlyphRenderer.h"
+#include "meen_i8080_arcade/GlyphRenderer.h"
 
 namespace meen_i8080_arcade
 {

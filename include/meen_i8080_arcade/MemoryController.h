@@ -25,7 +25,7 @@ SOFTWARE.
 
 #include <vector>
 
-#include "i8080_arcade/GlyphRenderer.h"
+#include "meen_i8080_arcade/GlyphRenderer.h"
 #include "meen/Base.h"
 #include "meen/IController.h"
 #include "meen_hw/MH_ResourcePool.h"

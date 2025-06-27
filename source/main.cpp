@@ -24,7 +24,7 @@ SOFTWARE.
 
 #include "meen/MachineFactory.h"
 #include "meen/Error.h"
-#include "i8080_arcade/MemoryController.h"
+#include "meen_i8080_arcade/MemoryController.h"
 
 #ifdef ENABLE_MH_RP2040
 /*
@@ -39,7 +39,7 @@ while(value)\
 
 #include <pico/stdlib.h>
 
-#include "i8080_arcade/RPIoController.h"
+#include "meen_i8080_arcade/RPIoController.h"
 
 extern uint8_t invadersHStart;
 extern uint8_t invadersHEnd;
@@ -133,7 +133,7 @@ if(value)\
 #include <fstream>
 #include <memory>
 
-#include "i8080_arcade/SdlIoController.h"
+#include "meen_i8080_arcade/SdlIoController.h"
 #endif // ENABLE_MH_RP2040
 
 static meen_i8080_arcade::MemoryController* MakeMemoryController(const std::vector<std::pair<std::string, std::string>>&jsonRoms)

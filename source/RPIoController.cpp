@@ -33,8 +33,8 @@ SOFTWARE.
 #include <hardware/spi.h>
 #include <pico/stdio.h>
 
-#include "i8080_arcade/MemoryController.h"
-#include "i8080_arcade/RPIoController.h"
+#include "meen_i8080_arcade/MemoryController.h"
+#include "meen_i8080_arcade/RPIoController.h"
 #include "RPAudioOut.pio.h"
 
 namespace meen_i8080_arcade
