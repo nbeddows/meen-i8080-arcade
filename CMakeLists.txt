@@ -20,12 +20,15 @@
 
 cmake_minimum_required (VERSION 3.25)
 set(project_name meen-i8080-arcade)
+set(major 1)
+set(minor 0)
+set(bugfix 0)
 
 if(${enable_rp2040} STREQUAL ON)
   include ($ENV{PICO_SDK_PATH}/external/pico_sdk_import.cmake)
 endif()
 
-project(${project_name} VERSION 0.7.0 LANGUAGES C CXX ASM)
+project(${project_name} VERSION ${major}.${minor}.${bugfix} LANGUAGES C CXX ASM)
 set(CMAKE_CXX_STANDARD 23)
 
 if(${enable_rp2040} STREQUAL ON)
@@ -84,11 +87,33 @@ set(${project_name}_source_files
   source/main.cpp
   source/MemoryController.cpp
 )
+
 set(${project_name}_include_files
   include/i8080_arcade/GlyphRenderer.h
   include/i8080_arcade/IIoController.h
   include/i8080_arcade/MemoryController.h
 )
+
+if(DEFINED MSVC)
+  include(resource/generate_product_version.cmake)
+
+  generate_product_version(
+    versionResource
+    COMPANY_NAME "Nicolas Beddows"
+    FILE_DESCRIPTION "i8080 arcade emulator"
+    NAME "MEEN i8080 Arcade"
+    ORIGINAL_FILE_NAME "${project_name}.exe"
+    PRODUCT_ICON ""
+    VERSION_MAJOR ${major}
+    VERSION_MINOR ${minor}
+    VERSION_PATCH ${bugfix}
+  )
+
+  set (${project_name}_resource_files
+    ${versionResource}
+  )
+endif()
+
 set(${project_name}_deps meen::meen meen_hw::meen_hw ArduinoJson)
 
 if(${build_os} STREQUAL "baremetal")
@@ -110,6 +135,7 @@ endif()
 add_executable(${project_name}
   ${${project_name}_include_files}
   ${${project_name}_source_files}
+  ${${project_name}_resource_files}
 )
 
 if(DEFINED MSVC)
