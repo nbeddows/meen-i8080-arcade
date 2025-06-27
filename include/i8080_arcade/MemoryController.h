@@ -30,7 +30,7 @@ SOFTWARE.
 #include "meen/IController.h"
 #include "meen_hw/MH_ResourcePool.h"
 
-namespace i8080_arcade
+namespace meen_i8080_arcade
 {
     /** Custom memory controller.
 
@@ -296,6 +296,6 @@ namespace i8080_arcade
         */
         static int GetPhysicalMemoryUsage();
     };
-} // namespace i8080_arcade
+} // namespace meen_i8080_arcade
 
 #endif // MEMORYCONTROLLER_H

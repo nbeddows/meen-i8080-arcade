@@ -29,7 +29,7 @@ SOFTWARE.
 
 #include "meen/IController.h"
 
-namespace i8080_arcade
+namespace meen_i8080_arcade
 {
     /** An abstract base class describing a generic io controller
 	
@@ -116,6 +116,6 @@ namespace i8080_arcade
         */
         virtual ~IIoController() = default;
     };
-} // namespace i8080_arcade
+} // namespace meen_i8080_arcade
 
 #endif // IIOCONTROLLER_H

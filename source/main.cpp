@@ -136,21 +136,21 @@ if(value)\
 #include "i8080_arcade/SdlIoController.h"
 #endif // ENABLE_MH_RP2040
 
-static i8080_arcade::MemoryController* MakeMemoryController(const std::vector<std::pair<std::string, std::string>>&jsonRoms)
+static meen_i8080_arcade::MemoryController* MakeMemoryController(const std::vector<std::pair<std::string, std::string>>&jsonRoms)
 {
-	return new i8080_arcade::MemoryController(jsonRoms);
+	return new meen_i8080_arcade::MemoryController(jsonRoms);
 }
 
-static i8080_arcade::IIoController* MakeIoController(bool runAsync, meen_hw::MH_ResourcePool<std::vector<uint8_t>>::ResourcePtr&& backBuffer, int romCount, JsonVariantConst audioHardware, JsonVariantConst videoHardware)
+static meen_i8080_arcade::IIoController* MakeIoController(bool runAsync, meen_hw::MH_ResourcePool<std::vector<uint8_t>>::ResourcePtr&& backBuffer, int romCount, JsonVariantConst audioHardware, JsonVariantConst videoHardware)
 {
 	if (!audioHardware || !videoHardware)
 	{
 		return nullptr;
 	}
 #ifdef ENABLE_MH_RP2040
-	return new i8080_arcade::RPIoController(runAsync, std::move(backBuffer), romCount, audioHardware, videoHardware);
+	return new meen_i8080_arcade::RPIoController(runAsync, std::move(backBuffer), romCount, audioHardware, videoHardware);
 #else
-	return new i8080_arcade::SDLIoController(runAsync, romCount, audioHardware, videoHardware);
+	return new meen_i8080_arcade::SDLIoController(runAsync, romCount, audioHardware, videoHardware);
 #endif // ENABLE_MH_RP2040
 }
 
@@ -282,7 +282,7 @@ int main(int argc, char** argv)
 
 		// The memory controller width and height is in the native i8080 arcade pixel format (1bpp cocktail) so we need to multiply it by 8 to get the total pixel width
 		// in order to create a compatible texture
-		auto err = ioController->LoadVideoTextures(software["video"], i8080_arcade::MemoryController::frameWidth << 3, i8080_arcade::MemoryController::frameHeight);
+		auto err = ioController->LoadVideoTextures(software["video"], meen_i8080_arcade::MemoryController::frameWidth << 3, meen_i8080_arcade::MemoryController::frameHeight);
 		CHECK_ERROR(err, printf("Failed to load video textures: %s\n", err.message().c_str()));
 
 		err = ioController->LoadAudioSamples(software["audio"]);
@@ -302,7 +302,7 @@ int main(int argc, char** argv)
 			if (ioController != nullptr)
 			{
 				// We only pass around one type of controller, so this cast is safe.
-				static_cast<i8080_arcade::IIoController*>(ioController)->HandleError(std::move(errorMsg));
+				static_cast<meen_i8080_arcade::IIoController*>(ioController)->HandleError(std::move(errorMsg));
 			}
 			else
 			{
@@ -323,7 +323,7 @@ int main(int argc, char** argv)
 		machine->OnInit([](meen::IController* ioController)
 		{
 #ifdef ENABLE_MH_RP2040
-			i8080_arcade::RPIoController::Init();
+			meen_i8080_arcade::RPIoController::Init();
 #endif
 			return meen::errc::no_error;
 		});
@@ -332,7 +332,7 @@ int main(int argc, char** argv)
 		// This is a simple implementation which will overwrite the previous save file
 		machine->OnSave([&jsonRoms, &saveFilePath](char* uri, int* uriLen, meen::IController* ioController)
 		{
-			auto [unused, romIndex] = static_cast<i8080_arcade::IIoController*>(ioController)->GetRomIndex();
+			auto [unused, romIndex] = static_cast<meen_i8080_arcade::IIoController*>(ioController)->GetRomIndex();
 			*uriLen = snprintf(uri, *uriLen, "%s/%s.json", saveFilePath.c_str(), jsonRoms[romIndex].first.c_str());
 			return meen::errc::no_error;
 		}, nullptr);
@@ -340,7 +340,7 @@ int main(int argc, char** argv)
 		// Will be called from a different thread if the 'runAsync' or 'loadAsync' configuration options are set to true
 		machine->OnLoad([&jsonRoms, &saveFilePath](char* json, int* jsonLen, meen::IController* ioController)
 		{
-			auto [loadSaveState, romIndex] = static_cast<i8080_arcade::IIoController*>(ioController)->GetRomIndex();
+			auto [loadSaveState, romIndex] = static_cast<meen_i8080_arcade::IIoController*>(ioController)->GetRomIndex();
 
 			if (loadSaveState == true)
 			{
@@ -355,14 +355,14 @@ int main(int argc, char** argv)
 		// The load complete handler will be called from a different thread if the 'runAsync' configuration option is set to true
 		}, [](meen::IController* ioController)
 		{
-			static_cast<i8080_arcade::IIoController*>(ioController)->HandleLoadComplete();
+			static_cast<meen_i8080_arcade::IIoController*>(ioController)->HandleLoadComplete();
 			return meen::errc::no_error;
 		});
 
 		// Will always be called from the same thread from which IMachine::Run was called (in this case, the main thread)
 		machine->OnIdle([](meen::IController* ioController)
 		{
-			return static_cast<i8080_arcade::IIoController*>(ioController)->HandleEvent();
+			return static_cast<meen_i8080_arcade::IIoController*>(ioController)->HandleEvent();
 		});
 
 		// Set the hardware options

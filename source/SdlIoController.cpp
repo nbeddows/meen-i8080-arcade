@@ -27,7 +27,7 @@ SOFTWARE.
 #include "i8080_arcade/SdlIoController.h"
 #include "meen/Base.h"
 
-namespace i8080_arcade
+namespace meen_i8080_arcade
 {
 	std::array<std::atomic_bool, MIX_CHANNELS * 2> SDLIoController::channelPlaying_ = {};
 
@@ -733,4 +733,4 @@ namespace i8080_arcade
 		// need to confirm this.
 		// i8080ArcadeIO_->SetOptions(R"({"repeat_samples":[1, 2, 4]})")
 	}
-} // namespace i8080_arcade
+} // namespace meen_i8080_arcade

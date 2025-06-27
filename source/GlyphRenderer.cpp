@@ -22,7 +22,7 @@ SOFTWARE.
 
 #include "i8080_arcade/GlyphRenderer.h"
 
-namespace i8080_arcade
+namespace meen_i8080_arcade
 {
     void GlyphRenderer::Configure()
     {
@@ -326,4 +326,4 @@ namespace i8080_arcade
 
         return std::error_code{};
     }
-} // namespace i8080_arcade
+} // namespace meen_i8080_arcade

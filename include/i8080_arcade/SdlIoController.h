@@ -36,7 +36,7 @@ SOFTWARE.
 #include "meen_hw/MH_Factory.h"
 #include "meen_hw/MH_ResourcePool.h"
 
-namespace i8080_arcade
+namespace meen_i8080_arcade
 {
 	/** Custom SDL io controller.
 
@@ -73,7 +73,7 @@ namespace i8080_arcade
 			//cppcheck-suppress unusedStructMember
 			SDL_Window* window_{};
 
-			/**	i8080_arcade
+			/**	i8080 arcade io
 
 				The hardware emulator.
 			*/
@@ -387,6 +387,6 @@ namespace i8080_arcade
 			*/
 			std::tuple<bool, int> GetRomIndex() final;
 	};
-} // namespace i8080_arcade
+} // namespace meen_i8080_arcade
 
 #endif // SDLIOCONTROLLER_H
