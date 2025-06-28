@@ -23,7 +23,7 @@ This project has been tested against the following roms (which can be found else
 | Balloon Bomber                  | Has issues which go beyond the superficial that require further investigation |
 | Lunar Rescue                    | Passes general gameplay testing                                               |
 
-For supported desktop platforms The Simple Direct MediaLayer (SDL) is used to render the video and audio and requires a keyboard for interaction (keyboard controls are documented towards the end of this document).<br>
+For supported desktop platforms The Simple DirectMedia Layer 2.x (SDL2) is used to render the video and audio and requires a keyboard for interaction (keyboard controls are documented towards the end of this document).<br>
 For supported embedded platforms an st7789 based lcd screen is requried for video rendering (tested with [this lcd](https://www.waveshare.com/wiki/Pico-LCD-2)), for audio rendering, an audio module that can transmit pcm mono 8/16it samples over the I2S bus (tested with [version 1 of this module](https://www.waveshare.com/wiki/Pico-Audio)) and a minimum of 4 buttons for interaction (button controls are documented towards the end of this document).
 
 I don't consider the emulation to be the most efficient, accurate, or to be extensively tested, but I'm happy with where it is at.
