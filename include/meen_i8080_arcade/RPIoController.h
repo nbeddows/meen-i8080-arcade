@@ -29,10 +29,10 @@ SOFTWARE.
 #include <variant>
 #include <vector>
 
-#include "i8080_arcade/IIoController.h"
+#include "meen_i8080_arcade/IIoController.h"
 #include "meen_hw/MH_Factory.h"
 
-namespace i8080_arcade
+namespace meen_i8080_arcade
 {
     /** Custom Raspberry Pi Pico io controller.
 
@@ -221,7 +221,7 @@ namespace i8080_arcade
         */
         meen_hw::MH_ResourcePool<std::vector<uint8_t>>::ResourcePtr backBuffer_;
 
-        /** i8080_arcade
+        /** i8080 arcade io
 
             The hardware emulator.
         */
@@ -483,5 +483,5 @@ namespace i8080_arcade
 		*/
         std::tuple<bool, int> GetRomIndex() final;
     };
-} // namespace i8080_arcade
+} // namespace meen_i8080_arcade
 #endif // RPIOCONTROLLER_H

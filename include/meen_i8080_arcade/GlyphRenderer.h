@@ -30,7 +30,7 @@ SOFTWARE.
 #include <system_error>
 #include <vector>
 
-namespace i8080_arcade
+namespace meen_i8080_arcade
 {
     /** Glyph Rendering
 
@@ -298,6 +298,6 @@ namespace i8080_arcade
             */
             void Configure();
     };
-} // namespace i8080_arcade
+} // namespace meen_i8080_arcade
 
 #endif // GLYPHRENDERER_H

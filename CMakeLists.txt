@@ -20,12 +20,15 @@
 
 cmake_minimum_required (VERSION 3.25)
 set(project_name meen-i8080-arcade)
+set(major 1)
+set(minor 0)
+set(bugfix 0)
 
 if(${enable_rp2040} STREQUAL ON)
   include ($ENV{PICO_SDK_PATH}/external/pico_sdk_import.cmake)
 endif()
 
-project(${project_name} VERSION 0.7.0 LANGUAGES C CXX ASM)
+project(${project_name} VERSION ${major}.${minor}.${bugfix} LANGUAGES C CXX ASM)
 set(CMAKE_CXX_STANDARD 23)
 
 if(${enable_rp2040} STREQUAL ON)
@@ -84,16 +87,38 @@ set(${project_name}_source_files
   source/main.cpp
   source/MemoryController.cpp
 )
+
 set(${project_name}_include_files
-  include/i8080_arcade/GlyphRenderer.h
-  include/i8080_arcade/IIoController.h
-  include/i8080_arcade/MemoryController.h
+  include/meen_i8080_arcade/GlyphRenderer.h
+  include/meen_i8080_arcade/IIoController.h
+  include/meen_i8080_arcade/MemoryController.h
 )
+
+if(DEFINED MSVC)
+  include(resource/generate_product_version.cmake)
+
+  generate_product_version(
+    versionResource
+    COMPANY_NAME "Nicolas Beddows"
+    FILE_DESCRIPTION "i8080 arcade emulator"
+    NAME "MEEN i8080 Arcade"
+    ORIGINAL_FILE_NAME "${project_name}.exe"
+    PRODUCT_ICON ""
+    VERSION_MAJOR ${major}
+    VERSION_MINOR ${minor}
+    VERSION_PATCH ${bugfix}
+  )
+
+  set (${project_name}_resource_files
+    ${versionResource}
+  )
+endif()
+
 set(${project_name}_deps meen::meen meen_hw::meen_hw ArduinoJson)
 
 if(${build_os} STREQUAL "baremetal")
   if(${enable_rp2040} STREQUAL ON)
-    set(${project_name}_include_files ${${project_name}_include_files} include/i8080_arcade/RPIoController.h)
+    set(${project_name}_include_files ${${project_name}_include_files} include/meen_i8080_arcade/RPIoController.h)
     set(${project_name}_source_files ${${project_name}_source_files} source/RPConfig.S source/RPIoController.cpp)
     set(${project_name}_deps ${${project_name}_deps} pico_stdlib hardware_dma hardware_spi hardware_gpio hardware_pio hardware_pwm)
   endif()
@@ -101,7 +126,7 @@ else()
   if(${enable_sdl} STREQUAL ON)
     find_package(SDL2 REQUIRED)
     find_package(SDL2_mixer REQUIRED)
-    set(${project_name}_include_files ${${project_name}_include_files} include/i8080_arcade/SdlIoController.h)
+    set(${project_name}_include_files ${${project_name}_include_files} include/meen_i8080_arcade/SdlIoController.h)
     set(${project_name}_source_files ${${project_name}_source_files} source/SdlIoController.cpp)
     set(${project_name}_deps ${${project_name}_deps} SDL2::SDL2 SDL2_mixer::SDL2_mixer)
   endif()
@@ -110,6 +135,7 @@ endif()
 add_executable(${project_name}
   ${${project_name}_include_files}
   ${${project_name}_source_files}
+  ${${project_name}_resource_files}
 )
 
 if(DEFINED MSVC)
@@ -195,13 +221,12 @@ endif()
 install(CODE "execute_process(COMMAND cppcheck -ibuild -i_CPack_Packages --check-level=exhaustive --inline-suppr --enable=warning,style,performance,portability,unusedFunction --std=c++20 ${CMAKE_SOURCE_DIR})")
 install(TARGETS ${project_name} RUNTIME)
 install(FILES LICENSE.md DESTINATION . RENAME LICENSE)
-install(DIRECTORY docs/images DESTINATION ./docs)
 install(DIRECTORY "conf" DESTINATION .)
 install(DIRECTORY "audio-files" DESTINATION .)
 install(DIRECTORY "rom-files" DESTINATION .)
 # Latex to PDF generation under Windows is currently not working, remove the if protection once fixed
 if(NOT DEFINED MSVC)
-  install(FILES ${CMAKE_BINARY_DIR}/latex/refman.pdf RENAME MEEN_I8080Arcade_Reference.pdf DESTINATION .)
+  install(FILES ${CMAKE_BINARY_DIR}/latex/refman.pdf RENAME ${project_name}.pdf DESTINATION .)
 endif()
 
 if(DEFINED meenBinDir)

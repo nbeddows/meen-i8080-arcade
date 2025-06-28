@@ -1,4 +1,4 @@
-0.7.0
+1.0.0 [28/06/25]
 * Added RP2040 support.
 * Added 16bpp video output support.
 * Updated to meen/2.0.0.

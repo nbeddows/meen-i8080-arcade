@@ -23,7 +23,7 @@ This project has been tested against the following roms (which can be found else
 | Balloon Bomber                  | Has issues which go beyond the superficial that require further investigation |
 | Lunar Rescue                    | Passes general gameplay testing                                               |
 
-For supported desktop platforms The Simple Direct MediaLayer (SDL) is used to render the video and audio and requires a keyboard for interaction (keyboard controls are documented towards the end of this document).<br>
+For supported desktop platforms The Simple DirectMedia Layer 2.x (SDL2) is used to render the video and audio and requires a keyboard for interaction (keyboard controls are documented towards the end of this document).<br>
 For supported embedded platforms an st7789 based lcd screen is requried for video rendering (tested with [this lcd](https://www.waveshare.com/wiki/Pico-LCD-2)), for audio rendering, an audio module that can transmit pcm mono 8/16it samples over the I2S bus (tested with [version 1 of this module](https://www.waveshare.com/wiki/Pico-Audio)) and a minimum of 4 buttons for interaction (button controls are documented towards the end of this document).
 
 I don't consider the emulation to be the most efficient, accurate, or to be extensively tested, but I'm happy with where it is at.
@@ -151,24 +151,24 @@ The following dependent packages will be (compiled if required and) installed:
 - Multi configuration generators (MSVC for example): `cmake --preset conan-default [-Wno-dev]`
 - Single configuration generators (make for example): `cmake --preset conan-release [-Wno-dev]`
 
-**4.** Run cmake to compile i8080-arcade: `cmake --build --preset conan-release`
+**4.** Run cmake to compile meen-i8080-arcade: `cmake --build --preset conan-release`
 
-**5.** Run i8080-arcade:
+**5.** Run meen-i8080-arcade:
 
 **Linux/Windows (x86_64)**:
 - `build\generators\conanrun.[bat|sh]`: export the dependent shared library paths.
-- `artifacts/Release/x86_64/bin/i8080-arcade`
+- `artifacts/Release/x86_64/bin/meen-i8080-arcade`
 - `build\generators\deactivate_conanrun.[bat|sh]`: restore the environment.
 
 **Linux (armv7hf, armv8)**:
 
 When running a cross compiled build the binaries need to be uploaded to the host machine before they can be executed.
 1. Create an Arm Linux binary distribution: See building a binary package. 
-2. Copy the distribution to the arm machine: `scp build/Release/Sdk/i8080-arcade-v0.6.0-Linux-armv7hf-bin.tar.gz ${user}@raspberrypi:i8080-arcade-v0.6.0.tar.gz`
+2. Copy the distribution to the arm machine: `scp build/Release/Sdk/meen-i8080-arcade-v1.0.0-Linux-armv7hf-bin.tar.gz ${user}@raspberrypi:meen-i8080-arcade-v1.0.0.tar.gz`
 3. Ssh into the arm machine: `ssh ${user}@raspberrypi`
-4. Extract the i8080-arcade archive copied over via scp: `tar -xzf i8080-arcade-v0.6.0.tar.gz`
-5. Change directory to i8080-arcade `cd i8080-arcade`
-6. Run i8080-arcade: `./run-i8080-arcade.sh`<br>
+4. Extract the i8080-arcade archive copied over via scp: `tar -xzf meen-i8080-arcade-v1.0.0.tar.gz`
+5. Change directory to meen-i8080-arcade `cd meen-i8080-arcade`
+6. Run meen-i8080-arcade: `./run-meen-i8080-arcade.sh`<br>
 
 **RP2040 (armv6)**:
 
@@ -178,14 +178,14 @@ Before uploading the UF2 image to the pico board ensure that your lcd is connect
 When running a cross compiled build the binaries need to be uploaded to the host machine before they can be executed.
 This example will assume you are deploying the UF2 file from a Raspberry Pi.
 1. Create an Arm Linux binary distribution: see building a binary development package.
-2. Copy the distribution to the arm machine: `scp build/Release/i8080-arcade-v0.7.0-baremetal-armv6-GNU-13.2.1.tar.gz ${user}@raspberrypi:i8080-arcade-v0.7.0.tar.gz`
+2. Copy the distribution to the arm machine: `scp build/Release/meen-i8080-arcade-v1.0.0-baremetal-armv6-GNU-13.2.1.tar.gz ${user}@raspberrypi:meen-i8080-arcade-v1.0.0.tar.gz`
 3. Ssh into the arm machine: `ssh ${user}@raspberrypi`
-4. Extract the i8080-arcade archive copied over via scp: `tar -xzf i8080-arcade-v0.7.0.tar.gz`.
+4. Extract the meen-i8080-arcade archive copied over via scp: `tar -xzf meen-i8080-arcade-v0.7.0.tar.gz`.
 5. Hold down the `bootsel` button on the pico and plug in the usb cable into the usb port of the Raspberry Pi then release the `bootsel` button.
 6. Echo the attached `/dev` device (this should show up as `sdb1` for example): `dmesg | tail`
 7. Create a mount point (if not done already): `sudo mkdir /mnt/pico`
 8. Mount the device: `sudo mount /dev/sdb1 /mnt/pico`. Run `ls /mnt/pico` to confirm it mounted.
-9. Copy the uf2 image to the pico: `cp i8080-arcade-v0.7.0-baremetal-armv6-GNU-13.2.1/bin/i8080_arcade.uf2 /mnt/pico`
+9. Copy the uf2 image to the pico: `cp meen-i8080-arcade-v1.0.0-baremetal-armv6-GNU-13.2.1/bin/meen-i8080-arcade.uf2 /mnt/pico`
 10. You should see a new device `ttyACM0`: `ls /dev` to confirm.
 11. Unmount the device: `sudo umount /mnt/pico`
 
@@ -214,8 +214,8 @@ This will build a binary package using the `zip` utility.
 
 Run `cpack --help` for a list available generators.
 
-The final package can be stripped by running the i8080-arcade-strip-pkg target (defined only for platforms that support strip):
-- `cmake --build --preset conan-release --target=i8080-arcade-strip-pkg`
+The final package can be stripped by running the meen-i8080-arcade-strip-pkg target (defined only for platforms that support strip):
+- `cmake --build --preset conan-release --target=meen-i8080-arcade-strip-pkg`
 
 ### Configuration
 
@@ -234,7 +234,7 @@ The current settings for these options should be sufficient, changing them may h
 | Option              | Value | Remarks                                                           |
 |:--------------------|:------|:------------------------------------------------------------------|
 | `clockSamplingFreq` | 120   | The i8080 arcade hardware runs at 60Hz with 2 interrupts per frame
-| `isrFreq`           | 132   | 4 interrupts are required, 2 for i8080-arcade and 2 machine level interrupts for loading and saving. Ideally this would be locked to the clock sampling frequency ("isrFreq":120), however, we need to spare some time for checking for load and save requests, so we bump the `isrFreq` up by ten percent ("isrFreq":132). One could increase it further (increased host cpu usage), this would make it more responsive (132 should be good enough) |
+| `isrFreq`           | 132   | 4 interrupts are required, 2 for meen-i8080-arcade and 2 machine level interrupts for loading and saving. Ideally this would be locked to the clock sampling frequency ("isrFreq":120), however, we need to spare some time for checking for load and save requests, so we bump the `isrFreq` up by ten percent ("isrFreq":132). One could increase it further (increased host cpu usage), this would make it more responsive (132 should be good enough) |
 | `loadAsync`         | true  | Load the machine state asynchronously                             |
 | `runAsync`          | true  | Run the machine and io asynchronously                             |
 | `saveAsync`         | true  | Save the machine state asynchronously                             |
