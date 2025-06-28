@@ -1,3 +1,27 @@
+1.0.0 [28/06/25]
+* Added RP2040 support.
+* Added 16bpp video output support.
+* Updated to meen/2.0.0.
+* Removed all command line arguments other than
+  the path to the config file (arguments now
+  defined in the config file).
+* One command line argument supported: the path
+  to the config file. 
+* Removed popl dependency.
+* Added IIoController base class.
+* Added single threaded support (`runAsync`,
+  `loadAsync` and `saveAsync` options can
+  be false) for demonstration purposes.
+* Added a rom selection screen.
+* Added rendered metadata `frame rate`, `time`
+  `uptime` and `memory usage`.
+* Added rendered Midway/Taito copyright.
+* Refactored the event handling.
+* Improved SDL IO controller audio rendering.
+* Updated all documentation.
+* Added a PDF reference manual to the binary
+  package. 
+
 0.6.1 [04/08/24]
 * Added profiles for improved build support.
 * Compiler id and version are now incorporated
