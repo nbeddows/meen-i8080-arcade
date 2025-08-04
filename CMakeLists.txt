@@ -32,15 +32,6 @@ project(${project_name} VERSION ${major}.${minor}.${bugfix} LANGUAGES C CXX ASM)
 set(CMAKE_CXX_STANDARD 23)
 
 if(${enable_rp2040} STREQUAL ON)
-  add_executable(Pioasm IMPORTED)
-  set_property(TARGET Pioasm PROPERTY IMPORTED_LOCATION $ENV{PICO_SDK_PATH}/build/pioasm/pioasm)
-  set(Pioasm_FOUND 1)
-
-  # In the 2.x SDK this is handled by picotool, need to account for this with version numbers
-  add_executable(ELF2UF2 IMPORTED)
-  set_property(TARGET ELF2UF2 PROPERTY IMPORTED_LOCATION $ENV{PICO_SDK_PATH}/build/elf2uf2/elf2uf2)
-  set(ELF2UF2_FOUND 1)
-
   pico_sdk_init()
 endif()
 
@@ -145,6 +136,16 @@ endif()
 target_include_directories(${project_name} PRIVATE ${CMAKE_SOURCE_DIR}/include)
 
 if(${build_os} STREQUAL "baremetal")
+  # This is here for reference only. We don't do it this way since there is a conflict with the Conan and Pico
+  # toolchain files which results in the wrong compiler being used to build pioasm.
+  #pico_generate_pio_header(${project_name} ${CMAKE_SOURCE_DIR}/source/RPAudioOut.pio)
+  
+  # Use the prebuilt pioasm to generate the header (see the README for further details).
+  add_executable(pioasm IMPORTED)
+  set_property(TARGET pioasm PROPERTY IMPORTED_LOCATION $ENV{PICO_SDK_PATH}/build/pioasm/pioasm)
+  add_custom_target(${project_name}-audio-pio-header COMMAND pioasm RPAudioOut.pio RPAudioOut.pio.h WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/source COMMENT "Building Audio PIO Header")
+  add_dependencies(${project_name} ${project_name}-audio-pio-header)
+
   target_include_directories(${project_name} PRIVATE ${CMAKE_SOURCE_DIR}/conf ${CMAKE_SOURCE_DIR}/rom-files ${CMAKE_SOURCE_DIR}/audio-files)
 endif()
 
@@ -162,10 +163,9 @@ if(${build_os} STREQUAL "baremetal")
 
   if(${enable_rp2040} STREQUAL ON)
     target_compile_definitions(${project_name} PRIVATE ENABLE_MH_RP2040)
-    pico_generate_pio_header(${project_name} ${CMAKE_SOURCE_DIR}/source/RPAudioOut.pio)
     pico_enable_stdio_usb(${project_name} 1)
     pico_enable_stdio_uart(${project_name} 0)
-    pico_set_program_url(${project_name} "https://github.com/neddows/${project_name}")
+    pico_set_program_url(${project_name} "https://github.com/nbeddows/${project_name}")
     pico_add_extra_outputs(${project_name})
     install(PROGRAMS ${CMAKE_BINARY_DIR}/${project_name}.bin DESTINATION ${runtime_dir})
     install(FILES ${CMAKE_BINARY_DIR}/${project_name}.uf2 DESTINATION ${runtime_dir})
