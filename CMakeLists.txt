@@ -139,11 +139,11 @@ if(${build_os} STREQUAL "baremetal")
   # This is here for reference only. We don't do it this way since there is a conflict with the Conan and Pico
   # toolchain files which results in the wrong compiler being used to build pioasm.
   #pico_generate_pio_header(${project_name} ${CMAKE_SOURCE_DIR}/source/RPAudioOut.pio)
-  
+
   # Use the prebuilt pioasm to generate the header (see the README for further details).
-  add_executable(pioasm IMPORTED)
-  set_property(TARGET pioasm PROPERTY IMPORTED_LOCATION $ENV{PICO_SDK_PATH}/build/pioasm/pioasm)
-  add_custom_target(${project_name}-audio-pio-header COMMAND pioasm RPAudioOut.pio RPAudioOut.pio.h WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/source COMMENT "Building Audio PIO Header")
+  add_executable(pio-asm IMPORTED)
+  set_property(TARGET pio-asm PROPERTY IMPORTED_LOCATION $ENV{PICO_SDK_PATH}/build/pioasm/pioasm)
+  add_custom_target(${project_name}-audio-pio-header COMMAND pio-asm RPAudioOut.pio RPAudioOut.pio.h WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/source COMMENT "Building Audio PIO Header")
   add_dependencies(${project_name} ${project_name}-audio-pio-header)
 
   target_include_directories(${project_name} PRIVATE ${CMAKE_SOURCE_DIR}/conf ${CMAKE_SOURCE_DIR}/rom-files ${CMAKE_SOURCE_DIR}/audio-files)
