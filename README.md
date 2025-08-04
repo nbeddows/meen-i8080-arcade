@@ -50,24 +50,22 @@ This project uses [CMake (minimum version 3.23)](https://cmake.org/) for its bui
     - `sudo apt install gcc-aarch64-linux-gnu g++-aarch64-linux-gnu`
   - rp2040:
     - `sudo apt install gcc-arm-none-eabi libnewlib-arm-none-eabi build-essential libstdc++-arm-none-eabi-newlib`
-    - `git clone https://github.com/raspberrypi/pico-sdk.git --branch 1.5.1`
+    - `git clone https://github.com/raspberrypi/pico-sdk.git --branch 2.1.1`
     - `cd pico-sdk`
     - `git submodule update --init`
-    - build the Raspberry Pi Pico SDK:
-      - Conan and the Raspberry Pi Pico Sdk seem to have an issue with conflicting use of the cmake toolchain file
+    - Build the required Raspberry Pi Pico SDK components:
+      - Conan and the Raspberry Pi Pico SDK seem to have an issue with conflicting use of the cmake toolchain file
         which results in test programs not being able to be compiled during the conan build process as outlined [here](https://github.com/raspberrypi/pico-sdk/issues/1693).
-        At this point we need to build the sdk so that we have the required tools pre-built so the Conan build process will succeed:
+        At this point we need to pre-build the required components of the sdk so that the Conan build process will succeed:
         - `mkdir build`<br>
            **NOTE**: Conan will assume that the build tools are located in the `build` directory, **do not** use a different directory name.
         - `cd build`
         - `cmake ..`
-        - `make`
+        - `make pioasmBuild`
     - Set the Raspberry Pi Pico SDK Path:
-        -`export PICO_SDK_PATH=${PATH_TO_PICO_SDK}`
-        To avoid having to export it on every session, add it to the end of your .bashrc file instead:
-        - `nano ~/.bashrc`
-        - `export PICO_SDK_PATH=${PATH_TO_PICO_SDK}`
-	- save, close and re-open shell.
+      - `nano ~/.bashrc`
+      - add the following to the end of the file: `export PICO_SDK_PATH=${PATH_TO_PICO_SDK}`
+      - save, close and re-open shell.
 
 ##### Windows
 
@@ -77,8 +75,8 @@ This project uses [CMake (minimum version 3.23)](https://cmake.org/) for its bui
 - [Install Doxygen](https://www.doxygen.nl/download.html) (if building a binary development package)
 - [Install Tex Live](https://www.tug.org/texlive/windows.html) (if building a binary development package)
 
-**1.** Install the supported meen conan configurations (v0.1.0) (if not done so already):
-- `conan config install -sf profiles -tf profiles https://github.com/nbeddows/meen-conan-config.git --args "--branch v0.1.0"`
+**1.** Install the supported meen conan configurations (v0.3.0) (if not done so already):
+- `conan config install -sf profiles -tf profiles https://github.com/nbeddows/meen-conan-config.git --args "--branch v0.3.0"`
 
 **2.** Install dependencies:
 - Windows msvc x86_64 build and host: `conan install . --build=missing --profile:all=profiles/Windows-x86_64-msvc-193-sdl`
