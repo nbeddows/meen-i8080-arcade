@@ -30,7 +30,7 @@ I don't consider the emulation to be the most efficient, accurate, or to be exte
 
 ### Compilation
 
-This project uses [CMake (minimum version 3.23)](https://cmake.org/) for its build system and [Conan (minimum version 2.0)](https://conan.io/) for it's dependency package management. Supported compilers are GCC (minimum version 12), MSVC(minimum version 16).
+This project uses [CMake (minimum version 3.23)](https://cmake.org/) for its build system and [Conan (minimum version 2.0)](https://conan.io/) for it's dependency package management. Supported compilers are GCC (minimum version 13), MSVC(minimum version 16).
 
 #### Pre-requisites
 
@@ -53,19 +53,28 @@ This project uses [CMake (minimum version 3.23)](https://cmake.org/) for its bui
     - `git clone https://github.com/raspberrypi/pico-sdk.git --branch 2.1.1`
     - `cd pico-sdk`
     - `git submodule update --init`
+    - Set the Raspberry Pi Pico SDK Path:
+      - `nano ~/.bashrc`
+      - add the following to the end of the file: `export PICO_SDK_PATH=${PATH_TO_PICO_SDK}`
+      - save, close and re-open shell.
+    - Compile and install picotool
+      - `git clone https://github.com/raspberrypi/picotool`
+      - `cd picotool`
+      - `mkdir build`
+      - `cd build`
+      - `cmake ..`
+      - `make`
+      - `sudo make install`
     - Build the required Raspberry Pi Pico SDK components:
       - Conan and the Raspberry Pi Pico SDK seem to have an issue with conflicting use of the cmake toolchain file
         which results in test programs not being able to be compiled during the conan build process as outlined [here](https://github.com/raspberrypi/pico-sdk/issues/1693).
         At this point we need to pre-build the required components of the sdk so that the Conan build process will succeed:
+        - `cd pico-sdk/2.1.1`
         - `mkdir build`<br>
            **NOTE**: Conan will assume that the build tools are located in the `build` directory, **do not** use a different directory name.
         - `cd build`
         - `cmake ..`
         - `make pioasmBuild`
-    - Set the Raspberry Pi Pico SDK Path:
-      - `nano ~/.bashrc`
-      - add the following to the end of the file: `export PICO_SDK_PATH=${PATH_TO_PICO_SDK}`
-      - save, close and re-open shell.
 
 ##### Windows
 
@@ -80,10 +89,10 @@ This project uses [CMake (minimum version 3.23)](https://cmake.org/) for its bui
 
 **2.** Install dependencies:
 - Windows msvc x86_64 build and host: `conan install . --build=missing --profile:all=profiles/Windows-x86_64-msvc-193-sdl`
-- Linux x86_64 build and host: `conan install . --build=missing --profile:all=profiles/Linux-x86_64-gcc-13-sdl`
-- Linux x86_64 build, Linux armv7hf host: `conan install . --build=missing --profile:build=Linux-x86_64-gcc-13 --profile:host=profiles/Linux-armv7hf-gcc-13-sdl`
-- Linux x86_64 build, Linux armv8 host: `conan install . --build=missing --profile:build=Linux-x86_64-gcc-13 --profile:host=profiles/Linux-armv8-gcc-13-sdl`
-- Linux x86_64 build, RP2040 microcontroller (baremetal armv6-m) host: `conan install . --build=missing --profile:build=Linux-x86_64-gcc-13 --profile:host=profiles/rp2040-armv6-gcc-13-st7789vw`<br>
+- Linux x86_64 build and host: `conan install . --build=missing --profile:all=profiles/Linux-x86_64-gcc-14-sdl`
+- Linux x86_64 build, Linux armv7hf host: `conan install . --build=missing --profile:build=Linux-x86_64-gcc-14 --profile:host=profiles/Linux-armv7hf-gcc-14-sdl`
+- Linux x86_64 build, Linux armv8 host: `conan install . --build=missing --profile:build=Linux-x86_64-gcc-14 --profile:host=profiles/Linux-armv8-gcc-14-sdl`
+- Linux x86_64 build, RP2040 microcontroller (baremetal armv6-m) host: `conan install . --build=missing --profile:build=Linux-x86_64-gcc-14 --profile:host=profiles/rp2040-armv6-gcc-14-st7789vw`<br>
 
 **NOTE**: when performing a cross compile using a host profile you must install the requisite toolchain of the target architecture, see pre-requisites.
 
@@ -97,35 +106,35 @@ When cross compiling for arm you may need to add the arm development repositorie
       - deb [arch=arm64] http://ports.ubuntu.com/ lunar-backports main multiverse universe
       - deb [arch=arm64] http://ports.ubuntu.com/ lunar-updates main multiverse universe
 - Ubuntu Noble onwards:
-  - `sudo nano /etc/apt/sources.list.d/ubuntu.sources
-  - Append the following:
-      Types: deb
-      URIs: http://ports.ubuntu.com/
-      Suites: noble
-      Architectures: arm64
-      Components: main multiverse universe
-      Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg
+  - `sudo nano /etc/apt/sources.list.d/ubuntu.sources`
+  - Append the following:<br><br>
+      Types: deb<br>
+      URIs: http://ports.ubuntu.com/<br>
+      Suites: noble<br>
+      Architectures: arm64<br>
+      Components: main multiverse universe<br>
+      Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg<br>
 
-      Types: deb
-      URIs: http://ports.ubuntu.com/
-      Suites: noble-security
-      Architectures: arm64
-      Components: main multiverse universe
-      Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg
+      Types: deb<br>
+      URIs: http://ports.ubuntu.com/<br>
+      Suites: noble-security<br>
+      Architectures: arm64<br>
+      Components: main multiverse universe<br>
+      Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg<br>
 
-      Types: deb
-      URIs: http://ports.ubuntu.com/
-      Suites: noble-backports
-      Components: main multiverse universe
-      Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg
+      Types: deb<br>
+      URIs: http://ports.ubuntu.com/<br>
+      Suites: noble-backports<br>
+      Components: main multiverse universe<br>
+      Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg<br>
 
-      Types: deb
-      URIs: http://ports.ubuntu.com/
-      Suites: noble-updates
-      Architectures: arm64
-      Components: main multiverse universe
-      Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg
-- Save and exit.
+      Types: deb<br>
+      URIs: http://ports.ubuntu.com/<br>
+      Suites: noble-updates<br>
+      Architectures: arm64<br>
+      Components: main multiverse universe<br>
+      Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg<br>
+  - Save and exit.
 - `sudo dpkg --add-architecture arm64`
 - `sudo dpkg --print-foreign-architectures`
 - `sudo apt-get update`
