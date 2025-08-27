@@ -21,7 +21,7 @@
 cmake_minimum_required (VERSION 3.25)
 set(project_name meen-i8080-arcade)
 set(major 1)
-set(minor 0)
+set(minor 1)
 set(bugfix 0)
 
 if(${enable_board} STREQUAL "pico")
