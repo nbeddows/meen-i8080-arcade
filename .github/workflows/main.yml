@@ -3,13 +3,11 @@ name: CI/CD
 # Controls when the workflow will run
 on:
   # Triggers the release workflow on push events but only for tags in the following form: v*.*.*
-  push:
+#  push:
 #    tags: [v*.*.*]
-    tags: []
   # Triggers the workflow on pull request events but only for the "main" and "development" branches
-  pull_request:
+#  pull_request:
 #    branches: [main, development]
-    branches: []
 
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
