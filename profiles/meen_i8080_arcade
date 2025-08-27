@@ -1,14 +1,14 @@
 include({{ os }}-{{ arch }}-{{ compiler }}-{{ compiler_version }})
 [options]
-&:with_{{ framework }}=True
+&:with_framework={{ framework }}
 meen_hw/*:with_i8080_arcade=True
-{% if os == 'rp2040' %}
-  meen/*:with_{{ os }}=True
+{% if os == 'pico' %}
   meen/*:fPIC=False
   meen/*:shared=False
-  meen_hw/*:with_{{ os }}=True
+  meen/*:with_board={{ os }}
   meen_hw/*:fPIC=False
   meen_hw/*:shared=False
+  meen_hw/*:with_board={{ os }}
 {% else %}
   {% if framework == 'sdl' %}
     {{ framework }}/*:shared = True
