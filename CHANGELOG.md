@@ -1,5 +1,11 @@
+1.1.0
+* GitHub Actions CI/CD support.
+* GCC-14 support.
+* Pico SDK 2.x.x support.
+* Updated dependency version numbers.
+
 1.0.0 [28/06/25]
-* Added RP2040 support.
+* Added Pico RP2040 support.
 * Added 16bpp video output support.
 * Updated to meen/2.0.0.
 * Removed all command line arguments other than
