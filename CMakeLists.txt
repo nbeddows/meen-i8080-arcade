@@ -21,26 +21,17 @@
 cmake_minimum_required (VERSION 3.25)
 set(project_name meen-i8080-arcade)
 set(major 1)
-set(minor 0)
+set(minor 1)
 set(bugfix 0)
 
-if(${enable_rp2040} STREQUAL ON)
+if(${enable_board} STREQUAL "pico")
   include ($ENV{PICO_SDK_PATH}/external/pico_sdk_import.cmake)
 endif()
 
 project(${project_name} VERSION ${major}.${minor}.${bugfix} LANGUAGES C CXX ASM)
 set(CMAKE_CXX_STANDARD 23)
 
-if(${enable_rp2040} STREQUAL ON)
-  add_executable(Pioasm IMPORTED)
-  set_property(TARGET Pioasm PROPERTY IMPORTED_LOCATION $ENV{PICO_SDK_PATH}/build/pioasm/pioasm)
-  set(Pioasm_FOUND 1)
-
-  # In the 2.x SDK this is handled by picotool, need to account for this with version numbers
-  add_executable(ELF2UF2 IMPORTED)
-  set_property(TARGET ELF2UF2 PROPERTY IMPORTED_LOCATION $ENV{PICO_SDK_PATH}/build/elf2uf2/elf2uf2)
-  set(ELF2UF2_FOUND 1)
-
+if(${enable_board} STREQUAL "pico")
   pico_sdk_init()
 endif()
 
@@ -73,7 +64,7 @@ else()
 endif()
 
 # TODO: rp2040 does not output all artifacts correctly when setting this - investigate me
-if(NOT ${enable_rp2040} STREQUAL ON)
+if(NOT ${enable_board} STREQUAL "pico")
   set(artifacts_dir $<1:${CMAKE_SOURCE_DIR}/artifacts/${build_type}/${build_arch}>)
   set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${artifacts_dir}/${runtime_dir})
 endif()
@@ -117,13 +108,13 @@ endif()
 set(${project_name}_deps meen::meen meen_hw::meen_hw ArduinoJson)
 
 if(${build_os} STREQUAL "baremetal")
-  if(${enable_rp2040} STREQUAL ON)
+  if(${enable_board} STREQUAL "pico")
     set(${project_name}_include_files ${${project_name}_include_files} include/meen_i8080_arcade/RPIoController.h)
     set(${project_name}_source_files ${${project_name}_source_files} source/RPConfig.S source/RPIoController.cpp)
     set(${project_name}_deps ${${project_name}_deps} pico_stdlib hardware_dma hardware_spi hardware_gpio hardware_pio hardware_pwm)
   endif()
 else()
-  if(${enable_sdl} STREQUAL ON)
+  if(${enable_framework} STREQUAL "sdl")
     find_package(SDL2 REQUIRED)
     find_package(SDL2_mixer REQUIRED)
     set(${project_name}_include_files ${${project_name}_include_files} include/meen_i8080_arcade/SdlIoController.h)
@@ -145,6 +136,16 @@ endif()
 target_include_directories(${project_name} PRIVATE ${CMAKE_SOURCE_DIR}/include)
 
 if(${build_os} STREQUAL "baremetal")
+  # This is here for reference only. We don't do it this way since there is a conflict with the Conan and Pico
+  # toolchain files which results in the wrong compiler being used to build pioasm.
+  #pico_generate_pio_header(${project_name} ${CMAKE_SOURCE_DIR}/source/RPAudioOut.pio)
+
+  # Use the prebuilt pioasm to generate the header (see the README for further details).
+  add_executable(pio-asm IMPORTED)
+  set_property(TARGET pio-asm PROPERTY IMPORTED_LOCATION $ENV{PICO_SDK_PATH}/build/pioasm/pioasm)
+  add_custom_target(${project_name}-audio-pio-header COMMAND pio-asm RPAudioOut.pio RPAudioOut.pio.h WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/source COMMENT "Building Audio PIO Header")
+  add_dependencies(${project_name} ${project_name}-audio-pio-header)
+
   target_include_directories(${project_name} PRIVATE ${CMAKE_SOURCE_DIR}/conf ${CMAKE_SOURCE_DIR}/rom-files ${CMAKE_SOURCE_DIR}/audio-files)
 endif()
 
@@ -156,16 +157,15 @@ set(CPACK_PACKAGE_FILE_NAME ${project_name}-v${CMAKE_PROJECT_VERSION}-${build_os
 set(CPACK_GENERATOR TGZ)
 
 if(${build_os} STREQUAL "baremetal")
-  if(${enable_st7789vw} STREQUAL ON)
+  if(${enable_framework} STREQUAL "st7789vw")
     target_compile_definitions(${project_name} PRIVATE ENABLE_MH_ST7789VW)
   endif()
 
-  if(${enable_rp2040} STREQUAL ON)
+  if(${enable_board} STREQUAL "pico")
     target_compile_definitions(${project_name} PRIVATE ENABLE_MH_RP2040)
-    pico_generate_pio_header(${project_name} ${CMAKE_SOURCE_DIR}/source/RPAudioOut.pio)
     pico_enable_stdio_usb(${project_name} 1)
     pico_enable_stdio_uart(${project_name} 0)
-    pico_set_program_url(${project_name} "https://github.com/neddows/${project_name}")
+    pico_set_program_url(${project_name} "https://github.com/nbeddows/${project_name}")
     pico_add_extra_outputs(${project_name})
     install(PROGRAMS ${CMAKE_BINARY_DIR}/${project_name}.bin DESTINATION ${runtime_dir})
     install(FILES ${CMAKE_BINARY_DIR}/${project_name}.uf2 DESTINATION ${runtime_dir})
@@ -174,7 +174,7 @@ if(${build_os} STREQUAL "baremetal")
     install(FILES ${CMAKE_BINARY_DIR}/${project_name}.hex DESTINATION ${archive_dir})
   endif()
 else()
-  if(${enable_sdl} STREQUAL ON)
+  if(${enable_framework} STREQUAL "sdl")
     target_compile_definitions(${project_name} PRIVATE SDL_MAIN_HANDLED)
   endif()
 
@@ -215,18 +215,21 @@ install(CODE "execute_process(COMMAND doxygen ${CMAKE_SOURCE_DIR}/docs/Doxyfile)
 if(DEFINED MSVC)
   # Under Windows Doxygen documentaiton causes LaTeX to go into what looks to be an infinite loop, disable until a solution is found
   # install(CODE "execute_process(COMMAND cmd /c make WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/latex)")
-else()
+# We are not going to build the documentation on arm platforms
+elseif(${build_arch} STREQUAL x86_64)
   install(CODE "execute_process(COMMAND make WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/latex)")
 endif()
-install(CODE "execute_process(COMMAND cppcheck -ibuild -i_CPack_Packages --check-level=exhaustive --inline-suppr --enable=warning,style,performance,portability,unusedFunction --std=c++20 ${CMAKE_SOURCE_DIR})")
 install(TARGETS ${project_name} RUNTIME)
+install(FILES CHANGELOG.md DESTINATION .)
 install(FILES LICENSE.md DESTINATION . RENAME LICENSE)
 install(DIRECTORY "conf" DESTINATION .)
 install(DIRECTORY "audio-files" DESTINATION .)
 install(DIRECTORY "rom-files" DESTINATION .)
 # Latex to PDF generation under Windows is currently not working, remove the if protection once fixed
 if(NOT DEFINED MSVC)
-  install(FILES ${CMAKE_BINARY_DIR}/latex/refman.pdf RENAME ${project_name}.pdf DESTINATION .)
+  if(${build_arch} STREQUAL x86_64)
+    install(FILES ${CMAKE_BINARY_DIR}/latex/refman.pdf RENAME MEEN_i8080_Arcade_Reference.pdf DESTINATION .)
+  endif()
 endif()
 
 if(DEFINED meenBinDir)

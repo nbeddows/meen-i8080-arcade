@@ -372,7 +372,7 @@ int main(int argc, char** argv)
 	}
 
 	// Run the machine until the 'q' key is pressed or the window is closed (ie; the machine OnIdle handler returns true)
-	machine->Run();
+	[[maybe_unused]] auto runTime = machine->Run();
 
 	return 0;
 }

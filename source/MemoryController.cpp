@@ -21,6 +21,7 @@ SOFTWARE.
 */
 
 #include <algorithm>
+#include <bit>
 #include <time.h>
 
 #ifdef WIN32
