@@ -136,9 +136,9 @@ if(value)\
 #include "meen_i8080_arcade/SdlIoController.h"
 #endif // ENABLE_MH_RP2040
 
-static meen_i8080_arcade::MemoryController* MakeMemoryController(const std::vector<std::pair<std::string, std::string>>&jsonRoms)
+static meen_i8080_arcade::MemoryController* MakeMemoryController(bool runAsync, const std::vector<std::pair<std::string, std::string>>&jsonRoms)
 {
-	return new meen_i8080_arcade::MemoryController(jsonRoms);
+	return new meen_i8080_arcade::MemoryController(runAsync, jsonRoms);
 }
 
 static meen_i8080_arcade::IIoController* MakeIoController(bool runAsync, meen_hw::MH_ResourcePool<std::vector<uint8_t>>::ResourcePtr&& backBuffer, int romCount, JsonVariantConst audioHardware, JsonVariantConst videoHardware)
@@ -156,6 +156,8 @@ static meen_i8080_arcade::IIoController* MakeIoController(bool runAsync, meen_hw
 
 int main(int argc, char** argv)
 {
+	printf("MEEN Version: %s\n", meen::Version());
+
 	// Store the required json needed to load a specific rom (first is the rom name, second is the rom config json)
 	std::vector<std::pair<std::string, std::string>> jsonRoms;
 	// The path where our save files will reside (not applicable for embedded targets)
@@ -267,7 +269,7 @@ int main(int argc, char** argv)
 		CHECK_ERROR(!meen, printf("Invalid json config file format: meen section not found\n"));
 
 		// Create our custom i8080 arcade memory controller.
-		auto memoryController = MakeMemoryController(jsonRoms);
+		auto memoryController = MakeMemoryController(meen["runAsync"], jsonRoms);
 		CHECK_ERROR(!memoryController, printf("Failed to create the memory controller\n"));
 
 		// Create a frame pool of 2 frames, passing an empty one back for use as the initial io controller back buffer if required.
@@ -324,7 +326,7 @@ int main(int argc, char** argv)
 		{
 #ifdef ENABLE_MH_RP2040
 			meen_i8080_arcade::RPIoController::Init();
-#endif
+#endif // ENABLE_MH_RP2040
 			return meen::errc::no_error;
 		});
 
