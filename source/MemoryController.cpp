@@ -80,7 +80,9 @@ namespace meen_i8080_arcade
         return memUsage;
     }
 
-    MemoryController::MemoryController(const std::vector<std::pair<std::string, std::string>>& jsonRoms, int framePoolSize)
+    // Need to pass in the runAsync json meen option
+    MemoryController::MemoryController(bool runAsync, const std::vector<std::pair<std::string, std::string>>& jsonRoms)
+        : runAsync_{ runAsync }
     {
         std::string txtToBlit;
 
@@ -90,7 +92,7 @@ namespace meen_i8080_arcade
         }
 
         std::transform(txtToBlit.begin(), txtToBlit.end(), txtToBlit.begin(), ::toupper);
-        txtToBlit.erase(txtToBlit.end() - 3, txtToBlit.end());
+        txtToBlit.erase(txtToBlit.end() - 3 /*"\n\n\n"*/, txtToBlit.end());
 
         romList_.SetText(std::move(txtToBlit));
         romList_.SetJustification(GlyphRenderer::Justification::Centre);
@@ -202,8 +204,6 @@ namespace meen_i8080_arcade
 
     void MemoryController::Clear(std::vector<uint8_t>* backBuffer)
     {
-        std::vector<meen_hw::MH_ResourcePool<std::vector<uint8_t>>::ResourcePtr> frames;
-        auto frame = framePool_.GetResource();
         // Clear the memory to 0
         memory_.assign(memory_.size(), 0);
 
@@ -221,7 +221,18 @@ namespace meen_i8080_arcade
             clearBuffer(backBuffer);
         }
 
-        while(frame != nullptr)
+        if (runAsync_ == true)
+        {
+            // Wait for the memory controller frame pool size to return back to its maximum size
+            framePool_.Wait(framePool_.GetSize());
+            // Wait should probably return the internal unique_lock, not important for this application
+            // since producing and consuming occur on distinct threads
+        }
+
+        // All the frames should now be available to clear
+        std::vector<meen_hw::MH_ResourcePool<std::vector<uint8_t>>::ResourcePtr> frames;
+
+        while(auto frame = framePool_.GetResource())
         {
             // Clear the vram section of the remaining buffers
             clearBuffer(frame.get());
