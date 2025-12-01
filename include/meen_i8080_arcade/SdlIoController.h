@@ -103,7 +103,7 @@ namespace meen_i8080_arcade
 				
 					The time at which the vram was sampled in MEEN timescale units.
 				*/
-            	int64_t timestamp;
+            	int64_t timestamp{};
         	};
 
 			/** Helper type for functional style visitor for std::visit
@@ -124,7 +124,7 @@ namespace meen_i8080_arcade
 				The EventData will be assigned to the SDL_Event data1 property.
 			*/
 			using EventData = std::variant<std::string, uint16_t, Frame>;
-			
+
 			/** Event data queue
 
 				Holds a list of events to be processed.
