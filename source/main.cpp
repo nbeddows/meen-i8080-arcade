@@ -156,6 +156,8 @@ static meen_i8080_arcade::IIoController* MakeIoController(bool runAsync, meen_hw
 
 int main(int argc, char** argv)
 {
+	printf("MEEN Version: %s\n", meen::Version());
+
 	// Store the required json needed to load a specific rom (first is the rom name, second is the rom config json)
 	std::vector<std::pair<std::string, std::string>> jsonRoms;
 	// The path where our save files will reside (not applicable for embedded targets)
@@ -270,8 +272,8 @@ int main(int argc, char** argv)
 		auto memoryController = MakeMemoryController(jsonRoms);
 		CHECK_ERROR(!memoryController, printf("Failed to create the memory controller\n"));
 
-		// Create a frame pool of 2 frames, passing an empty one back for use as the initial io controller back buffer if required.
-		auto backBuffer = memoryController->MakeFramePool(2);
+		// Create a frame pool of 4 frames, passing an empty one back for use as the initial io controller back buffer if required.
+		auto backBuffer = memoryController->MakeFramePool(4);
 		CHECK_ERROR(!backBuffer, printf("Failed to create the memory controller frame pool\n"));
 
 		// Create our custom i8080 arcade I/O controller based on a specific configuration.
@@ -324,7 +326,7 @@ int main(int argc, char** argv)
 		{
 #ifdef ENABLE_MH_RP2040
 			meen_i8080_arcade::RPIoController::Init();
-#endif
+#endif // ENABLE_MH_RP2040
 			return meen::errc::no_error;
 		});
 

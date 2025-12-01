@@ -25,7 +25,7 @@ SOFTWARE.
 
 #include <ArduinoJson.h>
 #include <atomic>
-#include <pico/util/queue.h>
+#include <list>
 #include <variant>
 #include <vector>
 
@@ -111,7 +111,7 @@ namespace meen_i8080_arcade
         /** Centre width offset
 
             The difference in pixels of the width of the attached lcd panel and the width
-            of the i8080 arcahde video hardware.
+            of the i8080 arcade video hardware.
 
             This is used to centre the output frame on the lcd panel.
         */
@@ -227,6 +227,26 @@ namespace meen_i8080_arcade
         */
         std::unique_ptr<meen_hw::MH_II8080ArcadeIO> i8080ArcadeIO_;
 
+        /** Timed video frame
+
+            A frame of video ram taken from the memory controller frame pool
+            with the addition of a time stamp.
+        */
+        struct Frame
+        {
+            /** Video frame
+
+                This is a memory controller frame pool resource
+            */
+            meen_hw::MH_ResourcePool<std::vector<uint8_t>>::ResourcePtr bitstream;
+
+            /** Time stamp
+
+                The time at which the vram was sampled in MEEN timescale units.
+            */
+            int64_t timestamp{};
+        };
+
         /** Helper type for functional style visitor for std::visit
 
             This template helper type is taken straight from cppreference std::visit examples (https://en.cppreference.com/w/cpp/utility/variant/visit2)
@@ -240,35 +260,27 @@ namespace meen_i8080_arcade
 
             std::string: The application has encountered and error.
             bool:        True to clear the vram area of the lcd display, false otherwise.
-            ResourcePtr: The next video frame is ready to be rendered. This event drives the control loop.
+            Frame:       The next video frame is ready to be rendered. This event drives the control loop.
         */
-        using EventData = std::variant<std::string, bool, meen_hw::MH_ResourcePool<std::vector<uint8_t>>::ResourcePtr>;
+        using EventData = std::variant<std::string, bool, Frame>;
 
-        /** A finite EventData resource pool
+        /** Event data queue
 
-            A vector of EventData variants to be used during the event handling process.
-
-            @remark    Populate from a fnite array of EventData objects
+            Holds a list of events to be processed.
         */
-        queue_t eventDataQueue_;
+        std::list<EventData> eventQ_;
 
-        /** Available event data queue
+        /** Event queue mutex
 
-            The pool of available events that can be filled.
+            Event data mutual exclusion between the main thread and the machine thread.
         */
-        queue_t eventDataFreeQueue_;
+        meen_hw::MH_Mutex eventQMutex_;
 
-        /** The maximum number of events across all pools
+        /** Event queue condition variable
 
-            This can be increased/decreased depending on requirements.
+            Used in conjuction with eventQMutex_ to signal when new EventData is ready for processing.
         */
-        static constexpr int maxEventData_{ 2 };
-
-        /** An array of EventData variants for use with RP2040s C based queue api
-
-            @remark    these wrappers are solely accessed via the event data queues.
-        */
-        EventData eventData_[maxEventData_];
+        meen_hw::MH_ConditionVariable eventQCv_;
 
         /** Video frame buffer
 

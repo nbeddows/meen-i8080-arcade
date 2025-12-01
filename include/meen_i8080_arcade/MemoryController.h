@@ -86,7 +86,13 @@ namespace meen_i8080_arcade
         */
         static constexpr int vramHeight{ 224 };
 
-        /** Constructor
+        /** Default constructor
+        
+            Not Supported.
+        */
+        MemoryController() = delete;
+
+        /** Initialisation Constructor
 
             Create a memory controller that can handle the memory requirements
             of i8080 arcade. This includes a 64k memory buffer along with a video
@@ -94,11 +100,10 @@ namespace meen_i8080_arcade
             optimised rendering.
 
             @param      jsonRoms            A vector of pairs with first being the rom name and second being the rom json configuration.
-            @param      framePoolSize       The number of frames to allocate, each frame will be MemoryController::frameWidth * MemoryController::frameHeight bytes in length.
 
             @remark     The default frame pool size is 1.
         */
-        MemoryController(const std::vector<std::pair<std::string, std::string>>& jsonRoms, int framePoolSize = 1);
+        MemoryController(const std::vector<std::pair<std::string, std::string>>& jsonRoms);
 
         /** Destructor
 
@@ -126,7 +131,7 @@ namespace meen_i8080_arcade
         */
         meen_hw::MH_ResourcePool<std::vector<uint8_t>>::ResourcePtr GetRomSelectFrame(int romIndex, uint64_t currTime);
 
-        /** Clear all internal memory and frame buffers
+        /** Clear all internal memory and the vram section of the frame buffers
 
             All buffers will be set to 0x00.
 
@@ -143,6 +148,9 @@ namespace meen_i8080_arcade
 
             @return                    The initial frame to render, this can then be used as the initial frame in a
                                        double buffered system.
+
+            @remark                    Each frame will be MemoryController::frameWidth * MemoryController::frameHeight bytes in length.
+
         */
         meen_hw::MH_ResourcePool<std::vector<uint8_t>>::ResourcePtr MakeFramePool(int framePoolSize);
 
@@ -289,7 +297,7 @@ namespace meen_i8080_arcade
 
             @return     The total usage in kilobytes.
 
-            @remark Under Windows it will return the total ram usage in the current woring set
+            @remark Under Windows it will return the total ram usage in the current working set
             (as opposed to the private working set).
             @remark Under RP2040 it will return the total amount of the heap that has been used.
             @remark Other supported platforms will return the /proc/self/stat resident set size when available.

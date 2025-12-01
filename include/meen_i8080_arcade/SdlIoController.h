@@ -86,11 +86,25 @@ namespace meen_i8080_arcade
 			//cppcheck-suppress unusedStructMember
 			std::vector<Mix_Chunk*> mixChunk_;
 
-			/** The custom i8080 arcade SDL event type
-
-				Events of this type are processed in the SDLIoController::HandleEvent method.
+			/** Timed video frame
+			
+				A frame of video ram taken from the memory controller frame pool
+				with the addition of a time stamp.
 			*/
-			uint64_t siEvent_{};
+			struct Frame
+        	{
+				/** Video frame
+					
+					This is a memory controller frame pool resource
+				*/
+            	meen_hw::MH_ResourcePool<std::vector<uint8_t>>::ResourcePtr bitstream;
+
+				/** Time stamp
+				
+					The time at which the vram was sampled in MEEN timescale units.
+				*/
+            	int64_t timestamp{};
+        	};
 
 			/** Helper type for functional style visitor for std::visit
 
@@ -103,47 +117,31 @@ namespace meen_i8080_arcade
 
 				A using directve for ease of use. This will hold the active event data to be processed.
 
-				uint8_t:		Audio is ready to be played. The SDL_Event data2 type is the index into the mixChunk_ to be played.
+				uint16_t:		Audio is ready to be played. The high 8 bits is the audio port, the low 8 bits are the audio samples to play.
 				std::string:	The application has encountered and error.
-				ResourcePtr:	The next video frame is ready to be rendered. This event drives the control loop.
+				Frame:			The next video frame is ready to be rendered. This event drives the control loop.
 
 				The EventData will be assigned to the SDL_Event data1 property.
 			*/
-			using EventData = std::variant<std::string, uint8_t, meen_hw::MH_ResourcePool<std::vector<uint8_t>>::ResourcePtr>;
+			using EventData = std::variant<std::string, uint16_t, Frame>;
 
-			/** A finite EventData resource pool
+			/** Event data queue
 
-				A vector of EventData variants to be used during the event handleing process.
-
-				@remark		Set to a size of 2 (done as a resize in the constructor, todo: probably should be passed as a parameter to the constructor)
+				Holds a list of events to be processed.
 			*/
-			std::vector<std::unique_ptr<EventData>> eventDataPool_;
+        	std::list<EventData> eventQ_;
 
-			/** Event data pool mutex
+			/** Event queue mutex
 
 				Event data mutual exclusion between the main thread and the machine thread.
 			*/
-			std::mutex eventDataMutex_;
+        	meen_hw::MH_Mutex eventQMutex_;
 
-			/** Event data pool condition variable
+			/** Event queue condition variable
 
-				Used in conjuction with eventDataMutex_ to wait on all outstanding events to complete. This is required for screen transition (back to rom select)
-				so all video frames can be cleared preventing any stale video frames being rendered.
-			*/
-			std::condition_variable eventDataCv_;
-
-			/** Event data pool atomic flag
-
-				Used in conjuction with the main thread to wait on all outstanding events to complete. This is required for screen transition (back to rom select)
-				so all video frames can be cleared preventing any stale video frames from being rendered.
-			*/
-			//std::atomic_flag eventDataCv_;;
-
-			/** The maximum number of events across all pools
-
-				This can be increased/decreased depending on requirements.
-			*/
-			static constexpr int maxEventData_{ 2 };
+            	Used in conjuction with eventQMutex_ to signal when new EventData is ready for processing.
+    	    */
+	        meen_hw::MH_ConditionVariable eventQCv_;
 
 			/** Load a game rom or the save state of the currently loaded game rom
 
@@ -244,16 +242,13 @@ namespace meen_i8080_arcade
 			*/
 			Uint8 SetInterrupt(bool key, bool lastKey, meen::ISR isr, bool loadSaveState);
 
-			/** Get event data from the event data pool
-
-				Removes an EventData resource from the event data pool and returns it.
-
-				@return		An EventData variant pointer.
-
-				@remark		Once the event data has been use it MUST be returned to the event data pool.
-			*/
-			EventData* GetEventData();
 		public:
+			/** Default constructor
+			
+				Not supported.
+			*/
+			SDLIoController() = delete;
+
 			/** Initialisation constructor
 
 				Creates an SDL specific i8080 arcade IO controller.

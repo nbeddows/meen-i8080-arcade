@@ -60,15 +60,6 @@ namespace meen_i8080_arcade
         width_ = videoHardware["width"].as<int>();
         height_ = videoHardware["height"].as<int>();
 
-        queue_init(&eventDataQueue_, sizeof(uintptr_t), maxEventData_);
-        queue_init(&eventDataFreeQueue_, sizeof(uintptr_t), maxEventData_);
-
-        for(int i = 0; i < maxEventData_; i++)
-        {
-            auto p = std::bit_cast<uintptr_t>(&eventData_[i]);
-            queue_add_blocking(&eventDataFreeQueue_, static_cast<void*>(&p));
-        }
-
         spi_init(spi1, 62.5 * 1000000);
 
         gpio_set_function(Pin::CLK, GPIO_FUNC_SPI);
@@ -199,8 +190,6 @@ namespace meen_i8080_arcade
         gpio_deinit(Pin::K3);
         gpio_deinit(Pin::RST);
         spi_deinit(spi1);
-        queue_free(&eventDataFreeQueue_);
-        queue_free(&eventDataQueue_);
         dma_channel_cleanup(0);
         dma_channel_unclaim(0);
     }
@@ -432,7 +421,6 @@ namespace meen_i8080_arcade
 
                 if (buttonPress_[Pin::K1] == true)
                 {
-                    EventData* eventData = nullptr;
                     screen_ = Screen::RomSelect;
                     buttonPress_[Pin::K1] = false;
 
@@ -441,40 +429,35 @@ namespace meen_i8080_arcade
                     // Abort any current dmac operation
                     dma_channel_abort(0);
 
-                    if (runAsync_ == true)
+                    if (runAsync_ == false)
                     {
-                        // Spin until the event data free queue size is full; ie all event data variants are returned, todo: ideally we would wait here
-                        while(queue_get_level(&eventDataFreeQueue_) < maxEventData_)
-                        {
-                            // do nothing
-                            printf("Waiting for final frame to blit before clearing\n");
-                        }
-                    }
-                    else
-                    {
-                        // We need to cancel any outstanding events
-                        while(queue_try_remove(&eventDataQueue_, static_cast<void*>(&eventData)) == true)
-                        {
-                            auto videoFrame = std::get_if<meen_hw::MH_ResourcePool<std::vector<uint8_t>>::ResourcePtr>(eventData);
+                       // In single threaded mode we need to remove all outstanding i8080 arcade events and return the video frames
+                       // back to the memory controller so they can be cleared.
+                       while(eventQ_.empty() == false)
+                       {
+                           // Single threaded mode: no need to lock the eventQMutex_
+                           auto eventData = std::move(eventQ_.front());
+                           eventQ_.pop_front();
 
-                            if (videoFrame != nullptr)
-                            {
-                                // Cancel the frame, ie; return it to the memory controller frame pool.
-                                *videoFrame = nullptr;
-                            }
-
-                            queue_add_blocking(&eventDataFreeQueue_, static_cast<void*>(&eventData));
-                        }
+                           if (std::holds_alternative<Frame>(eventData))
+                           {
+                               auto& frame = std::get<Frame>(eventData);
+                               frame.bitstream = nullptr;
+                           }
+                       }
                     }
 
                     // We should now be safe to reset this as video frames can only be added from the thread we are currently on
                     // and the spinlock/cancellation above ensures all remaining frames have been blitted/cancelled
                     // (the HandleEvent thread (if runAsync is true) would now be in a waiting state waiting on the next frame to be added).
                     static_cast<MemoryController*>(memoryController)->Clear(backBuffer_.get());
-                    queue_remove_blocking(&eventDataFreeQueue_, static_cast<void*>(&eventData));
-                    // Clear the vram portion of the display
-                    *eventData = true;
-                    queue_add_blocking(&eventDataQueue_, static_cast<void*>(&eventData));
+
+                    {
+                        meen_hw::MH_LockGuard lg(eventQMutex_);
+                        eventQ_.emplace_back(EventData{ true });
+                    }
+
+                    eventQCv_.notify_one();
                 }
                 else
                 {
@@ -545,11 +528,12 @@ namespace meen_i8080_arcade
                     }
                     else
                     {
-                         // We didn't load this chunk or its properties are incompatible with the audio hardware
-                         EventData* eventData = nullptr;
-                         queue_remove_blocking(&eventDataFreeQueue_, static_cast<void*>(&eventData));
-                         *eventData = std::string("Audio chunk ") + std::to_string(i) + " is incompatible";
-                         queue_add_blocking(&eventDataQueue_, static_cast<void*>(&eventData));
+                         {
+                             meen_hw::MH_LockGuard lg(eventQMutex_);
+                             eventQ_.emplace_back(EventData{ std::string("Audio chunk ") + std::to_string(i) + " is incompatible" });
+                         }
+
+                         eventQCv_.notify_one();
                     }
                 }
             }
@@ -632,43 +616,48 @@ namespace meen_i8080_arcade
             }
             case 2:
             {
-                EventData* eventData = nullptr;
-                auto success = queue_try_remove(&eventDataFreeQueue_, static_cast<void*>(&eventData));
+                Frame frame;
+                EventData eventData;
 
                 if (screen_ == Screen::Gameplay)
                 {
                     isr = meen::ISR::Two;
                 }
 
-                if (success == true)
+                switch (screen_)
                 {
-                    switch (screen_)
-                    {
-                        case Screen::RomSelect:
-                            *eventData = static_cast<MemoryController*>(memoryController)->GetRomSelectFrame(romIndex_, currTime);
-                            break;
-                        case Screen::Gameplay:
-                            *eventData = static_cast<MemoryController*>(memoryController)->GetGameplayFrame(currTime);
-                            break;
-                        default:
-                            break;
-                    }
+                    case Screen::RomSelect:
+                        frame.bitstream = static_cast<MemoryController*>(memoryController)->GetRomSelectFrame(romIndex_, currTime);
+                        break;
+                    case Screen::Gameplay:
+                        frame.bitstream = static_cast<MemoryController*>(memoryController)->GetGameplayFrame(currTime);
+                        break;
+                    default:
+                        break;
+                }
 
-                    auto videoFrame = std::get_if<meen_hw::MH_ResourcePool<std::vector<uint8_t>>::ResourcePtr>(eventData);
-
-                    // The variant is in an invalid state or no video frame was generated.
-                    if (videoFrame == nullptr || *videoFrame == nullptr)
-                    {
-                        *eventData = "Failed to get the frame from the memory controller, frame dropped";
-                    }
-
-                    success = queue_try_add(&eventDataQueue_, static_cast<void*>(&eventData));
-                    assert(success == true);
+                if (frame.bitstream != nullptr)
+                {
+                    frame.timestamp = currTime;
+                    eventData = std::move(frame);
                 }
                 else
                 {
-                    printf("Failed to dispatch video frame, increase the event data pool size\n");
-                    // assert(0);
+                    eventData = "Failed to get the frame from the memory controller, frame dropped";
+                }
+
+                if (runAsync_ == true)
+                {
+                    {
+                        meen_hw::MH_LockGuard lg(eventQMutex_);
+                        eventQ_.push_back(std::move(eventData));
+                    }
+
+                    eventQCv_.notify_one();
+                }
+                else
+                {
+                    eventQ_.push_back(std::move(eventData));
                 }
 
                 // Write a frame duration worth of any pending audio to the dmac
@@ -786,21 +775,32 @@ namespace meen_i8080_arcade
 
     bool RPIoController::HandleEvent()
     {
-        EventData* eventData = nullptr;
+        EventData eventData;
 
         if (runAsync_ == true)
         {
-            queue_remove_blocking(&eventDataQueue_, static_cast<void*>(&eventData));
+            eventQMutex_.lock();
+            eventQCv_.wait(eventQMutex_, [this] { return eventQ_.empty() == false; });
+            eventData = std::move(eventQ_.front());
+            eventQ_.pop_front();
+            eventQMutex_.unlock();
         }
         else
         {
-            if (queue_try_remove(&eventDataQueue_, static_cast<void*>(&eventData)) == false)
+            if (eventQ_.empty() == false)
             {
+                assert(eventQ_.size() == 1);
+                eventData = std::move(eventQ_.front());
+                eventQ_.pop_front();
+            }
+            else
+            {
+                // No event to process, nothing more to do
                 return false;
             }
         }
 
-        auto quit = std::visit(overloaded
+        return std::visit(overloaded
         {
             [](const std::string& error)
             {
@@ -833,7 +833,7 @@ namespace meen_i8080_arcade
                         gpio_put(Pin::CS, 0);
 
                         // Clear the current row of the display
-                        for(int j = 0; j < MemoryController::vramWidth << 3; j++)
+                        for(int j = 0; j < (MemoryController::vramWidth << 3) / 2; j++)
                         {
                             uint16_t p = 0x0000;
                             spi_write16_blocking(spi1, &p, 1);
@@ -843,13 +843,13 @@ namespace meen_i8080_arcade
 
                 return false;
             },
-            [this](meen_hw::MH_ResourcePool<std::vector<uint8_t>>::ResourcePtr& videoFrame)
+            [this](Frame& frame)
             {
                 auto compressedWidth = textureWidth_ >> 3;
                 auto dst = texture_.data();
                 auto dstSize = texture_.size();
                 auto dst16 = std::bit_cast<uint16_t*>(dst);
-                auto vf = videoFrame.get()->data();
+                auto vf = frame.bitstream.get()->data();
                 uint8_t* bb = backBuffer_.get()->data();
 
                 for(int i = 0, lastScanline = 0; i < textureHeight_; i++, bb += compressedWidth, vf += compressedWidth)
@@ -889,30 +889,22 @@ namespace meen_i8080_arcade
 
                 // We are done, move the video frame to the back buffer.
                 // This will return the previous back buffer to the memory controller frame pool.
-                backBuffer_ = std::move(videoFrame);
+                backBuffer_ = std::move(frame.bitstream);
                 return false;
             }
-        }, *eventData);
-
-        queue_add_blocking(&eventDataFreeQueue_, static_cast<void*>(&eventData));
-        return quit;
+        }, eventData);
     }
 
     void RPIoController::HandleError(std::string&& errorMsg)
     {
-        EventData* eventData = nullptr;
-
-        queue_remove_blocking(&eventDataFreeQueue_, static_cast<void*>(&eventData));
-
-        if (eventData != nullptr)
+        if (runAsync_ == true)
         {
-            *eventData = std::move(errorMsg);
-            queue_add_blocking(&eventDataQueue_, static_cast<void*>(&eventData));
+            meen_hw::MH_LockGuard lg (eventQMutex_);
+            eventQ_.emplace_back(EventData{ errorMsg });
         }
         else
         {
-            printf("Failed to dispatch error message, increase the event data pool size\n");
-            //assert(0);
+            eventQ_.emplace_back(EventData{ errorMsg });
         }
     }
 
