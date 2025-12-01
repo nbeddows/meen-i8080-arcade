@@ -457,7 +457,7 @@ namespace meen_i8080_arcade
                         eventQ_.emplace_back(EventData{ true });
                     }
 
-                    eventQCv_->notify_one();
+                    eventQCv_.notify_one();
                 }
                 else
                 {
@@ -533,7 +533,7 @@ namespace meen_i8080_arcade
                              eventQ_.emplace_back(EventData{ std::string("Audio chunk ") + std::to_string(i) + " is incompatible" });
                          }
 
-                         eventQCv_->notify_one();
+                         eventQCv_.notify_one();
                     }
                 }
             }
@@ -653,7 +653,7 @@ namespace meen_i8080_arcade
                         eventQ_.push_back(std::move(eventData));
                     }
 
-                    eventQCv_->notify_one();
+                    eventQCv_.notify_one();
                 }
                 else
                 {
@@ -780,7 +780,7 @@ namespace meen_i8080_arcade
         if (runAsync_ == true)
         {
             eventQMutex_.lock();
-            eventQCv_->wait(eventQMutex_, [this] { return eventQ_.empty() == false; });
+            eventQCv_.wait(eventQMutex_, [this] { return eventQ_.empty() == false; });
             eventData = std::move(eventQ_.front());
             eventQ_.pop_front();
             eventQMutex_.unlock();
