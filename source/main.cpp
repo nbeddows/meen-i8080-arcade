@@ -272,8 +272,8 @@ int main(int argc, char** argv)
 		auto memoryController = MakeMemoryController(meen["runAsync"], jsonRoms);
 		CHECK_ERROR(!memoryController, printf("Failed to create the memory controller\n"));
 
-		// Create a frame pool of 2 frames, passing an empty one back for use as the initial io controller back buffer if required.
-		auto backBuffer = memoryController->MakeFramePool(2);
+		// Create a frame pool of 4 frames, passing an empty one back for use as the initial io controller back buffer if required.
+		auto backBuffer = memoryController->MakeFramePool(4);
 		CHECK_ERROR(!backBuffer, printf("Failed to create the memory controller frame pool\n"));
 
 		// Create our custom i8080 arcade I/O controller based on a specific configuration.
