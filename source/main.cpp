@@ -136,9 +136,9 @@ if(value)\
 #include "meen_i8080_arcade/SdlIoController.h"
 #endif // ENABLE_MH_RP2040
 
-static meen_i8080_arcade::MemoryController* MakeMemoryController(bool runAsync, const std::vector<std::pair<std::string, std::string>>&jsonRoms)
+static meen_i8080_arcade::MemoryController* MakeMemoryController(const std::vector<std::pair<std::string, std::string>>&jsonRoms)
 {
-	return new meen_i8080_arcade::MemoryController(runAsync, jsonRoms);
+	return new meen_i8080_arcade::MemoryController(jsonRoms);
 }
 
 static meen_i8080_arcade::IIoController* MakeIoController(bool runAsync, meen_hw::MH_ResourcePool<std::vector<uint8_t>>::ResourcePtr&& backBuffer, int romCount, JsonVariantConst audioHardware, JsonVariantConst videoHardware)
@@ -269,7 +269,7 @@ int main(int argc, char** argv)
 		CHECK_ERROR(!meen, printf("Invalid json config file format: meen section not found\n"));
 
 		// Create our custom i8080 arcade memory controller.
-		auto memoryController = MakeMemoryController(meen["runAsync"], jsonRoms);
+		auto memoryController = MakeMemoryController(jsonRoms);
 		CHECK_ERROR(!memoryController, printf("Failed to create the memory controller\n"));
 
 		// Create a frame pool of 4 frames, passing an empty one back for use as the initial io controller back buffer if required.
