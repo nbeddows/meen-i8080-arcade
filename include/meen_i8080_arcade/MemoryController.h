@@ -218,13 +218,6 @@ namespace meen_i8080_arcade
         */
         static constexpr int centreOffset_{ (((frameHeight - vramHeight) / 2) * frameWidth) + ((frameWidth - vramWidth) / 2) };
 
-        /** The running state
-
-            True if meen is to run on a different thread to the main application,
-            false otherwise.
-        */
-        bool runAsync_{};
-
         /** Memory buffer
 
              The memory bytes that the cpu will read from and write to.
