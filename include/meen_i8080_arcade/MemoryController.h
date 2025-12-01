@@ -103,7 +103,7 @@ namespace meen_i8080_arcade
 
             @remark     The default frame pool size is 1.
         */
-        MemoryController(bool runAsync, const std::vector<std::pair<std::string, std::string>>& jsonRoms);
+        MemoryController(const std::vector<std::pair<std::string, std::string>>& jsonRoms);
 
         /** Destructor
 
