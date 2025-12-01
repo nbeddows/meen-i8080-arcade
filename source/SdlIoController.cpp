@@ -376,7 +376,7 @@ namespace meen_i8080_arcade
 				if (runAsync_ == true)
 				{
 					{
-						std::lock_guard<std::mutex> lg(eventQMutex_);
+						meen_hw::MH_LockGuard lg(eventQMutex_);
 						eventQ_.emplace_back(EventData{ static_cast<uint16_t>((port << 8) | audio) });
 					}
 
@@ -477,7 +477,7 @@ namespace meen_i8080_arcade
 				if (runAsync_ == true)
 				{
 					{
-        				std::lock_guard<std::mutex> lg(eventQMutex_);
+        				meen_hw::MH_LockGuard lg(eventQMutex_);
 						eventQ_.push_back(std::move(eventData));
 					}
 
@@ -517,8 +517,8 @@ namespace meen_i8080_arcade
 
 		if (runAsync_ == true)
 		{
-			std::unique_lock<std::mutex> ul(eventQMutex_);
-			eventQCv_.wait(ul, [this] { return !eventQ_.empty(); });
+			meen_hw::MH_LockGuard lg(eventQMutex_);
+			eventQCv_.wait(eventQMutex_, [this]{ return eventQ_.empty() == false; });
 			eventData = std::move(eventQ_.front());
 			eventQ_.pop_front();
 		}
@@ -651,9 +651,8 @@ namespace meen_i8080_arcade
 	{
 		if (runAsync_ == true)
 		{
-			std::unique_lock<std::mutex> ul(eventQMutex_);
-			eventQ_.emplace_back(EventData{ errorMsg });
-			// eventQCv_.notify_one();
+            meen_hw::MH_LockGuard lg (eventQMutex_);
+            eventQ_.emplace_back(EventData{ errorMsg });
 		}
 		else
 		{

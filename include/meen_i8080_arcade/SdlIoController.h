@@ -135,13 +135,13 @@ namespace meen_i8080_arcade
 
 				Event data mutual exclusion between the main thread and the machine thread.
 			*/
-        	std::mutex eventQMutex_;
+        	meen_hw::MH_Mutex eventQMutex_;
 
 			/** Event queue condition variable
 
             	Used in conjuction with eventQMutex_ to signal when new EventData is ready for processing.
     	    */
-	        std::condition_variable eventQCv_;
+	        meen_hw::MH_ConditionVariable eventQCv_;
 
 			/** Load a game rom or the save state of the currently loaded game rom
 
