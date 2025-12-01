@@ -800,7 +800,7 @@ namespace meen_i8080_arcade
             }
         }
 
-        auto quit = std::visit(overloaded
+        return std::visit(overloaded
         {
             [](const std::string& error)
             {
@@ -893,8 +893,6 @@ namespace meen_i8080_arcade
                 return false;
             }
         }, eventData);
-
-        return quit;
     }
 
     void RPIoController::HandleError(std::string&& errorMsg)
