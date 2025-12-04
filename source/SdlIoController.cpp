@@ -31,7 +31,7 @@ SOFTWARE.
 
 namespace meen_i8080_arcade
 {
-    SDLIoController::SDLIoController(bool runAsync, int romCount, const JsonVariantConst audioHardware, const JsonVariantConst videoHardware)
+	SDLIoController::SDLIoController(bool runAsync, int romCount, const JsonVariantConst audioHardware, const JsonVariantConst videoHardware)
 		: runAsync_{ runAsync }
 		, romCount_{ romCount }
 		, romIndex_{ romCount - 1 }
@@ -78,29 +78,31 @@ namespace meen_i8080_arcade
 		}
 
 		int sampleRate = audioHardware["sampleRate"].as<int>();
-		// Allocate a sample buffer large enough to span one video frame duration.
-		// Note: depending on the sample rate this may not be a whole number and will be truncated,
-		// hence it could be one sample less than a video frame duration (this should be fine).
-		int sampleSize = sampleRate / 60; // 60 - video runs a 60hz
 
-		// Fill out the desired output format
-		SDL_AudioSpec desiredSpec{};
-		desiredSpec.freq = sampleRate;    // sample rate
-		desiredSpec.format = AUDIO_S16;   // 16-bit signed audio
-		desiredSpec.channels = 2;         // stereo
-		desiredSpec.samples = sampleSize; // Internal sample buffer spanning a video frame duration (approx).
-
-		audioDeviceId_ = SDL_OpenAudioDevice(nullptr, 0, &desiredSpec, &obtainedSpec_, 0);
-
-		if (audioDeviceId_ == 0)
+		if (sampleRate > 0)
 		{
-			printf("SDL_OpenAudioDevice failed: %s\n", SDL_GetError());
-		}
+			// Fill out the desired output format
+			SDL_AudioSpec desiredSpec{};
+			desiredSpec.freq = sampleRate;    // sample rate
+			desiredSpec.format = AUDIO_S16;   // 16-bit signed audio
+			desiredSpec.channels = 2;         // stereo
+			// Allocate a sample buffer large enough to span one video frame duration (video runs at 60Hz).
+			// Note: depending on the sample rate this may not be a whole number and will be truncated,
+			// hence it could be one sample less than a video frame duration (this should be fine).
+			desiredSpec.samples = sampleRate / 60; // Internal sample buffer spanning a video frame duration (approx).
 
-		// Check to make sure we for what we asked for
-		if (desiredSpec.freq != obtainedSpec_.freq || desiredSpec.format != obtainedSpec_.format || desiredSpec.channels != obtainedSpec_.channels || desiredSpec.samples != obtainedSpec_.samples)
-		{
-			printf("Failed to open the audio device with the desired specifications\n");
+			audioDeviceId_ = SDL_OpenAudioDevice(nullptr, 0, &desiredSpec, &obtainedSpec_, 0);
+
+			if (audioDeviceId_ == 0)
+			{
+				printf("SDL_OpenAudioDevice failed: %s\n", SDL_GetError());
+			}
+
+			// Check to make sure we got what we asked for
+			if (desiredSpec.freq != obtainedSpec_.freq || desiredSpec.format != obtainedSpec_.format || desiredSpec.channels != obtainedSpec_.channels || desiredSpec.samples != obtainedSpec_.samples)
+			{
+				printf("Failed to open the audio device with the desired specifications\n");
+			}
 		}
 
 		SDL_SetEventFilter([](void* eventType, SDL_Event* e)
@@ -224,7 +226,7 @@ namespace meen_i8080_arcade
 				getUint16(wav + 22),  // channels
 				getUint32(wav + 24),  // sample rate
 				getUint32(wav + 28),  // bytes per second
-				nBlockAlign,          // nblock align: channels * bitsPerSample / 8 
+				nBlockAlign,          // nblock align: channels * bitsPerSample / 8
 				getUint16(wav + 34),  // bits per sample
 				-1,                   // sample index
 				std::vector<uint8_t>(wav + 44, wav + 44 + dataLen)
@@ -251,7 +253,7 @@ namespace meen_i8080_arcade
 				fin.read(std::bit_cast<char*>(wav.data()), len);
 				return addChunk(wav.data(), len);
 			}
-			
+
 			audioChunks_.emplace_back();
 			return std::errc{};
 		};
@@ -292,7 +294,7 @@ namespace meen_i8080_arcade
 				resource.remove_prefix(strlen("mem://"));
 				ec = addChunkFromMem(resource, sample["size"].as<int>());
 			}
-			if (resource.starts_with("file://"))
+			else if (resource.starts_with("file://"))
 			{
 				resource.remove_prefix(strlen("file://"));
 				// A resource starting with a scheme specifies the exact location of that resource
@@ -321,15 +323,16 @@ namespace meen_i8080_arcade
 			}
 		}
 
-		audioFramePool_ = meen_hw::MH_ResourcePool<std::vector<int32_t>>();
-
-		for (int i = 0; i < 2 /* total number of audio frames in the pool */; i++)
+		if (obtainedSpec_.samples > 0)
 		{
-			audioFramePool_.AddResource(new std::vector<int32_t>(obtainedSpec_.samples));
-		}
+			for (int i = 0; i < 2 /* total number of audio frames in the pool */; i++)
+			{
+				audioFramePool_.AddResource(new std::vector<int32_t>(obtainedSpec_.samples));
+			}
 
-		// Start audio playback
-		SDL_PauseAudioDevice(audioDeviceId_, 0);
+			// Start audio playback
+			SDL_PauseAudioDevice(audioDeviceId_, 0);
+		}
 
 		return std::error_code{};
 	}
@@ -480,6 +483,11 @@ namespace meen_i8080_arcade
 								auto& frame = std::get<Frame<uint8_t>>(eventData);
 								frame.bitstream = nullptr;
 							}
+							else if (std::holds_alternative<Frame<int32_t>>(eventData))
+							{
+								auto& frame = std::get<Frame<int32_t>>(eventData);
+								frame.bitstream = nullptr;
+							}
 						}
 					}
 
@@ -622,7 +630,7 @@ namespace meen_i8080_arcade
 				if (runAsync_ == true)
 				{
 					{
-        				meen_hw::MH_LockGuard lg(eventQMutex_);
+						meen_hw::MH_LockGuard lg(eventQMutex_);
 						eventQ_.push_back(std::move(eventData));
 					}
 
@@ -649,7 +657,7 @@ namespace meen_i8080_arcade
 							if (audioMixChunks_.empty() == false)
 							{
 								for (auto audioMixChunk = audioMixChunks_.cbegin(); audioMixChunk != audioMixChunks_.cend();)
-								{									
+								{
 									// convert unsigned 8bit sample to a signed 16bit sample mixing it with the current sample
 									sample += ((*audioMixChunk)->samples[(*audioMixChunk)->sampleIndex++] - 128) * 256;// / audioMixChunks_.size();
 
