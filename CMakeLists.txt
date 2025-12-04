@@ -116,10 +116,9 @@ if(${build_os} STREQUAL "baremetal")
 else()
   if(${enable_framework} STREQUAL "sdl")
     find_package(SDL2 REQUIRED)
-    find_package(SDL2_mixer REQUIRED)
     set(${project_name}_include_files ${${project_name}_include_files} include/meen_i8080_arcade/SdlIoController.h)
     set(${project_name}_source_files ${${project_name}_source_files} source/SdlIoController.cpp)
-    set(${project_name}_deps ${${project_name}_deps} SDL2::SDL2 SDL2_mixer::SDL2_mixer)
+    set(${project_name}_deps ${${project_name}_deps} SDL2::SDL2)
   endif()
 endif()
 
@@ -242,10 +241,6 @@ endif()
 
 if(DEFINED sdlBinDir)
     install(DIRECTORY ${sdlBinDir}/ DESTINATION lib FILES_MATCHING PATTERN "*${soExt}*")
-endif()
-
-if(DEFINED sdlMixerBinDir)
-    install(DIRECTORY ${sdlMixerBinDir}/ DESTINATION lib FILES_MATCHING PATTERN "*${soExt}*")
 endif()
 
 if(DEFINED zlibBinDir)

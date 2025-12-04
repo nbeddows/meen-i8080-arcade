@@ -283,12 +283,14 @@ int main(int argc, char** argv)
 		// Set up the custom controllers prior to configuring the machine.
 
 		// The memory controller width and height is in the native i8080 arcade pixel format (1bpp cocktail) so we need to multiply it by 8 to get the total pixel width
-		// in order to create a compatible texture
+		// in order to create a compatible texture.
+		// NOTE: Not calling this method with result in an assertion failure in Debug and will crash in Release.
 		auto err = ioController->LoadVideoTextures(software["video"], meen_i8080_arcade::MemoryController::frameWidth << 3, meen_i8080_arcade::MemoryController::frameHeight);
 		CHECK_ERROR(err, printf("Failed to load video textures: %s\n", err.message().c_str()));
 
+		// Comment these two lines out to disable audio.
 		err = ioController->LoadAudioSamples(software["audio"]);
-		CHECK_ERROR((err && err.value() != static_cast<int>(std::errc::not_supported)), printf("Failed to load audio samples: %s\n", err.message().c_str()));
+		CHECK_ERROR(err, printf("Failed to load audio samples: %s\n", err.message().c_str()));
 
 		// Configure the machine.
 

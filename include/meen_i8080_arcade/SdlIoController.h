@@ -28,7 +28,6 @@ SOFTWARE.
 #include <atomic>
 #include <condition_variable>
 #include <SDL.h>
-#include <SDL_mixer.h>
 #include <variant>
 #include <vector>
 
@@ -73,6 +72,18 @@ namespace meen_i8080_arcade
 			//cppcheck-suppress unusedStructMember
 			SDL_Window* window_{};
 
+			/** The returned audio properties
+
+				When SDL audio is opened with a desired format, the obtained format is what SDL audio actually returns.
+			*/
+			SDL_AudioSpec obtainedSpec_{};
+
+			/** Audio device identifer
+
+				This is the audio device id as returned by SDL_OpenAudioDevice.
+			*/
+			SDL_AudioDeviceID audioDeviceId_{};
+
 			/**	i8080 arcade io
 
 				The hardware emulator.
@@ -81,30 +92,95 @@ namespace meen_i8080_arcade
 
 			/** A chunk of audio samples
 
-    	        A collection of audio samples with identical properties.
+				A collection of audio samples with identical properties.
 			*/
-			//cppcheck-suppress unusedStructMember
-			std::vector<Mix_Chunk*> mixChunk_;
+			struct AudioChunk
+			{
+				/** The number of channels in the sample
 
-			/** Timed video frame
-			
-				A frame of video ram taken from the memory controller frame pool
-				with the addition of a time stamp.
+					@remark    all samples must have the same number of channels.
+				*/
+				uint16_t channels{};
+
+				/** Sample rate in samples per second (hertz)
+
+					@remark    all samples must have the same sample rate.
+				*/
+				uint32_t sampleRate{};
+
+				/** Average data transfer rate in byes per second
+
+					@remark    all samples must have the same bytes per second.
+				*/
+				uint32_t bytesPerSecond{};
+
+				/** Block alignment in bytes
+
+					@remark    MUST be equal to product of channels and wBitsPerSample divided by 8 (bits per byte)
+				*/
+				uint16_t nBlockAlign{};
+
+				/** PCM sample size
+
+					Should be 8 or 16.
+				*/
+				uint16_t bitsPerSample{};
+
+				/** The index of the next sample to be rendered
+
+					@remark    A -1 index indicates that this sample is currently not being rendered
+				*/
+				int32_t sampleIndex{ -1 };
+
+				/** Audio samples
+
+					A collection of audio samples described by the above properties.
+				*/
+				std::vector<uint8_t> samples;
+			};
+
+			/** Audio sample group
+
+				A collection of audio samples that will be mixed into a combined audio buffer for audio playback.
 			*/
+			std::vector<AudioChunk> audioChunks_; // todo: this should be std::array<AudioChunk, 16> and we error out in load audio samples if the size of the config audio samples array is not 16
+
+			/** The current samples to be mixed.
+
+				The audio chunks that will be fed into the mix and sent to the speaker.
+			*/
+			std::list<AudioChunk*> audioMixChunks_;
+
+			/** Audio frame pool
+
+				A pool of recyclable audio frames holding the final mixed audio samples.
+
+				@remark    Our final output samples are signed 16 bit stereo, hence each sample is int32_t in size.
+
+				See meen_hw/ResourcePool.h for further details.
+			*/
+			meen_hw::MH_ResourcePool<std::vector<int32_t>> audioFramePool_;
+
+			/** Timed audio/video frame
+
+				@remark    A frame templated with uint8_t is a video frame taken from video ram.
+				@remark    A frame templated with uint32_t is a video frame duration worth of mixed audio samples (16 bit stereo).
+			*/
+			template<class T>
 			struct Frame
-        	{
+			{
 				/** Video frame
-					
+
 					This is a memory controller frame pool resource
 				*/
-            	meen_hw::MH_ResourcePool<std::vector<uint8_t>>::ResourcePtr bitstream;
+				meen_hw::MH_ResourcePool<std::vector<T>>::ResourcePtr bitstream;
 
 				/** Time stamp
-				
+
 					The time at which the vram was sampled in MEEN timescale units.
 				*/
-            	int64_t timestamp{};
-        	};
+				uint64_t timestamp{};
+			};
 
 			/** Helper type for functional style visitor for std::visit
 
@@ -123,25 +199,25 @@ namespace meen_i8080_arcade
 
 				The EventData will be assigned to the SDL_Event data1 property.
 			*/
-			using EventData = std::variant<std::string, uint16_t, Frame>;
+			using EventData = std::variant<std::string, Frame<int32_t>, Frame<uint8_t>>;
 
 			/** Event data queue
 
 				Holds a list of events to be processed.
 			*/
-        	std::list<EventData> eventQ_;
+			std::list<EventData> eventQ_;
 
 			/** Event queue mutex
 
 				Event data mutual exclusion between the main thread and the machine thread.
 			*/
-        	meen_hw::MH_Mutex eventQMutex_;
+			meen_hw::MH_Mutex eventQMutex_;
 
 			/** Event queue condition variable
 
-            	Used in conjuction with eventQMutex_ to signal when new EventData is ready for processing.
-    	    */
-	        meen_hw::MH_ConditionVariable eventQCv_;
+				Used in conjuction with eventQMutex_ to signal when new EventData is ready for processing.
+			*/
+			meen_hw::MH_ConditionVariable eventQCv_;
 
 			/** Load a game rom or the save state of the currently loaded game rom
 
@@ -219,15 +295,6 @@ namespace meen_i8080_arcade
 			*/
 			std::array<std::atomic_bool, SDL_NUM_SCANCODES> kbState_;
 
-			/** Samples that are currently playing.
-
-				Dedicate an individual channel to each sample (while not all samples can be played at the same time,
-				it just makes things easier).
-
-				@remark		Declare 16 channels as this is what is supported, even though some slots remain unused.
-			*/
-			static std::array<std::atomic_bool, MIX_CHANNELS * 2> channelPlaying_;
-
 			/** Assign a load or save machine interrupt
 
 				Peforms a check of the key once during a key press and release sequence.
@@ -244,7 +311,7 @@ namespace meen_i8080_arcade
 
 		public:
 			/** Default constructor
-			
+
 				Not supported.
 			*/
 			SDLIoController() = delete;
@@ -271,10 +338,9 @@ namespace meen_i8080_arcade
 				Sample the keyboard so the CPU can take any required action.
 
 				@param	port				The device to read from.
-	            @param  memoryController    The memory controller that has been registered with MEEN.
+				@param  memoryController		The memory controller that has been registered with MEEN.
 
-
-				@return			A bitfield indicating the action to take.
+				@return					A bitfield indicating the action to take.
 			*/
 			uint8_t Read(uint16_t port, meen::IController* memoryController) final;
 
@@ -284,7 +350,7 @@ namespace meen_i8080_arcade
 
 				@param	port				The output device to write to.
 				@param	data				A bitfield indicating what data to write.
-	            @param  memoryController    The memory controller that has been registered with MEEN.
+				@param  memoryController		The memory controller that has been registered with MEEN.
 			*/
 			void Write(uint16_t port, uint8_t data, meen::IController* memoryController) final;
 
@@ -292,17 +358,17 @@ namespace meen_i8080_arcade
 
 				Render the video ram texture to the window via the rendering context.
 
-        		@param  currTime            The current CPU run time in nanoseconds.
-            	@param  cycles              The number of CPU cycles completed.
-            	@param  memoryController    The memory controller that has been registered with MEEN.
+				@param  currTime		The current CPU run time in nanoseconds.
+				@param  cycles			The number of CPU cycles completed.
+				@param  memoryController	The memory controller that has been registered with MEEN.
 
-            	@return                     One of the following meen ISRs:<br><br>
-                	                        `ISR::NoInterrupt`: the method did not generate an iterrupt.<br>
-                    	                    `ISR::One`: signal MEEN that the first 96 scanlines have been rendered.<br>
-                        	                `ISR::Two`: signal MEEN that the remaining scanlines (up to 224) have
-                            	            been rendered (start of vblank).<br>
-											`ISR::Load`: attempt to load a new machine state.<br>
-											`ISR::Save`: attempt to save the current machine state.
+				@return				One of the following meen ISRs:<br><br>
+								`ISR::NoInterrupt`: the method did not generate an iterrupt.<br>
+								`ISR::One`: signal MEEN that the first 96 scanlines have been rendered.<br>
+								`ISR::Two`: signal MEEN that the remaining scanlines (up to 224) have
+								been rendered (start of vblank).<br>
+								`ISR::Load`: attempt to load a new machine state.<br>
+								`ISR::Save`: attempt to save the current machine state.
 			*/
 			meen::ISR GenerateInterrupt(uint64_t currTime, uint64_t cycles, meen::IController* memoryController) final;
 
@@ -320,15 +386,15 @@ namespace meen_i8080_arcade
 
 				Events include audio/video rendering, keyboard processing and window close.
 
-	            @return                 True to quit the machine, false otherwise.
+				@return                 True to quit the machine, false otherwise.
 			*/
 			bool HandleEvent() final;
 
 			/** Error handler
 
-            	Process any generated errors
+				Process any generated errors
 
-        		These errors may come from MEEN or meen-i8080-arcade itself.
+				These errors may come from MEEN or meen-i8080-arcade itself.
 
 				@param	errorMsg		The error message as a `std::string`.
 			*/
@@ -346,14 +412,14 @@ namespace meen_i8080_arcade
 
 				@param	audioSamples	JSON object representing the audio sample files.
 
-	            @return					On failure, a `std::error_code` with one of the following values:<br><br>
-										`std::errc::no_such_file_or_directory`: the audio resource specified by the `file://`
-										protocol failed to open.<br>
-                                        `std::errc::not_supported`: the audio file scheme in the configuration file is invalid.<br>
-                                        `std::errc::not_supported`: the number of audio channels defined in the configuration file
-										can't be allocated.<br>
-                                        `std::errc::invalid_argument`: the length of the audio configuration samples array is not
-										supported.
+				@return			On failure, a `std::error_code` with one of the following values:<br><br>
+							`std::errc::no_such_file_or_directory`: the audio resource specified by the `file://`
+							protocol failed to open.<br>
+							`std::errc::not_supported`: the audio file scheme in the configuration file is invalid.<br>
+							`std::errc::not_supported`: the number of audio channels defined in the configuration file
+							can't be allocated.<br>
+							`std::errc::invalid_argument`: the length of the audio configuration samples array is not
+							supported.
 			*/
 			std::error_code LoadAudioSamples(const JsonVariantConst audioSamples) final;
 
@@ -363,12 +429,12 @@ namespace meen_i8080_arcade
 
 				@param	videoTextures	JSON object describing the video texture.
 				@param  textureWidth    The width of the videc texture in pixels.
-            	@param  textureHeight   The height of the video texture in pixels.
+				@param  textureHeight   The height of the video texture in pixels.
 
-	            @return                 On failure, a `std::error_code` with one of the following values:<br><br>
-        	                            `std::errc:io_error`: video configuration serialisation failure.<br>
-    	                                `std::errc::not_supported`: the video configuration parameters are invalid.<br>
-										`std::errc::not_enough_memory`: failed to allocate the video textures.
+				@return                 On failure, a `std::error_code` with one of the following values:<br><br>
+							`std::errc:io_error`: video configuration serialisation failure.<br>
+							`std::errc::not_supported`: the video configuration parameters are invalid.<br>
+							`std::errc::not_enough_memory`: failed to allocate the video textures.
 			*/
 			std::error_code LoadVideoTextures(const JsonVariantConst videoTextures, int textureWidth, int textureHeight) final;
 
@@ -376,9 +442,9 @@ namespace meen_i8080_arcade
 
 				Load the selected rom or the save state of the currently selected rom.
 
-				@return					A tuple holding two values:<br><br>
-										`bool`: only valid when loading roms, true if the save file is to be loaded, false if the rom is to be loaded.<br>
-										`int`: the index into the roms array for the rom to be loaded or saved.
+				@return			A tuple holding two values:<br><br>
+							`bool`: only valid when loading roms, true if the save file is to be loaded, false if the rom is to be loaded.<br>
+							`int`: the index into the roms array for the rom to be loaded or saved.
 			*/
 			std::tuple<bool, int> GetRomIndex() final;
 	};

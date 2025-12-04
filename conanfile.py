@@ -15,15 +15,14 @@ class I8080ArcadeRecipe(ConanFile):
 
         if self.options.get_safe("with_framework", "none") == "sdl":
             self.requires("sdl/2.28.5")
-            self.requires("sdl_mixer/2.8.0")
 
     def configure(self):
         if self.settings.os == "baremetal":
             if self.options.get_safe("with_framework", "none") == "sdl":
-                self.output.error("SDL Not available on barmetal platforms")
+                self.output.error("SDL not available on baremetal platforms")
         else:
             if self.options.get_safe("with_framework", "none") == "st7789vw":
-                self.output.error("st7789vw  Not available on non-barmetal platforms")
+                self.output.error("st7789vw not available on non-baremetal platforms")
 
     def build(self):
         cmake = CMake(self)
@@ -54,10 +53,6 @@ class I8080ArcadeRecipe(ConanFile):
             if self.options.get_safe("with_framework", "none") == "sdl":
                 if self.dependencies["sdl"].options.shared:
                     tc.cache_variables["sdlBinDir"] = self.dependencies["sdl"].cpp_info.bindirs[0].replace("\\", "/")
-
-                if self.dependencies["sdl_mixer"].options.shared:
-                    tc.cache_variables["sdlMixerBinDir"] = self.dependencies["sdl_mixer"].cpp_info.bindirs[0].replace("\\", "/")
-
         else:
             tc.cache_variables["meenBinDir"] = self.dependencies["meen"].cpp_info.libdirs[0].replace("\\", "/")
 
@@ -70,9 +65,6 @@ class I8080ArcadeRecipe(ConanFile):
             if self.options.get_safe("with_framework", "none") == "sdl":
                 if self.dependencies["sdl"].options.shared:
                     tc.cache_variables["sdlBinDir"] = self.dependencies["sdl"].cpp_info.libdirs[0].replace("\\", "/")
-
-                if self.dependencies["sdl_mixer"].options.shared:
-                    tc.cache_variables["sdlMixerBinDir"] = self.dependencies["sdl_mixer"].cpp_info.libdirs[0].replace("\\", "/")
 
         tc.generate()
 
