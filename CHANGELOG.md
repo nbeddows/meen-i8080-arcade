@@ -3,6 +3,8 @@
 * GCC-14 support.
 * Pico SDK 2.x.x support.
 * Updated dependency version numbers.
+* Removed SDL_Mixer dependency from the
+  SDL IO controller.
 
 1.0.0 [28/06/25]
 * Added Pico RP2040 support.
