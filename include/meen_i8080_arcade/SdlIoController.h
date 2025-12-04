@@ -79,7 +79,7 @@ namespace meen_i8080_arcade
 			SDL_AudioSpec obtainedSpec_{};
 
 			/** Audio device identifer
-				
+
 				This is the audio device id as returned by SDL_OpenAudioDevice.
 			*/
 			SDL_AudioDeviceID audioDeviceId_{};
@@ -153,13 +153,13 @@ namespace meen_i8080_arcade
 
 			/** Audio frame pool
 
-				A pool of recyclable audio frames.
+				A pool of recyclable audio frames holding the final mixed audio samples.
 
-				@remark    Our final output samples are 16 bit stereo, hence each sample is uint32_t in size.
+				@remark    Our final output samples are signed 16 bit stereo, hence each sample is int32_t in size.
 
 				See meen_hw/ResourcePool.h for further details.
 			*/
-			meen_hw::MH_ResourcePool<std::vector<int32_t>> audioFramePool_;// = { meen_hw::MH_ResourcePool<std::vector<uint32_t>>() }; // this holds a queue of the final mixed samples 
+			meen_hw::MH_ResourcePool<std::vector<int32_t>> audioFramePool_;
 
 			/** Timed audio/video frame
 
@@ -168,19 +168,19 @@ namespace meen_i8080_arcade
 			*/
 			template<class T>
 			struct Frame
-        	{
+			{
 				/** Video frame
-					
+
 					This is a memory controller frame pool resource
 				*/
-            	meen_hw::MH_ResourcePool<std::vector<T>>::ResourcePtr bitstream;
+				meen_hw::MH_ResourcePool<std::vector<T>>::ResourcePtr bitstream;
 
 				/** Time stamp
-				
+
 					The time at which the vram was sampled in MEEN timescale units.
 				*/
-            	uint64_t timestamp{};
-        	};
+				uint64_t timestamp{};
+			};
 
 			/** Helper type for functional style visitor for std::visit
 
@@ -205,19 +205,19 @@ namespace meen_i8080_arcade
 
 				Holds a list of events to be processed.
 			*/
-        	std::list<EventData> eventQ_;
+			std::list<EventData> eventQ_;
 
 			/** Event queue mutex
 
 				Event data mutual exclusion between the main thread and the machine thread.
 			*/
-        	meen_hw::MH_Mutex eventQMutex_;
+			meen_hw::MH_Mutex eventQMutex_;
 
 			/** Event queue condition variable
 
-            	Used in conjuction with eventQMutex_ to signal when new EventData is ready for processing.
-    	    */
-	        meen_hw::MH_ConditionVariable eventQCv_;
+				Used in conjuction with eventQMutex_ to signal when new EventData is ready for processing.
+			*/
+			meen_hw::MH_ConditionVariable eventQCv_;
 
 			/** Load a game rom or the save state of the currently loaded game rom
 
@@ -311,7 +311,7 @@ namespace meen_i8080_arcade
 
 		public:
 			/** Default constructor
-			
+
 				Not supported.
 			*/
 			SDLIoController() = delete;
@@ -338,10 +338,9 @@ namespace meen_i8080_arcade
 				Sample the keyboard so the CPU can take any required action.
 
 				@param	port				The device to read from.
-	            @param  memoryController    The memory controller that has been registered with MEEN.
+				@param  memoryController		The memory controller that has been registered with MEEN.
 
-
-				@return			A bitfield indicating the action to take.
+				@return					A bitfield indicating the action to take.
 			*/
 			uint8_t Read(uint16_t port, meen::IController* memoryController) final;
 
@@ -351,7 +350,7 @@ namespace meen_i8080_arcade
 
 				@param	port				The output device to write to.
 				@param	data				A bitfield indicating what data to write.
-	            @param  memoryController    The memory controller that has been registered with MEEN.
+				@param  memoryController		The memory controller that has been registered with MEEN.
 			*/
 			void Write(uint16_t port, uint8_t data, meen::IController* memoryController) final;
 
@@ -359,17 +358,17 @@ namespace meen_i8080_arcade
 
 				Render the video ram texture to the window via the rendering context.
 
-        		@param  currTime            The current CPU run time in nanoseconds.
-            	@param  cycles              The number of CPU cycles completed.
-            	@param  memoryController    The memory controller that has been registered with MEEN.
+				@param  currTime		The current CPU run time in nanoseconds.
+				@param  cycles			The number of CPU cycles completed.
+				@param  memoryController	The memory controller that has been registered with MEEN.
 
-            	@return                     One of the following meen ISRs:<br><br>
-                	                        `ISR::NoInterrupt`: the method did not generate an iterrupt.<br>
-                    	                    `ISR::One`: signal MEEN that the first 96 scanlines have been rendered.<br>
-                        	                `ISR::Two`: signal MEEN that the remaining scanlines (up to 224) have
-                            	            been rendered (start of vblank).<br>
-											`ISR::Load`: attempt to load a new machine state.<br>
-											`ISR::Save`: attempt to save the current machine state.
+				@return				One of the following meen ISRs:<br><br>
+								`ISR::NoInterrupt`: the method did not generate an iterrupt.<br>
+								`ISR::One`: signal MEEN that the first 96 scanlines have been rendered.<br>
+								`ISR::Two`: signal MEEN that the remaining scanlines (up to 224) have
+								been rendered (start of vblank).<br>
+								`ISR::Load`: attempt to load a new machine state.<br>
+								`ISR::Save`: attempt to save the current machine state.
 			*/
 			meen::ISR GenerateInterrupt(uint64_t currTime, uint64_t cycles, meen::IController* memoryController) final;
 
@@ -387,15 +386,15 @@ namespace meen_i8080_arcade
 
 				Events include audio/video rendering, keyboard processing and window close.
 
-	            @return                 True to quit the machine, false otherwise.
+				@return                 True to quit the machine, false otherwise.
 			*/
 			bool HandleEvent() final;
 
 			/** Error handler
 
-            	Process any generated errors
+				Process any generated errors
 
-        		These errors may come from MEEN or meen-i8080-arcade itself.
+				These errors may come from MEEN or meen-i8080-arcade itself.
 
 				@param	errorMsg		The error message as a `std::string`.
 			*/
@@ -413,14 +412,14 @@ namespace meen_i8080_arcade
 
 				@param	audioSamples	JSON object representing the audio sample files.
 
-	            @return					On failure, a `std::error_code` with one of the following values:<br><br>
-										`std::errc::no_such_file_or_directory`: the audio resource specified by the `file://`
-										protocol failed to open.<br>
-                                        `std::errc::not_supported`: the audio file scheme in the configuration file is invalid.<br>
-                                        `std::errc::not_supported`: the number of audio channels defined in the configuration file
-										can't be allocated.<br>
-                                        `std::errc::invalid_argument`: the length of the audio configuration samples array is not
-										supported.
+				@return			On failure, a `std::error_code` with one of the following values:<br><br>
+							`std::errc::no_such_file_or_directory`: the audio resource specified by the `file://`
+							protocol failed to open.<br>
+							`std::errc::not_supported`: the audio file scheme in the configuration file is invalid.<br>
+							`std::errc::not_supported`: the number of audio channels defined in the configuration file
+							can't be allocated.<br>
+							`std::errc::invalid_argument`: the length of the audio configuration samples array is not
+							supported.
 			*/
 			std::error_code LoadAudioSamples(const JsonVariantConst audioSamples) final;
 
@@ -430,12 +429,12 @@ namespace meen_i8080_arcade
 
 				@param	videoTextures	JSON object describing the video texture.
 				@param  textureWidth    The width of the videc texture in pixels.
-            	@param  textureHeight   The height of the video texture in pixels.
+				@param  textureHeight   The height of the video texture in pixels.
 
-	            @return                 On failure, a `std::error_code` with one of the following values:<br><br>
-        	                            `std::errc:io_error`: video configuration serialisation failure.<br>
-    	                                `std::errc::not_supported`: the video configuration parameters are invalid.<br>
-										`std::errc::not_enough_memory`: failed to allocate the video textures.
+				@return                 On failure, a `std::error_code` with one of the following values:<br><br>
+							`std::errc:io_error`: video configuration serialisation failure.<br>
+							`std::errc::not_supported`: the video configuration parameters are invalid.<br>
+							`std::errc::not_enough_memory`: failed to allocate the video textures.
 			*/
 			std::error_code LoadVideoTextures(const JsonVariantConst videoTextures, int textureWidth, int textureHeight) final;
 
@@ -443,9 +442,9 @@ namespace meen_i8080_arcade
 
 				Load the selected rom or the save state of the currently selected rom.
 
-				@return					A tuple holding two values:<br><br>
-										`bool`: only valid when loading roms, true if the save file is to be loaded, false if the rom is to be loaded.<br>
-										`int`: the index into the roms array for the rom to be loaded or saved.
+				@return			A tuple holding two values:<br><br>
+							`bool`: only valid when loading roms, true if the save file is to be loaded, false if the rom is to be loaded.<br>
+							`int`: the index into the roms array for the rom to be loaded or saved.
 			*/
 			std::tuple<bool, int> GetRomIndex() final;
 	};
