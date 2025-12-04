@@ -28,7 +28,6 @@ SOFTWARE.
 #include <atomic>
 #include <condition_variable>
 #include <SDL.h>
-#include <SDL_mixer.h>
 #include <variant>
 #include <vector>
 
@@ -73,6 +72,18 @@ namespace meen_i8080_arcade
 			//cppcheck-suppress unusedStructMember
 			SDL_Window* window_{};
 
+			/** The returned audio properties
+
+				When SDL audio is opened with a desired format, the obtained format is what SDL audio actually returns.
+			*/
+			SDL_AudioSpec obtainedSpec_{};
+
+			/** Audio device identifer
+				
+				This is the audio device id as returned by SDL_OpenAudioDevice.
+			*/
+			SDL_AudioDeviceID audioDeviceId_{};
+
 			/**	i8080 arcade io
 
 				The hardware emulator.
@@ -81,29 +92,94 @@ namespace meen_i8080_arcade
 
 			/** A chunk of audio samples
 
-    	        A collection of audio samples with identical properties.
+				A collection of audio samples with identical properties.
 			*/
-			//cppcheck-suppress unusedStructMember
-			std::vector<Mix_Chunk*> mixChunk_;
+			struct AudioChunk
+			{
+				/** The number of channels in the sample
 
-			/** Timed video frame
-			
-				A frame of video ram taken from the memory controller frame pool
-				with the addition of a time stamp.
+					@remark    all samples must have the same number of channels.
+				*/
+				uint16_t channels{};
+
+				/** Sample rate in samples per second (hertz)
+
+					@remark    all samples must have the same sample rate.
+				*/
+				uint32_t sampleRate{};
+
+				/** Average data transfer rate in byes per second
+
+					@remark    all samples must have the same bytes per second.
+				*/
+				uint32_t bytesPerSecond{};
+
+				/** Block alignment in bytes
+
+					@remark    MUST be equal to product of channels and wBitsPerSample divided by 8 (bits per byte)
+				*/
+				uint16_t nBlockAlign{};
+
+				/** PCM sample size
+
+					Should be 8 or 16.
+				*/
+				uint16_t bitsPerSample{};
+
+				/** The index of the next sample to be rendered
+
+					@remark    A -1 index indicates that this sample is currently not being rendered
+				*/
+				int32_t sampleIndex{ -1 };
+
+				/** Audio samples
+
+					A collection of audio samples described by the above properties.
+				*/
+				std::vector<uint8_t> samples;
+			};
+
+			/** Audio sample group
+
+				A collection of audio samples that will be mixed into a combined audio buffer for audio playback.
 			*/
+			std::vector<AudioChunk> audioChunks_; // todo: this should be std::array<AudioChunk, 16> and we error out in load audio samples if the size of the config audio samples array is not 16
+
+			/** The current samples to be mixed.
+
+				The audio chunks that will be fed into the mix and sent to the speaker.
+			*/
+			std::list<AudioChunk*> audioMixChunks_;
+
+			/** Audio frame pool
+
+				A pool of recyclable audio frames.
+
+				@remark    Our final output samples are 16 bit stereo, hence each sample is uint32_t in size.
+
+				See meen_hw/ResourcePool.h for further details.
+			*/
+			meen_hw::MH_ResourcePool<std::vector<int32_t>> audioFramePool_;// = { meen_hw::MH_ResourcePool<std::vector<uint32_t>>() }; // this holds a queue of the final mixed samples 
+
+			/** Timed audio/video frame
+
+				@remark    A frame templated with uint8_t is a video frame taken from video ram.
+				@remark    A frame templated with uint32_t is a video frame duration worth of mixed audio samples (16 bit stereo).
+			*/
+			template<class T>
 			struct Frame
         	{
 				/** Video frame
 					
 					This is a memory controller frame pool resource
 				*/
-            	meen_hw::MH_ResourcePool<std::vector<uint8_t>>::ResourcePtr bitstream;
+            	meen_hw::MH_ResourcePool<std::vector<T>>::ResourcePtr bitstream;
 
 				/** Time stamp
 				
 					The time at which the vram was sampled in MEEN timescale units.
 				*/
-            	int64_t timestamp{};
+            	uint64_t timestamp{};
         	};
 
 			/** Helper type for functional style visitor for std::visit
@@ -123,7 +199,7 @@ namespace meen_i8080_arcade
 
 				The EventData will be assigned to the SDL_Event data1 property.
 			*/
-			using EventData = std::variant<std::string, uint16_t, Frame>;
+			using EventData = std::variant<std::string, Frame<int32_t>, Frame<uint8_t>>;
 
 			/** Event data queue
 
@@ -218,15 +294,6 @@ namespace meen_i8080_arcade
 				returned from the SDL_GetKeyboardState method (sdlKbState_) should not be accessed from a non main thread.
 			*/
 			std::array<std::atomic_bool, SDL_NUM_SCANCODES> kbState_;
-
-			/** Samples that are currently playing.
-
-				Dedicate an individual channel to each sample (while not all samples can be played at the same time,
-				it just makes things easier).
-
-				@remark		Declare 16 channels as this is what is supported, even though some slots remain unused.
-			*/
-			static std::array<std::atomic_bool, MIX_CHANNELS * 2> channelPlaying_;
 
 			/** Assign a load or save machine interrupt
 
