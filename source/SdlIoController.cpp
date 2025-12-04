@@ -23,6 +23,7 @@ SOFTWARE.
 #include <algorithm>
 #include <assert.h>
 #include <bitset>
+#include <charconv>
 #include <fstream>
 
 #include "meen_i8080_arcade/MemoryController.h"
