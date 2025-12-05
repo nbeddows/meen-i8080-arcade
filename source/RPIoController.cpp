@@ -56,9 +56,11 @@ namespace meen_i8080_arcade
             //throw std::runtime_error("Failed to create i8080 arcade hardware");
         }
 
-        // the width and height of the lcd panel (only tested with 320x240 panel)
+        // The width and height of the lcd panel (only tested with 320x240 panel)
         width_ = videoHardware["width"].as<int>();
         height_ = videoHardware["height"].as<int>();
+        // The sample rate of the audio chunks
+        sampleRate_ = audioHardware["sampleRate"].as<int>();
 
         spi_init(spi1, 62.5 * 1000000);
 
@@ -136,47 +138,6 @@ namespace meen_i8080_arcade
 
         gpio_put(Pin::DC, 1);
         gpio_put(Pin::CS, 0);
-
-        //channels_ = audioHardware["channels"].as<int>();
-        auto sampleRate = audioHardware["sampleRate"].as<int>();
-
-        if (sampleRate > 0)
-        {
-            // Setup and configure programmable io
-            gpio_set_function(Pin::ADIN, GPIO_FUNC_PIO0);
-            gpio_set_function(Pin::BCK, GPIO_FUNC_PIO0);
-            gpio_set_function(Pin::LRCK, GPIO_FUNC_PIO0);
-
-            pio_sm_claim(pio0, 0);
-            uint offset = pio_add_program(pio0, &audio_pio_program);
-            audio_pio_program_init(pio0, 0 /* state machine index */, offset, Pin::ADIN, Pin::BCK);
-            uint32_t system_clock_frequency = clock_get_hz(clk_sys);
-            uint32_t divider = system_clock_frequency * 4 / sampleRate; // avoid arithmetic overflow
-            pio_sm_set_clkdiv_int_frac(pio0, 0 /* state machine index */, divider >> 8u, divider & 0xffu);
-            pio_sm_set_enabled(pio0, 0 /* state machine index */, true);
-
-            // Setup and configure direct memory access (dma) for audio output
-            dma_channel_claim(0);
-            dma_channel_config c = dma_channel_get_default_config(0);
-            channel_config_set_transfer_data_size(&c, DMA_SIZE_32);
-            channel_config_set_read_increment(&c, true);
-            channel_config_set_write_increment(&c, false);
-            channel_config_set_dreq(&c, DREQ_PIO0_TX0);
-
-            // Resize the output buffer so it writes a video frame duration (or close to) of audio frames to the speaker.
-            // Note: depending on the sample rate this may not be a whole number and will be truncated,
-            // hence it could be one sample less than a video frame duration (this should be fine).
-            audioDmaBuffer_.resize(sampleRate / 60);
-
-            dma_channel_configure(
-                0,                         // Channel to be configured
-                &c,                        // The configuration we just created
-                &pio0_hw->txf[0],          // The initial write address
-                audioDmaBuffer_.data(),    // The initial read address (this will be set later)
-                audioDmaBuffer_.size(),    // Number of transfers (this will be set later)
-                false                      // We will start the tansfers later
-            );
-        }
     }
 
     RPIoController::~RPIoController()
@@ -250,7 +211,7 @@ namespace meen_i8080_arcade
         gpio_put(Pin::DC, 1);
         gpio_put(Pin::CS, 0);
 
-        auto bb = backBuffer_.get()->data();
+        auto bb = backBuffer_->data();
         auto compressedWidth = textureWidth_ >> 3;
         auto dst = texture_.data();
         auto dstSize = texture_.size();
@@ -270,8 +231,9 @@ namespace meen_i8080_arcade
     std::error_code RPIoController::LoadAudioSamples([[maybe_unused]] const JsonVariantConst audioSamples)
     {
         auto scheme = audioSamples["scheme"].as<std::string_view>();
+        auto directory = audioSamples["directory"].as<std::string_view>();
 
-        auto addSample = [this](const uint8_t* wav, int len)
+        auto addChunk = [this](const uint8_t* wav, int len)
         {
             auto getUint32 = [](const uint8_t* ptr) -> uint32_t
             {
@@ -339,6 +301,12 @@ namespace meen_i8080_arcade
             auto nBlockAlign = getUint16(wav + 32);
             auto dataLen = getUint32(wav + 40);
 
+            // We only support 8 bit mono, any other nBlockAlign indicates otherwise
+            if (nBlockAlign != 1)
+            {
+                return std::errc::not_supported;
+            }
+
             // The WAV data is not aligned correctly
             if (dataLen % nBlockAlign != 0)
             {
@@ -347,60 +315,151 @@ namespace meen_i8080_arcade
 
             std::vector<uint8_t> samples(dataLen);
 
-            // We will be writing to stereo, scale back accordingly
-            std::transform(wav + 44, wav + 44 + dataLen, samples.begin(), [](uint8_t sample){ return sample >> 1; });
             audioChunks_.emplace_back
             (
                 getUint16(wav + 22),  // channels
                 getUint32(wav + 24),  // sample rate
                 getUint32(wav + 28),  // bytes per second
                 nBlockAlign        ,  // nblock align
-                getUint16(wav + 34),  // its per second
+                getUint16(wav + 34),  // bits per sample
                 -1,                   // sample index
-                samples               // audio samples
+                std::vector<uint8_t>(wav + 44, wav + 44 + dataLen) // audio samples
             );
 
             return std::errc();
         };
 
-        for(const auto& sample : audioSamples["sample"].as<JsonArrayConst>())
+        auto addChunkFromFile = [this, &addChunk](std::string_view directory, std::string_view resource)
         {
+#ifndef PICO_BOARD
+            if (resource.empty() == false)
+            {
+                std::ifstream fin(std::string(directory) + std::string(resource), std::ios::binary);
+
+                if (fin.bad())
+                {
+                    return std::errc::bad_file_descriptor;
+                }
+
+                fin.seekg(0, std::ios::end);
+                int len = fin.tellg();
+                fin.seekg(0, std::ios::beg);
+                std::vector<uint8_t> wav(len);
+                fin.read(std::bit_cast<char*>(wav.data()), len);
+                return addChunk(wav.data(), len);
+            }
+#endif
+            audioChunks_.emplace_back();
+            return std::errc{};
+        };
+
+        auto addChunkFromMem = [this, &addChunk](std::string_view resource, int resourceSize)
+        {
+            if (resource.empty() == false)
+            {
+                uintptr_t value = 0;
+                auto [ptr, ec] = std::from_chars(resource.data(), resource.data() + resource.size(), value, 10);
+
+                if (ec != std::errc())
+                {
+                    return ec;
+                }
+
+                if (ptr != resource.data() + resource.size())
+                {
+                    return std::errc::illegal_byte_sequence;
+                }
+
+                return addChunk(std::bit_cast<const uint8_t*>(value), resourceSize);
+
+            }
+
+            audioChunks_.emplace_back();
+            return std::errc{};
+        };
+
+        for (const auto& sample : audioSamples["sample"].as<JsonArrayConst>())
+        {
+            auto ec = std::errc{};
+            auto dir = directory;
             auto resource = sample["bytes"].as<std::string_view>();
 
             if (resource.starts_with("mem://"))
             {
                 resource.remove_prefix(strlen("mem://"));
+                ec = addChunkFromMem(resource, sample["size"].as<int>());
+            }
+            else if (resource.starts_with("file://"))
+            {
+                resource.remove_prefix(strlen("file://"));
+                // A resource starting with a scheme specifies the exact location of that resource
+                dir = "";
+                ec = addChunkFromFile(directory, resource);
             }
             else
             {
-                if (scheme != "mem://")
+                if (scheme == "mem://")
                 {
-                    return std::make_error_code (std::errc::not_supported);
+                    ec = addChunkFromMem(resource, sample["size"].as<int>());
+                }
+                else if (scheme == "file://")
+                {
+                    ec = addChunkFromFile(directory, resource);
+                }
+                else
+                {
+                    return std::make_error_code(std::errc::not_supported);
                 }
             }
 
-            if (resource.empty() == false)
+            if (ec != std::errc{})
             {
-                uintptr_t value = 0;
-                auto [ptr, ec] = std::from_chars (resource.data(), resource.data() + resource.size(), value, 10);
-
-                if (ec != std::errc() || ptr != resource.data() + resource.size())
-                {
-                    return std::make_error_code(ec);
-                }
-
-                auto err = addSample(std::bit_cast<const uint8_t*>(value), sample["size"].as<int>());
-
-                if (err != std::errc())
-                {
-                    return std::make_error_code(err);
-                }
+                return std::make_error_code(ec);
             }
-            else
+        }
+
+        if (sampleRate_ > 0)
+        {
+            for (int i = 0; i < 2 /* total number of audio frames in the pool */; i++)
             {
-                // Add the empty sample to maintain the correct indicies
-                audioChunks_.emplace_back();
+                // Resize the output buffers so they write a video frame duration (or close to) of audio frames to the speaker.
+                // Note: depending on the sample rate this may not be a whole number and will be truncated,
+                // hence it could be one sample less than a video frame duration (this should be fine).
+                audioFramePool_.AddResource(new std::vector<int32_t>(sampleRate_ / 60));
             }
+
+            dma_channel_cleanup(0);
+            dma_channel_unclaim(0);
+
+            // Setup and configure programmable io
+            gpio_set_function(Pin::ADIN, GPIO_FUNC_PIO0);
+            gpio_set_function(Pin::BCK, GPIO_FUNC_PIO0);
+            gpio_set_function(Pin::LRCK, GPIO_FUNC_PIO0);
+
+            pio_sm_claim(pio0, 0);
+            uint offset = pio_add_program(pio0, &audio_pio_program);
+            audio_pio_program_init(pio0, 0 /* state machine index */, offset, Pin::ADIN, Pin::BCK);
+            uint32_t system_clock_frequency = clock_get_hz(clk_sys);
+            uint32_t divider = system_clock_frequency * 4 / sampleRate_; // avoid arithmetic overflow
+            pio_sm_set_clkdiv_int_frac(pio0, 0 /* state machine index */, divider >> 8u, divider & 0xffu);
+            pio_sm_set_enabled(pio0, 0 /* state machine index */, true);
+
+            // Setup and configure direct memory access (dma) for audio output
+            dma_channel_claim(0);
+            dma_channel_config c = dma_channel_get_default_config(0);
+            channel_config_set_transfer_data_size(&c, DMA_SIZE_32);
+            channel_config_set_read_increment(&c, true);
+            channel_config_set_write_increment(&c, false);
+            channel_config_set_dreq(&c, DREQ_PIO0_TX0);
+
+            dma_channel_configure(
+                0,                        // Channel to be configured
+                &c,                       // The configuration we just created
+                &pio0_hw->txf[0],         // The initial write address
+                nullptr,                  // The initial read address (this will be set later)
+                0,                        // Number of transfers (this will be set later)
+                false                     // We will start the transfers later
+            );
         }
 
         return std::error_code{};
@@ -429,6 +488,14 @@ namespace meen_i8080_arcade
                     // Abort any current dmac operation
                     dma_channel_abort(0);
 
+                    // Clear all queued chunks and reset chunk->samples to -1
+                    while (audioMixChunks_.empty() == false)
+                    {
+                        auto audioMixChunk = audioMixChunks_.back();
+                        audioMixChunks_.pop_back();
+                        audioMixChunk->sampleIndex = -1;
+                    }
+
                     if (runAsync_ == false)
                     {
                        // In single threaded mode we need to remove all outstanding i8080 arcade events and return the video frames
@@ -439,9 +506,14 @@ namespace meen_i8080_arcade
                            auto eventData = std::move(eventQ_.front());
                            eventQ_.pop_front();
 
-                           if (std::holds_alternative<Frame>(eventData))
+                           if (std::holds_alternative<Frame<uint8_t>>(eventData))
                            {
-                               auto& frame = std::get<Frame>(eventData);
+                               auto& frame = std::get<Frame<uint8_t>>(eventData);
+                               frame.bitstream = nullptr;
+                           }
+                           else if (std::holds_alternative<Frame<int32_t>>(eventData))
+                           {
+                               auto& frame = std::get<Frame<int32_t>>(eventData);
                                frame.bitstream = nullptr;
                            }
                        }
@@ -511,29 +583,35 @@ namespace meen_i8080_arcade
                 }
             }
 
+            // port will either be 3 or 5
+            // when port is 3 index will be 0 and when it is 5 it will be 8
+            // which will give the correct offset into the mixChunk_ array
             auto offset = (port - 3) << 2;
 
-            for(int i = 0; i < 8; i++)
+            for (int i = 0; i < 8; i++)
             {
-                auto audioChunk = &audioChunks_[i + offset];
-
-                // Drop the sample if it is still playing
-                if (audio.test(i) == true && audioChunk->sampleIndex == -1)
+                if (i + offset < audioChunks_.size())
                 {
-                    if (audioChunk->samples.empty() == false && audioChunk->channels == 1 && (audioChunk->bitsPerSample == 8 || audioChunk->bitsPerSample == 16))
-                    {
-                        audioChunk->sampleIndex = 0;
-                        // Push it to the list of chunks to be played
-                        audioMixChunks_.emplace_back(audioChunk);
-                    }
-                    else
-                    {
-                         {
-                             meen_hw::MH_LockGuard lg(eventQMutex_);
-                             eventQ_.emplace_back(EventData{ std::string("Audio chunk ") + std::to_string(i) + " is incompatible" });
-                         }
+                    auto audioChunk = &audioChunks_[i + offset];
 
-                         eventQCv_.notify_one();
+                    // Drop the sample if it is still playing
+                    if (audio.test(i) == true && audioChunk->sampleIndex == -1)
+                    {
+                        if (audioChunk->samples.empty() == false)
+                        {
+                            audioChunk->sampleIndex = 0;
+                            // Push it to the list of chunks to be played
+                            audioMixChunks_.emplace_back(audioChunk);
+                        }
+                        else
+                        {
+                            {
+                                meen_hw::MH_LockGuard lg(eventQMutex_);
+                                eventQ_.emplace_back(EventData{ std::string("Audio chunk ") + std::to_string(i) + " is missing from the config file" });
+                            }
+
+                            eventQCv_.notify_one();
+                        }
                     }
                 }
             }
@@ -616,7 +694,7 @@ namespace meen_i8080_arcade
             }
             case 2:
             {
-                Frame frame;
+                Frame<uint8_t> frame;
                 EventData eventData;
 
                 if (screen_ == Screen::Gameplay)
@@ -660,68 +738,64 @@ namespace meen_i8080_arcade
                     eventQ_.push_back(std::move(eventData));
                 }
 
-                // Write a frame duration worth of any pending audio to the dmac
                 if (audioMixChunks_.empty() == false)
                 {
-                    // The timing won't be precise (but close enough), so we need to possibly wait for the dmac to finish.
-                    // This is good enough for this application.
-                    if (dma_channel_is_busy(0) == true)
+                    Frame<int32_t> audioFrame{ .bitstream = audioFramePool_.GetResource(), .timestamp = currTime };
+
+                    if (audioFrame.bitstream != nullptr)
                     {
-                        dma_channel_wait_for_finish_blocking(0);
-                    }
-
-                    int transferCount = 0;
-
-                    // Apply some very basic and crude mixing (requires a proper audio mixer, output is a little dicey, but it will do)
-                    // Currently only supports 8/16 bit mono samples (should always be using 8 bit due to memory requirements)
-                    while(transferCount < audioDmaBuffer_.size() && audioMixChunks_.empty() == false)
-                    {
-                        int mixChannelCount = audioMixChunks_.size();
-                        auto audioMixChunk = audioMixChunks_.cbegin();
-                        uint32_t sample = 0;
-
-                        while(audioMixChunk != audioMixChunks_.cend())
+                        // Apply some very basic mixing
+                        // Only supports unsigned 8 bit mono samples for input and signed 16 bit stereo samples for output
+                        for(auto& sample : *audioFrame.bitstream)
                         {
-                            // Using nBlockAlign here isn't correct, it should be bitsPerSamples / 8,
-                            // however, since we are only supporting 1 channel @ 8/16 bit, it works (ie; it would be wrong to use it for stereo)
-                            auto nBlockAlign = (*audioMixChunk)->nBlockAlign;
+                            sample = 0;
 
-                            if (nBlockAlign == 1)
+                            for (auto audioMixChunk = audioMixChunks_.cbegin(); audioMixChunk != audioMixChunks_.cend();)
                             {
-                                // convert sample to 16bit
-                                sample += ((*audioMixChunk)->samples[(*audioMixChunk)->sampleIndex] << 8) / mixChannelCount;
-                            }
-                            else if (nBlockAlign == 2)
-                            {
-                                sample += std::bit_cast<uint16_t*>((*audioMixChunk)->samples.data())[(*audioMixChunk)->sampleIndex / 2] / mixChannelCount;
-                            }
-                            else
-                            {
-                                assert(nBlockAlign == 1 || nBlockAlign == 2);
-                                // Unsupported audio sample
+                                // convert an unsigned 8-bit sample to a signed 16-bit sample mixing it with the current sample
+                                sample += ((*audioMixChunk)->samples[(*audioMixChunk)->sampleIndex++] - 128) * 256;// / audioMixChunks_.size();
+
+                                if ((*(audioMixChunk))->sampleIndex >= (*audioMixChunk)->samples.size())
+                                {
+                                    // Reset the sample count for when this chunk is next played
+                                    (*audioMixChunk)->sampleIndex = -1;
+                                    // We are done with this chunk, remove it from the list
+                                    audioMixChunk = audioMixChunks_.erase(audioMixChunk);
+                                }
+                                else
+                                {
+                                    audioMixChunk++;
+                                }
                             }
 
-                            (*audioMixChunk)->sampleIndex += nBlockAlign;
-                            auto prevAudioMixChunk = audioMixChunk;
-                            audioMixChunk++;
-
-                            if ((*prevAudioMixChunk)->sampleIndex >= (*prevAudioMixChunk)->samples.size())
-                            {
-                                // Reset the sample count for when this chunk is next played
-                                (*prevAudioMixChunk)->sampleIndex = -1;
-                                // We are done with this chunk, remove it from the list
-                                audioMixChunks_.erase(prevAudioMixChunk);
-                            }
+                            // Clamp to 16bit to prevent overflow
+                            sample = std::clamp<int32_t>(sample, -32768, 32767);
+                            // Duplicate the 16-bit mono sample on both channels
+                            sample = (sample << 16) | sample;
                         }
 
-                        // Clamp to 16bit to prevent distortion
-                        sample = std::min<uint32_t>(sample, 0xFFFF);
-                        // Duplicate the 16bit mono sample on both channels
-                        audioDmaBuffer_[transferCount++] = (sample << 16) | sample;
+                        eventData = std::move(audioFrame);
+                    }
+                    else
+                    {
+                        eventData = "Failed to get the audio frame from the audio device, audio frame dropped";
                     }
 
-                    // Start the audio transfer
-                    dma_channel_transfer_from_buffer_now(0, audioDmaBuffer_.data(), transferCount);
+                    // Send the mixed audio samples to the main thread
+                    if (runAsync_ == true)
+                    {
+                        {
+                            meen_hw::MH_LockGuard lg(eventQMutex_);
+                            eventQ_.push_back(std::move(eventData));
+                        }
+
+                        eventQCv_.notify_one();
+                    }
+                    else
+                    {
+                        eventQ_.push_back(std::move(eventData));
+                    }
+
                 }
                 break;
             }
@@ -843,14 +917,30 @@ namespace meen_i8080_arcade
 
                 return false;
             },
-            [this](Frame& frame)
+            [this](Frame<int32_t>& frame)
+            {
+                // The timing won't be precise (but close enough), so we need to possibly wait for the dmac to finish.
+                // This is good enough for this application.
+                if (dma_channel_is_busy(0) == true)
+                {
+                    dma_channel_wait_for_finish_blocking(0);
+                }
+
+                // Start the audio transfer
+                dma_channel_transfer_from_buffer_now(0, frame.bitstream->data(), frame.bitstream->size());
+
+                // We are done with the frame, return it immediately to the audio frame pool by explicitly setting it to nullptr
+                frame.bitstream = nullptr;
+                return false;
+            },
+            [this](Frame<uint8_t>& frame)
             {
                 auto compressedWidth = textureWidth_ >> 3;
                 auto dst = texture_.data();
                 auto dstSize = texture_.size();
                 auto dst16 = std::bit_cast<uint16_t*>(dst);
-                auto vf = frame.bitstream.get()->data();
-                uint8_t* bb = backBuffer_.get()->data();
+                auto vf = frame.bitstream->data();
+                uint8_t* bb = backBuffer_->data();
 
                 for(int i = 0, lastScanline = 0; i < textureHeight_; i++, bb += compressedWidth, vf += compressedWidth)
                 {

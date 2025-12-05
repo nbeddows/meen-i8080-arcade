@@ -138,6 +138,12 @@ namespace meen_i8080_arcade
         */
         int textureHeight_{};
 
+        /** The audio chunk sample rate
+
+            The config file audio sample rate (if one is specified).
+        */
+        int sampleRate_{};
+
         /** A chunk of audio samples
 
             A collection of audio samples with identical properties.
@@ -199,15 +205,18 @@ namespace meen_i8080_arcade
         */
         std::list<AudioChunk*> audioMixChunks_;
 
-        /** Audio output buffer
+        /** Audio frame pool
 
-            This buffer is the final mix of the current playing audio samples.
+            A pool of recyclable audio frames. Each frame holds the final mix of the next audio samples to be rendered.
 
+            @remark    Our final output samples are 16 bit stereo, hence each sample is int32_t in size.
             @remark    The size of the final output buffer is the audio hardware sample rate / video hardware frame rate.
-                       Essentially, this buffer will transfer to the speaker via dma the number of audio samples required
+                       Essentially, this buffer will transfer to the speaker the number of audio samples required
                        for one video frame duration.
+
+            See meen_hw/ResourcePool.h for further details.
         */
-        std::vector<uint32_t> audioDmaBuffer_;
+        meen_hw::MH_ResourcePool<std::vector<int32_t>> audioFramePool_;
 
         /** The previous video frame
 
@@ -227,24 +236,25 @@ namespace meen_i8080_arcade
         */
         std::unique_ptr<meen_hw::MH_II8080ArcadeIO> i8080ArcadeIO_;
 
-        /** Timed video frame
+        /** Timed audio/video frame
 
-            A frame of video ram taken from the memory controller frame pool
-            with the addition of a time stamp.
+            @remark    A frame templated with uint8_t is a video frame taken from video ram.
+            @remark    A frame templated with int32_t is a video frame duration worth of mixed audio samples (signed 16 bit stereo).
         */
+        template<class T>
         struct Frame
         {
-            /** Video frame
+            /** Audio/Video frame
 
-                This is a memory controller frame pool resource
+                Video frames belong to the memory controller frame pool and audio frames belong to the audio fame pool.
             */
-            meen_hw::MH_ResourcePool<std::vector<uint8_t>>::ResourcePtr bitstream;
+            meen_hw::MH_ResourcePool<std::vector<T>>::ResourcePtr bitstream;
 
             /** Time stamp
 
                 The time at which the vram was sampled in MEEN timescale units.
             */
-            int64_t timestamp{};
+            uint64_t timestamp{};
         };
 
         /** Helper type for functional style visitor for std::visit
@@ -262,7 +272,7 @@ namespace meen_i8080_arcade
             bool:        True to clear the vram area of the lcd display, false otherwise.
             Frame:       The next video frame is ready to be rendered. This event drives the control loop.
         */
-        using EventData = std::variant<std::string, bool, Frame>;
+        using EventData = std::variant<std::string, bool, Frame<int32_t>, Frame<uint8_t>>;
 
         /** Event data queue
 
@@ -360,11 +370,11 @@ namespace meen_i8080_arcade
 
             Creates an RP2040 specific i8080 arcade IO controller.
 
-            @param		runAsync		Run this io controller asynchronously.
-            @param      backBuffer      The first frame to use for double buffering.
-            @param		romCount		The number of supported roms.
-            @param		audioHardware	audio hardware configuration options.
-            @param		videoHardware	video hardware configuration options.
+            @param    runAsync        Run this io controller asynchronously.
+            @param    backBuffer      The first frame to use for double buffering.
+            @param    romCount        The number of supported roms.
+            @param    audioHardware   Audio hardware configuration options.
+            @param    videoHardware   Video hardware configuration options.
 
         */
         RPIoController(bool runAsync, meen_hw::MH_ResourcePool<std::vector<uint8_t>>::ResourcePtr&& backBuffer, int romCount, const JsonVariantConst audioHardware, const JsonVariantConst videoHardware);
@@ -378,7 +388,7 @@ namespace meen_i8080_arcade
         /** One time callback registration for gpio handling
 
             This method is to be registered with MEEN who will invoke it on a thread determined
-            by the MEEN `runAsync` configuration parameter.            
+            by the MEEN `runAsync` configuration parameter.
         */
         static void Init();
 
@@ -416,7 +426,7 @@ namespace meen_i8080_arcade
                                         `ISR::One`: signal MEEN that the first 96 scanlines have been rendered.<br>
                                         `ISR::Two`: signal MEEN that the remaining scanlines (up to 224) have
                                         been rendered (start of vblank).<br>
-										`ISR::Load`: attempt to load a new rom.
+                                        `ISR::Load`: attempt to load a new rom.
         */
         meen::ISR GenerateInterrupt(uint64_t currTime, uint64_t cycles, meen::IController* memoryController) final;
 
@@ -454,7 +464,7 @@ namespace meen_i8080_arcade
                                         `std::errc::illegal_byte_sequence`: the audio sample is aligned incorrctly.<br>
                                         `std::errc::not_supported`: the audio file scheme in the cofiguration file is invalid.<br>
                                         `std::errc::invalid_argument`: the audio sample address is invalid.<br>
-                                        `std::errc::result_out_of_range`: the audio sample address is invalid. 
+                                        `std::errc::result_out_of_range`: the audio sample address is invalid.
         */
         std::error_code LoadAudioSamples(const JsonVariantConst audioSamples) final;
 
@@ -485,14 +495,14 @@ namespace meen_i8080_arcade
         */
         void HandleLoadComplete() final;
 
-		/** Get the rom index
+        /** Get the rom index
 
-			Load the selected rom or the save state of the currently selected rom.
+            Load the selected rom or the save state of the currently selected rom.
 
-			@return					A tuple holding two values:<br><br>
-									`bool`: only valid when loading roms, true if the save file is to be loaded, false if the rom is to be loaded.<br>
-									`int`: the index into the roms array for the rom to be loaded or saved.
-		*/
+            @return    A tuple holding two values:<br><br>
+                       `bool`: only valid when loading roms, true if the save file is to be loaded, false if the rom is to be loaded.<br>
+                       `int`: the index into the roms array for the rom to be loaded or saved.
+        */
         std::tuple<bool, int> GetRomIndex() final;
     };
 } // namespace meen_i8080_arcade

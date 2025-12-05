@@ -23,6 +23,7 @@ SOFTWARE.
 #include <algorithm>
 #include <assert.h>
 #include <bitset>
+#include <charconv>
 #include <fstream>
 
 #include "meen_i8080_arcade/MemoryController.h"
@@ -654,31 +655,28 @@ namespace meen_i8080_arcade
 						{
 							sample = 0;
 
-							if (audioMixChunks_.empty() == false)
+							for (auto audioMixChunk = audioMixChunks_.cbegin(); audioMixChunk != audioMixChunks_.cend();)
 							{
-								for (auto audioMixChunk = audioMixChunks_.cbegin(); audioMixChunk != audioMixChunks_.cend();)
+								// convert unsigned 8bit sample to a signed 16bit sample mixing it with the current sample
+								sample += ((*audioMixChunk)->samples[(*audioMixChunk)->sampleIndex++] - 128) * 256;// / audioMixChunks_.size();
+
+								if ((*(audioMixChunk))->sampleIndex >= (*audioMixChunk)->samples.size())
 								{
-									// convert unsigned 8bit sample to a signed 16bit sample mixing it with the current sample
-									sample += ((*audioMixChunk)->samples[(*audioMixChunk)->sampleIndex++] - 128) * 256;// / audioMixChunks_.size();
-
-									if ((*(audioMixChunk))->sampleIndex >= (*audioMixChunk)->samples.size())
-									{
-										// Reset the sample count for when this chunk is next played
-										(*audioMixChunk)->sampleIndex = -1;
-										// We are done with this chunk, remove it from the list
-										audioMixChunk = audioMixChunks_.erase(audioMixChunk);
-									}
-									else
-									{
-										audioMixChunk++;
-									}
+									// Reset the sample count for when this chunk is next played
+									(*audioMixChunk)->sampleIndex = -1;
+									// We are done with this chunk, remove it from the list
+									audioMixChunk = audioMixChunks_.erase(audioMixChunk);
 								}
-
-								// Clamp to 16bit to prevent overflow
-								sample = std::clamp<int32_t>(sample, -32768, 32767);
-								// Duplicate the 16bit mono sample on both channels
-								sample = (sample << 16) | sample;
+								else
+								{
+									audioMixChunk++;
+								}
 							}
+
+							// Clamp to 16bit to prevent overflow
+							sample = std::clamp<int32_t>(sample, -32768, 32767);
+							// Duplicate the 16bit mono sample on both channels
+							sample = (sample << 16) | sample;
 						}
 
 						eventData = std::move(audioFrame);
