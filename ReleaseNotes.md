@@ -3,6 +3,7 @@
 **Highlights:**
 
 - GitHub Actions CI/CD support.
+  (Currently disabled)
 - GCC-14 support.
 - Pico SDK 2.x.x support.
 - Removed SDL_Mixer dependency.
