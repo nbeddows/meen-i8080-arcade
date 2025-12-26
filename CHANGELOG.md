@@ -1,4 +1,4 @@
-1.1.0
+1.1.0 [26/12/25]
 * Added disabled GitHub Actions CI/CD support.
   (github.com/nbeddows/meen-i8080-arcade/issues/128)
 * GCC-14 support.
