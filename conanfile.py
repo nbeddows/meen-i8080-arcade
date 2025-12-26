@@ -10,7 +10,7 @@ class I8080ArcadeRecipe(ConanFile):
 
     def requirements(self):
         self.requires("meen/2.1.0")
-        self.requires("meen_hw/0.4.0")
+        self.requires("meen_hw/0.5.0")
         self.requires("arduinojson/7.0.1")
 
         if self.options.get_safe("with_framework", "none") == "sdl":
