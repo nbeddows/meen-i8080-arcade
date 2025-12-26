@@ -268,11 +268,11 @@ Audio hardware options. The current settings for these options should be suffici
 
 | Option              | Value | Remarks                             |
 |:--------------------|:------|:------------------------------------|
-| `channels`          | 1     | The number of audio output channels |
+| `channels`          | 2     | The number of audio output channels |
 | `sampleRate`        | 11025 | The audio output sample rate        |
 
-**NOTE**: these options can be changed if using custom audio samples.<br>
-**NOTE**: the RP IO Controller only supports mono @ 8/16bit.
+**NOTE**: only stereo (`channels` = 2) is supported.<br>
+**NOTE**: audio hardware must support signed 16-bit audio sample output.
 
 #### Software
 
@@ -302,7 +302,7 @@ These settings affect audio output. They can be changed if different audio sampl
 
 **NOTE**: a `sample` `bytes` entry that is prefixed with a supported scheme is treated as an absolute path (the `directory` option is ignored).<br>
 **NOTE**: the position of the audio files in the `sample` array **must not** be changed and empty entries **must not** be removed.<br>
-**NOTE**: if changing the audio files, the audio hardware properties may need to be updated (untested).<br>
+**NOTE**: only unsigned 8-bit audio input samples are supported.<br>
 **NOTE**: the audio file names for the RP IO Controller are fixed (file contents may be different, see previous note) and **must not** be changed.
 
 ##### Space Invaders/Space Invaders II (Midway)/Space Invaders II (Taito)/Balloon Bomber/Lunar Rescue

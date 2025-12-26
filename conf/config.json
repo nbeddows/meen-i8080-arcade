@@ -14,7 +14,7 @@
                 "fullScreen":false
             },
             "audio": {
-                "channels":1,
+                "channels":2,
                 "sampleRate":11025
             }
         },
