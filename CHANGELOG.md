@@ -1,5 +1,17 @@
+1.1.0 [26/12/25]
+* Added disabled GitHub Actions CI/CD support.
+  (github.com/nbeddows/meen-i8080-arcade/issues/128)
+* GCC-14 support.
+* Pico SDK 2.x.x support.
+* Updated dependency version numbers.
+* Removed SDL_Mixer dependency from the
+  SDL IO controller.
+* Now using basic audio mixing across
+  all controllers (based on the fixed
+  version used in the RPIoController).
+
 1.0.0 [28/06/25]
-* Added RP2040 support.
+* Added Pico RP2040 support.
 * Added 16bpp video output support.
 * Updated to meen/2.0.0.
 * Removed all command line arguments other than

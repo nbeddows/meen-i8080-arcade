@@ -14,7 +14,7 @@
                 "fullScreen":false
             },
             "audio": {
-                "channels":1,
+                "channels":2,
                 "sampleRate":11025
             }
         },
@@ -32,7 +32,7 @@
                     { "bytes":"shoot.wav" },
                     { "bytes":"explosion.wav" },
                     { "bytes":"invaderkilled.wav" },
-                    { "bytes":"extendedplay.wav" },
+                    { "bytes":"" },
                     { "bytes":"" },
                     { "bytes":"" },
                     { "bytes":"" },

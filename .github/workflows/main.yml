@@ -1,0 +1,113 @@
+name: CI/CD
+
+# Controls when the workflow will run
+on:
+  # Triggers the release workflow on push events but only for tags in the following form: v*.*.*
+#  push:
+#    tags: [v*.*.*]
+  # Triggers the workflow on pull request events but only for the "main" and "development" branches
+#  pull_request:
+#    branches: [main, development]
+
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel
+jobs:
+  # Test on each supported OS version
+  build_and_execute:
+    strategy:
+      matrix:
+        # not supporting automated builds for the following due to compilation times: ubuntu-latest, ubuntu-24.04-arm
+        os: [windows-latest]
+        include:
+#          - os: ubuntu-latest
+#            arch: x86_64
+#            compiler: gcc
+#            cppcheck: cppcheck
+#            package_dir: build/Release
+#            pm: sudo apt-get
+#            preset: release
+#            version: 14
+#          - os: ubuntu-24.04-arm
+#            arch: armv8
+#            compiler: gcc
+#            cppcheck: cppcheck
+#            package_dir: build/Release
+#            pm: sudo apt-get
+#            preset: release
+#            version: 14
+          - os: windows-latest
+            arch: x86_64
+            compiler: msvc
+            cppcheck: C:/Program` Files/Cppcheck/cppcheck
+            package_dir: output/build
+            pm: choco
+            preset: default
+            version: 193
+
+    # The type of runner that the job will run on
+    runs-on: ${{ matrix.os }}
+
+    # Steps represent a sequence of tasks that will be executed as part of the job
+    steps:
+      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Setup additional project requirements
+      - name: Install and setup Conan
+        uses: conan-io/setup-conan@v1
+        with: 
+          config_urls: https://github.com/nbeddows/meen-i8080-arcade.git
+          cache_packages: true
+      - name: Install Cppcheck
+        if: github.event_name == 'pull_request'
+        run: ${{ matrix.pm }} install cppcheck
+      - name: Run Cppcheck
+        if: github.event_name == 'pull_request'
+        run: ${{ matrix.cppcheck }} -ibuild -ioutput -i_CPack_Packages -itests --inline-suppr --enable=warning,style,performance,portability,unusedFunction --std=c++20 source/
+      - name: Install Doxygen
+        if: github.ref_type == 'tag'
+        uses: ssciwr/doxygen-install@v1
+      - name: Install TeX Live
+        # Only generating the documentation for Linux x86_64 (Arm Linux GitHub runner runs into an issue with Doxygen, Windows has deeper issues ...)
+        if: github.ref_type == 'tag' && runner.os == 'Linux' && matrix.arch == 'x86_64'
+        run: |
+          ${{ matrix.pm }} update
+          ${{ matrix.pm }} install -f -m texlive-latex-base
+          ${{ matrix.pm }} install -f -m texlive-latex-extra
+          ${{ matrix.pm }} install -f -m texlive-font-utils
+
+      # Build the project
+      - name: Install Conan profiles
+        run: conan config install -sf profiles -tf profiles https://github.com/nbeddows/meen-conan-config.git --args "--branch v0.3.0"
+      - name: Install dependencies
+        run: conan install . --build=missing --profile:all=profiles/${{ runner.os }}-${{ matrix.arch }}-${{ matrix.compiler }}-${{ matrix.version }}-sdl
+      - name: CMake presets
+        run: cmake --preset conan-${{ matrix.preset }}
+      - name: CMake build
+        run: cmake --build --preset conan-release
+
+      # Run the unit tests
+#      - name: Run C++ unit tests
+#        if: github.event_name == 'pull_request'
+#        run: artifacts/Release/${{ matrix.arch }}/bin/meen-i8080-arcade
+
+      # Build the package
+      - name: Build package
+        if: github.ref_type == 'tag'
+        run: cmake --build --preset conan-release --target=package
+
+      - name: Strip package
+        if: github.ref_type == 'tag' && runner.os == 'Linux'
+        run: cmake --build --preset conan-release --target=meen-i8080-arcade_strip_pkg
+
+      # Create the release
+      - name: Create release
+        if: github.ref_type == 'tag' 
+        uses: softprops/action-gh-release@v2
+        with:
+          body_path: ReleaseNotes.md
+          files: ${{ matrix.package_dir }}/meen-i8080-arcade*.tar.gz
+          generate_release_notes: true

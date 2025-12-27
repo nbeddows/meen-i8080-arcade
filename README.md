@@ -30,7 +30,7 @@ I don't consider the emulation to be the most efficient, accurate, or to be exte
 
 ### Compilation
 
-This project uses [CMake (minimum version 3.23)](https://cmake.org/) for its build system and [Conan (minimum version 2.0)](https://conan.io/) for it's dependency package management. Supported compilers are GCC (minimum version 12), MSVC(minimum version 16).
+This project uses [CMake (minimum version 3.23)](https://cmake.org/) for its build system and [Conan (minimum version 2.0)](https://conan.io/) for it's dependency package management. Supported compilers are GCC (minimum version 13), MSVC(minimum version 16).
 
 #### Pre-requisites
 
@@ -50,24 +50,31 @@ This project uses [CMake (minimum version 3.23)](https://cmake.org/) for its bui
     - `sudo apt install gcc-aarch64-linux-gnu g++-aarch64-linux-gnu`
   - rp2040:
     - `sudo apt install gcc-arm-none-eabi libnewlib-arm-none-eabi build-essential libstdc++-arm-none-eabi-newlib`
-    - `git clone https://github.com/raspberrypi/pico-sdk.git --branch 1.5.1`
+    - `git clone https://github.com/raspberrypi/pico-sdk.git --branch 2.1.1`
     - `cd pico-sdk`
     - `git submodule update --init`
-    - build the Raspberry Pi Pico SDK:
-      - Conan and the Raspberry Pi Pico Sdk seem to have an issue with conflicting use of the cmake toolchain file
+    - Set the Raspberry Pi Pico SDK Path:
+      - `nano ~/.bashrc`
+      - add the following to the end of the file: `export PICO_SDK_PATH=${PATH_TO_PICO_SDK}`
+      - save, close and re-open shell.
+    - Compile and install picotool
+      - `git clone https://github.com/raspberrypi/picotool`
+      - `cd picotool`
+      - `mkdir build`
+      - `cd build`
+      - `cmake ..`
+      - `make`
+      - `sudo make install`
+    - Build the required Raspberry Pi Pico SDK components:
+      - Conan and the Raspberry Pi Pico SDK seem to have an issue with conflicting use of the cmake toolchain file
         which results in test programs not being able to be compiled during the conan build process as outlined [here](https://github.com/raspberrypi/pico-sdk/issues/1693).
-        At this point we need to build the sdk so that we have the required tools pre-built so the Conan build process will succeed:
+        At this point we need to pre-build the required components of the sdk so that the Conan build process will succeed:
+        - `cd pico-sdk/2.1.1`
         - `mkdir build`<br>
            **NOTE**: Conan will assume that the build tools are located in the `build` directory, **do not** use a different directory name.
         - `cd build`
         - `cmake ..`
-        - `make`
-    - Set the Raspberry Pi Pico SDK Path:
-        -`export PICO_SDK_PATH=${PATH_TO_PICO_SDK}`
-        To avoid having to export it on every session, add it to the end of your .bashrc file instead:
-        - `nano ~/.bashrc`
-        - `export PICO_SDK_PATH=${PATH_TO_PICO_SDK}`
-	- save, close and re-open shell.
+        - `make pioasmBuild`
 
 ##### Windows
 
@@ -77,15 +84,15 @@ This project uses [CMake (minimum version 3.23)](https://cmake.org/) for its bui
 - [Install Doxygen](https://www.doxygen.nl/download.html) (if building a binary development package)
 - [Install Tex Live](https://www.tug.org/texlive/windows.html) (if building a binary development package)
 
-**1.** Install the supported meen conan configurations (v0.1.0) (if not done so already):
-- `conan config install -sf profiles -tf profiles https://github.com/nbeddows/meen-conan-config.git --args "--branch v0.1.0"`
+**1.** Install the supported meen conan configurations (v0.3.0) (if not done so already):
+- `conan config install -sf profiles -tf profiles https://github.com/nbeddows/meen-conan-config.git --args "--branch v0.3.0"`
 
 **2.** Install dependencies:
 - Windows msvc x86_64 build and host: `conan install . --build=missing --profile:all=profiles/Windows-x86_64-msvc-193-sdl`
-- Linux x86_64 build and host: `conan install . --build=missing --profile:all=profiles/Linux-x86_64-gcc-13-sdl`
-- Linux x86_64 build, Linux armv7hf host: `conan install . --build=missing --profile:build=Linux-x86_64-gcc-13 --profile:host=profiles/Linux-armv7hf-gcc-13-sdl`
-- Linux x86_64 build, Linux armv8 host: `conan install . --build=missing --profile:build=Linux-x86_64-gcc-13 --profile:host=profiles/Linux-armv8-gcc-13-sdl`
-- Linux x86_64 build, RP2040 microcontroller (baremetal armv6-m) host: `conan install . --build=missing --profile:build=Linux-x86_64-gcc-13 --profile:host=profiles/rp2040-armv6-gcc-13-st7789vw`<br>
+- Linux x86_64 build and host: `conan install . --build=missing --profile:all=profiles/Linux-x86_64-gcc-14-sdl`
+- Linux x86_64 build, Linux armv7hf host: `conan install . --build=missing --profile:build=Linux-x86_64-gcc-14 --profile:host=profiles/Linux-armv7hf-gcc-14-sdl`
+- Linux x86_64 build, Linux armv8 host: `conan install . --build=missing --profile:build=Linux-x86_64-gcc-14 --profile:host=profiles/Linux-armv8-gcc-14-sdl`
+- Linux x86_64 build, RP2040 microcontroller (baremetal armv6-m) host: `conan install . --build=missing --profile:build=Linux-x86_64-gcc-14 --profile:host=profiles/rp2040-armv6-gcc-14-st7789vw`<br>
 
 **NOTE**: when performing a cross compile using a host profile you must install the requisite toolchain of the target architecture, see pre-requisites.
 
@@ -99,35 +106,35 @@ When cross compiling for arm you may need to add the arm development repositorie
       - deb [arch=arm64] http://ports.ubuntu.com/ lunar-backports main multiverse universe
       - deb [arch=arm64] http://ports.ubuntu.com/ lunar-updates main multiverse universe
 - Ubuntu Noble onwards:
-  - `sudo nano /etc/apt/sources.list.d/ubuntu.sources
-  - Append the following:
-      Types: deb
-      URIs: http://ports.ubuntu.com/
-      Suites: noble
-      Architectures: arm64
-      Components: main multiverse universe
-      Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg
+  - `sudo nano /etc/apt/sources.list.d/ubuntu.sources`
+  - Append the following:<br><br>
+      Types: deb<br>
+      URIs: http://ports.ubuntu.com/<br>
+      Suites: noble<br>
+      Architectures: arm64<br>
+      Components: main multiverse universe<br>
+      Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg<br>
 
-      Types: deb
-      URIs: http://ports.ubuntu.com/
-      Suites: noble-security
-      Architectures: arm64
-      Components: main multiverse universe
-      Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg
+      Types: deb<br>
+      URIs: http://ports.ubuntu.com/<br>
+      Suites: noble-security<br>
+      Architectures: arm64<br>
+      Components: main multiverse universe<br>
+      Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg<br>
 
-      Types: deb
-      URIs: http://ports.ubuntu.com/
-      Suites: noble-backports
-      Components: main multiverse universe
-      Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg
+      Types: deb<br>
+      URIs: http://ports.ubuntu.com/<br>
+      Suites: noble-backports<br>
+      Components: main multiverse universe<br>
+      Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg<br>
 
-      Types: deb
-      URIs: http://ports.ubuntu.com/
-      Suites: noble-updates
-      Architectures: arm64
-      Components: main multiverse universe
-      Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg
-- Save and exit.
+      Types: deb<br>
+      URIs: http://ports.ubuntu.com/<br>
+      Suites: noble-updates<br>
+      Architectures: arm64<br>
+      Components: main multiverse universe<br>
+      Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg<br>
+  - Save and exit.
 - `sudo dpkg --add-architecture arm64`
 - `sudo dpkg --print-foreign-architectures`
 - `sudo apt-get update`
@@ -261,11 +268,11 @@ Audio hardware options. The current settings for these options should be suffici
 
 | Option              | Value | Remarks                             |
 |:--------------------|:------|:------------------------------------|
-| `channels`          | 1     | The number of audio output channels |
+| `channels`          | 2     | The number of audio output channels |
 | `sampleRate`        | 11025 | The audio output sample rate        |
 
-**NOTE**: these options can be changed if using custom audio samples.<br>
-**NOTE**: the RP IO Controller only supports mono @ 8/16bit.
+**NOTE**: only stereo (`channels` = 2) is supported.<br>
+**NOTE**: audio hardware must support signed 16-bit audio sample output.
 
 #### Software
 
@@ -295,7 +302,7 @@ These settings affect audio output. They can be changed if different audio sampl
 
 **NOTE**: a `sample` `bytes` entry that is prefixed with a supported scheme is treated as an absolute path (the `directory` option is ignored).<br>
 **NOTE**: the position of the audio files in the `sample` array **must not** be changed and empty entries **must not** be removed.<br>
-**NOTE**: if changing the audio files, the audio hardware properties may need to be updated (untested).<br>
+**NOTE**: only unsigned 8-bit audio input samples are supported.<br>
 **NOTE**: the audio file names for the RP IO Controller are fixed (file contents may be different, see previous note) and **must not** be changed.
 
 ##### Space Invaders/Space Invaders II (Midway)/Space Invaders II (Taito)/Balloon Bomber/Lunar Rescue

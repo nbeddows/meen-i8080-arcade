@@ -20,8 +20,11 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
+#include <algorithm>
 #include <assert.h>
 #include <bitset>
+#include <charconv>
+#include <fstream>
 
 #include "meen_i8080_arcade/MemoryController.h"
 #include "meen_i8080_arcade/SdlIoController.h"
@@ -29,21 +32,19 @@ SOFTWARE.
 
 namespace meen_i8080_arcade
 {
-	std::array<std::atomic_bool, MIX_CHANNELS * 2> SDLIoController::channelPlaying_ = {};
-
-    SDLIoController::SDLIoController(bool runAsync, int romCount, const JsonVariantConst audioHardware, const JsonVariantConst videoHardware)
+	SDLIoController::SDLIoController(bool runAsync, int romCount, const JsonVariantConst audioHardware, const JsonVariantConst videoHardware)
 		: runAsync_{ runAsync }
 		, romCount_{ romCount }
 		, romIndex_{ romCount - 1 }
 	{
+		printf("MEEN HW Version: %s\n", meen_hw::Version());
+
 		SDL_SetMainReady();
 
 		if (SDL_Init(SDL_INIT_VIDEO|SDL_INIT_AUDIO) < 0)
 		{
 			printf("Failed to initialise SDL");
 		}
-
-		Mix_Init(0);
 
 		window_ = SDL_CreateWindow("meen i8080 arcade",
 								SDL_WINDOWPOS_UNDEFINED,
@@ -78,42 +79,42 @@ namespace meen_i8080_arcade
 		}
 
 		int sampleRate = audioHardware["sampleRate"].as<int>();
-		// Allocate a sample buffer large enough to span one video frame duration.
-		// Note: depending on the sample rate this may not be a whole number and will be truncated,
-		// hence it could be one sample less than a video frame duration (this should be fine).
-		int sampleSize = sampleRate / 60; // 60 - video runs a 60hz
 
-		if (Mix_OpenAudio(sampleRate, 8 /* format (mono) */, audioHardware["channels"].as<int>(), sampleSize) < 0)
+		if (sampleRate > 0)
 		{
-			printf("Failed to open SDL Mixer");
-		}
+			// Fill out the desired output format
+			SDL_AudioSpec desiredSpec{};
+			desiredSpec.freq = sampleRate;    // sample rate
+			desiredSpec.format = AUDIO_S16;   // 16-bit signed audio
+			desiredSpec.channels = 2;         // stereo
+			// Allocate a sample buffer large enough to span one video frame duration (video runs at 60Hz).
+			// Note: depending on the sample rate this may not be a whole number and will be truncated,
+			// hence it could be one sample less than a video frame duration (this should be fine).
+			desiredSpec.samples = sampleRate / 60; // Internal sample buffer spanning a video frame duration (approx).
 
-		siEvent_ = SDL_RegisterEvents(1);
+			audioDeviceId_ = SDL_OpenAudioDevice(nullptr, 0, &desiredSpec, &obtainedSpec_, 0);
 
-		if (siEvent_ == 0xFFFFFFFF)
-		{
-			printf("Exhausted all user level events");
+			if (audioDeviceId_ == 0)
+			{
+				printf("SDL_OpenAudioDevice failed: %s\n", SDL_GetError());
+			}
+
+			// Check to make sure we got what we asked for
+			if (desiredSpec.freq != obtainedSpec_.freq || desiredSpec.format != obtainedSpec_.format || desiredSpec.channels != obtainedSpec_.channels || desiredSpec.samples != obtainedSpec_.samples)
+			{
+				printf("Failed to open the audio device with the desired specifications\n");
+			}
 		}
 
 		SDL_SetEventFilter([](void* eventType, SDL_Event* e)
 		{
-			// Ignore all events except ours.
-			return static_cast<int>((reinterpret_cast<uint64_t>(eventType) == e->type || e->type == SDL_QUIT) == true);
+			// Ignore all events except quit.
+			return static_cast<int>(e->type == SDL_QUIT);
 		},
-		reinterpret_cast<void*>(siEvent_));
+		nullptr);
 
 		// Monitor key presses/releases
 		sdlKbState_ = SDL_GetKeyboardState(nullptr);
-
-		Mix_ChannelFinished([](int channel)
-		{
-			SDLIoController::channelPlaying_[channel] = false;
-		});
-
-		for(int i = 0; i < maxEventData_; i++)
-		{
-			eventDataPool_.emplace_back(std::make_unique<EventData>());
-		}
 	}
 
 	SDLIoController::~SDLIoController()
@@ -128,13 +129,6 @@ namespace meen_i8080_arcade
 			SDL_DestroyWindow(window_);
 		}
 
-		for (auto& chunk : mixChunk_)
-		{
-			Mix_FreeChunk(chunk);
-		}
-
-		Mix_CloseAudio();
-		Mix_Quit();
 		SDL_Quit();
 	}
 
@@ -143,61 +137,202 @@ namespace meen_i8080_arcade
 		return std::tuple(loadSaveState_.exchange(false), romIndex_.load());
 	}
 
-	std::error_code SDLIoController::LoadAudioSamples(const JsonVariantConst audio)
+	std::error_code SDLIoController::LoadAudioSamples(const JsonVariantConst audioSamples)
 	{
-		auto scheme = audio["scheme"].as<std::string_view>();
-		auto directory = audio["directory"].as<std::string_view>();
+		auto scheme = audioSamples["scheme"].as<std::string_view>();
+		auto directory = audioSamples["directory"].as<std::string_view>();
 
-		auto addChunk = [&mixChunk = mixChunk_](std::string_view directory, std::string_view resource)
+		auto addChunk = [this](const uint8_t* wav, int len)
 		{
-			// if we want to add the additional '/' (so we don't have to put it in the config file)
-			// we need to check if the directory is empty first
-			auto chunk = Mix_LoadWAV((std::string(directory) + std::string(resource)).c_str());
-
-			if (resource.empty() == false && chunk == nullptr)
+			auto getUint32 = [](const uint8_t* ptr) -> uint32_t
 			{
-				return std::make_error_code (std::errc::no_such_file_or_directory);
+				return (static_cast<uint32_t>(ptr[3]) << 24) | (static_cast<uint32_t>(ptr[2]) << 16) | (static_cast<uint32_t>(ptr[1]) << 8) | static_cast<uint32_t>(ptr[0]);
+			};
+
+			auto getUint16 = [](const uint8_t* ptr) -> uint16_t
+			{
+				return (static_cast<uint16_t>(ptr[1]) << 8) | static_cast<uint16_t>(ptr[0]);
+			};
+
+			if (len < 8)
+			{
+				return std::errc::protocol_not_supported;
 			}
 
-			mixChunk.emplace_back(chunk);
-			return std::error_code{};
+			// Check the 'RIFF' fourcc
+			if (getUint32(wav) != 0x46464952)
+			{
+				return std::errc::protocol_not_supported;
+			}
+
+			// Make sure we have enough buffer
+			if (len - 8 < getUint32(wav + 4))
+			{
+				return std::errc::value_too_large;
+			}
+
+			// Check for 'WAVE' fourcc
+			if (getUint32(wav + 8) != 0x45564157)
+			{
+				return std::errc::protocol_not_supported;
+			}
+
+			// Check for 'fmt ' fourcc
+			if (getUint32(wav + 12) != 0x20746D66)
+			{
+				return std::errc::protocol_not_supported;
+			}
+
+			// Not supporting extended data
+			if (getUint32(wav + 16) != 16)
+			{
+				return std::errc::no_protocol_option;
+			}
+
+			// Only supporting PCM format
+			if (getUint16(wav + 20) != 1)
+			{
+				return std::errc::no_protocol_option;
+			}
+
+			// Check for 'data' fourcc
+			if (getUint32(wav + 36) != 0x61746164)
+			{
+				return std::errc::protocol_not_supported;
+			}
+
+			// The WAV header is 44 bytes, make sure we have enough buffer
+			if (len - 44 < getUint32(wav + 40))
+			{
+				return std::errc::value_too_large;
+			}
+
+			auto nBlockAlign = getUint16(wav + 32);
+			auto dataLen = getUint32(wav + 40);
+
+			// We only support 8 bit mono, any other nBlockAlign indicates otherwise
+			if (nBlockAlign != 1)
+			{
+				return std::errc::not_supported;
+			}
+
+			// The WAV data is not aligned correctly
+			if (dataLen % nBlockAlign != 0)
+			{
+				return std::errc::illegal_byte_sequence;
+			}
+
+			audioChunks_.emplace_back
+			(
+				getUint16(wav + 22),  // channels
+				getUint32(wav + 24),  // sample rate
+				getUint32(wav + 28),  // bytes per second
+				nBlockAlign,          // nblock align: channels * bitsPerSample / 8
+				getUint16(wav + 34),  // bits per sample
+				-1,                   // sample index
+				std::vector<uint8_t>(wav + 44, wav + 44 + dataLen)
+			);
+
+			return std::errc{};
 		};
-		
-		if (audio["sample"].size() != MIX_CHANNELS * 2)
-		{
-			return std::make_error_code(std::errc::invalid_argument);
-		}
 
-		if (Mix_AllocateChannels(audio["sample"].size()) != MIX_CHANNELS * 2)
+		auto addChunkFromFile = [this, &addChunk](std::string_view directory, std::string_view resource)
 		{
-			return std::make_error_code(std::errc::not_supported);
-		}
+			if (resource.empty() == false)
+			{
+				std::ifstream fin(std::string(directory) + std::string(resource), std::ios::binary);
 
-		for(const auto& sample : audio["sample"].as<JsonArrayConst>())
+				if (fin.bad())
+				{
+					return std::errc::bad_file_descriptor;
+				}
+
+				fin.seekg(0, std::ios::end);
+				int len = fin.tellg();
+				fin.seekg(0, std::ios::beg);
+				std::vector<uint8_t> wav(len);
+				fin.read(std::bit_cast<char*>(wav.data()), len);
+				return addChunk(wav.data(), len);
+			}
+
+			audioChunks_.emplace_back();
+			return std::errc{};
+		};
+
+		auto addChunkFromMem = [this, &addChunk](std::string_view resource, int resourceSize)
 		{
+			if (resource.empty() == false)
+			{
+				uintptr_t value = 0;
+				auto [ptr, ec] = std::from_chars(resource.data(), resource.data() + resource.size(), value, 10);
+
+				if (ec != std::errc())
+				{
+					return ec;
+				}
+
+				if (ptr != resource.data() + resource.size())
+				{
+					return std::errc::illegal_byte_sequence;
+				}
+
+				return addChunk(std::bit_cast<const uint8_t*>(value), resourceSize);
+
+			}
+
+			audioChunks_.emplace_back();
+			return std::errc{};
+		};
+
+		for (const auto& sample : audioSamples["sample"].as<JsonArrayConst>())
+		{
+			auto ec = std::errc{};
 			auto dir = directory;
 			auto resource = sample["bytes"].as<std::string_view>();
 
-			if (resource.starts_with("file://"))
+			if (resource.starts_with("mem://"))
+			{
+				resource.remove_prefix(strlen("mem://"));
+				ec = addChunkFromMem(resource, sample["size"].as<int>());
+			}
+			else if (resource.starts_with("file://"))
 			{
 				resource.remove_prefix(strlen("file://"));
 				// A resource starting with a scheme specifies the exact location of that resource
 				dir = "";
+				ec = addChunkFromFile(directory, resource);
 			}
 			else
 			{
-				if (scheme != "file://")
+				if (scheme == "mem://")
 				{
-					return std::make_error_code (std::errc::not_supported);
+					ec = addChunkFromMem(resource, sample["size"].as<int>());
+				}
+				else if (scheme == "file://")
+				{
+					ec = addChunkFromFile(directory, resource);
+				}
+				else
+				{
+					return std::make_error_code(std::errc::not_supported);
 				}
 			}
 
-			auto err = addChunk(dir, resource);
-
-			if (err)
+			if (ec != std::errc{})
 			{
-				return err;
+				return std::make_error_code(ec);
 			}
+		}
+
+		if (obtainedSpec_.samples > 0)
+		{
+			for (int i = 0; i < 2 /* total number of audio frames in the pool */; i++)
+			{
+				audioFramePool_.AddResource(new std::vector<int32_t>(obtainedSpec_.samples));
+			}
+
+			// Start audio playback
+			SDL_PauseAudioDevice(audioDeviceId_, 0);
 		}
 
 		return std::error_code{};
@@ -281,21 +416,6 @@ namespace meen_i8080_arcade
 		return key;
 	}
 
-	std::variant<std::string, uint8_t, meen_hw::MH_ResourcePool<std::vector<uint8_t>>::ResourcePtr>* SDLIoController::GetEventData()
-	{
-		EventData* eventData = nullptr;
-
-		std::lock_guard<std::mutex> lg(eventDataMutex_);
-
-		if (eventDataPool_.empty() == false)
-		{
-			eventData = eventDataPool_.back().release();
-			eventDataPool_.pop_back();
-		}
-
-		return eventData;
-	}
-
 	uint8_t SDLIoController::Read(uint16_t port, [[maybe_unused]] meen::IController* controller)
 	{
 		auto ret = i8080ArcadeIO_->ReadPort(port);
@@ -340,41 +460,34 @@ namespace meen_i8080_arcade
 				}
 				else
 				{
-					if (runAsync_ == true)
+					// Drop any remaining audio
+					SDL_ClearQueuedAudio(audioDeviceId_);
+					// Clear all queued chunks and reset chunk->samples to -1
+					while (audioMixChunks_.empty() == false)
 					{
-						// Wait until all outstanding events have been handled before attempting to clear the memory controller.
-						
-						// This uses a condition variable
-						std::unique_lock<std::mutex> lg(eventDataMutex_);
-						eventDataCv_.wait(lg, [this] { return eventDataPool_.size() == maxEventData_; });
-
-						// This uses std::atomic_flag (not quite right, hence using std:condition_variable
-						//eventDataCv_.wait(false);
-						//eventDataCv_.clear();
+						auto audioMixChunk = audioMixChunks_.back();
+						audioMixChunks_.pop_back();
+						audioMixChunk->sampleIndex = -1;
 					}
-					else
+
+					if (runAsync_ == false)
 					{
-						SDL_Event e;
-
-						// In single threaded mode we need to remove all outstanding i8080 arcade events, return the video frames
-						// back to the memory controller so they can be cleared, then return the event data back to the pool.
-						while (SDL_PeepEvents(&e, 1, SDL_GETEVENT, siEvent_, siEvent_) > 0)
+						// In single threaded mode we need to remove all outstanding i8080 arcade events and return the video frames
+						// back to the memory controller so they can be cleared.
+						while(eventQ_.empty() == false)
 						{
-							auto eventData = std::bit_cast<EventData*>(e.user.data1);
-							assert(eventData != nullptr);
+							auto eventData = std::move(eventQ_.front());
+							eventQ_.pop_front();
 
-							if (eventData != nullptr)
+							if (std::holds_alternative<Frame<uint8_t>>(eventData))
 							{
-								// The resource (if it exists) will get returned to the frame pool after the completion of this block
-								auto videoFrame = std::get_if<meen_hw::MH_ResourcePool<std::vector<uint8_t>>::ResourcePtr>(eventData);
-
-								if (videoFrame != nullptr)
-								{
-									*videoFrame = nullptr;
-								}
-
-								// We are single threaded, so we don't need to lock this.
-								eventDataPool_.push_back(std::unique_ptr<EventData>(eventData));
+								auto& frame = std::get<Frame<uint8_t>>(eventData);
+								frame.bitstream = nullptr;
+							}
+							else if (std::holds_alternative<Frame<int32_t>>(eventData))
+							{
+								auto& frame = std::get<Frame<int32_t>>(eventData);
+								frame.bitstream = nullptr;
 							}
 						}
 					}
@@ -392,55 +505,41 @@ namespace meen_i8080_arcade
 
 	void SDLIoController::Write(uint16_t port, uint8_t data, [[maybe_unused]] meen::IController* controller)
 	{
-		auto audio = i8080ArcadeIO_->WritePort(port, data);
+		std::bitset<8> audio = i8080ArcadeIO_->WritePort(port, data);
 
-		if (audio > 0)
+		if (audio.count() > 0)
 		{
-			auto eventData = GetEventData();
+			// port will either be 3 or 5
+			// when port is 3 index will be 0 and when it is 5 it will be 8
+			// which will give the correct offset into the mixChunk_ array
+			auto offset = (port - 3) << 2;
 
-			if (eventData != nullptr)
+			for (int i = 0; i < 8; i++)
 			{
-				// port will either be 3 or 5
-				// when port is 3 index will be 0 and when it is 5 it will be 8
-				// which will give the correct offset into the mixChunk_ array
-				auto offset = (port - 3) << 2;
-
-				for (int i = 0; i < 8; i++)
+				if (i + offset < audioChunks_.size())
 				{
-					if ((audio >> i) & 0x01)
+					auto audioChunk = &audioChunks_[i + offset];
+
+					// Drop the sample if it is still playing
+					if (audio.test(i) == true && audioChunk->sampleIndex == -1)
 					{
-						// Don't repeat a sample until it has finished
-						if (SDLIoController::channelPlaying_[i + offset] == true)
+						if (audioChunk->samples.empty() == false)
 						{
-							audio &= ~(0x01 << i);
+							audioChunk->sampleIndex = 0;
+							// Push it to the list of chunks to be played
+							audioMixChunks_.emplace_back(audioChunk);
 						}
 						else
 						{
-							SDLIoController::channelPlaying_[i + offset] = true;
+							{
+								meen_hw::MH_LockGuard lg(eventQMutex_);
+								eventQ_.emplace_back(EventData{ std::string("Audio chunk ") + std::to_string(i) + " is missing from the config file" });
+							}
+
+							eventQCv_.notify_one();
 						}
 					}
 				}
-
-				// We may have turned off all audio, check it again
-				if (audio > 0)
-				{
-					SDL_Event e{ .type = static_cast<Uint32>(siEvent_) };
-					*eventData = static_cast<uint8_t>(port);
-					e.user.data1 = reinterpret_cast<void*>(eventData);
-					e.user.data2 = reinterpret_cast<void*>(audio);
-					SDL_PushEvent(&e);
-				}
-				else
-				{
-					// We have no audio to send, return the data back to the pool
-					std::lock_guard<std::mutex> lg(eventDataMutex_);
-					eventDataPool_.push_back(std::unique_ptr<EventData>(eventData));
-				}
-			}
-			else
-			{
-				printf("Failed to dispatch audio, increase the event data pool size\n");
-				//assert(0);
 			}
 		}
 	}
@@ -497,46 +596,110 @@ namespace meen_i8080_arcade
 			}
 			case 2:
 			{
-				auto eventData = GetEventData();
+				EventData eventData;
+				Frame<uint8_t> videoFrame;
 
 				if (screen_ == Screen::Gameplay)
 				{
 					isr = meen::ISR::Two;
 				}
 
-				if(eventData != nullptr)
+				auto mc = static_cast<MemoryController*>(memoryController);
+
+				switch (screen_)
 				{
-					auto mc = static_cast<MemoryController*>(memoryController);
+					case Screen::RomSelect:
+						videoFrame.bitstream = mc->GetRomSelectFrame(romIndex_, currTime);
+						break;
+					case Screen::Gameplay:
+						videoFrame.bitstream = mc->GetGameplayFrame(currTime);
+						break;
+					default:
+						break;
+				}
 
-					switch (screen_)
-					{
-						case Screen::RomSelect:
-							*eventData = mc->GetRomSelectFrame(romIndex_, currTime);
-							break;
-						case Screen::Gameplay:
-							*eventData = mc->GetGameplayFrame(currTime);
-							break;
-						default:
-							break;
-					}
-
-					auto videoFrame = std::get_if<meen_hw::MH_ResourcePool<std::vector<uint8_t>>::ResourcePtr>(eventData);
-
-					// The variant is in an invalid state or no video frame was generated.
-					if (videoFrame == nullptr || *videoFrame == nullptr)
-					{
-						*eventData = "Failed to get the frame from the memory controller, frame dropped";
-					}
-
-					SDL_Event e{ .type = static_cast<Uint32>(siEvent_) };
-					e.user.data1 = eventData;
-					e.user.data2 = nullptr;
-					SDL_PushEvent(&e);
+				if (videoFrame.bitstream != nullptr)
+				{
+					videoFrame.timestamp = currTime;
+					eventData = std::move(videoFrame);
 				}
 				else
 				{
-					printf("Failed to dispatch video frame, increase the event data pool size\n");
-//					assert(0);
+					eventData = "Failed to get the video frame from the memory controller, video frame dropped";
+				}
+
+				if (runAsync_ == true)
+				{
+					{
+						meen_hw::MH_LockGuard lg(eventQMutex_);
+						eventQ_.push_back(std::move(eventData));
+					}
+
+					eventQCv_.notify_one();
+				}
+				else
+				{
+					eventQ_.push_back(std::move(eventData));
+				}
+
+				// Mix a video frame duration worth of audio if we have any chunks pending
+				if (audioMixChunks_.empty() == false)
+				{
+					Frame<int32_t> audioFrame{ .bitstream = audioFramePool_.GetResource(), .timestamp = currTime };
+
+					if (audioFrame.bitstream != nullptr)
+					{
+						// Apply some very basic mixing
+						// Only supports 8 bit mono samples for input and 16 bit stereo samples for output
+						for(auto& sample : *audioFrame.bitstream)
+						{
+							sample = 0;
+
+							for (auto audioMixChunk = audioMixChunks_.cbegin(); audioMixChunk != audioMixChunks_.cend();)
+							{
+								// convert unsigned 8bit sample to a signed 16bit sample mixing it with the current sample
+								sample += ((*audioMixChunk)->samples[(*audioMixChunk)->sampleIndex++] - 128) * 256;// / audioMixChunks_.size();
+
+								if ((*(audioMixChunk))->sampleIndex >= (*audioMixChunk)->samples.size())
+								{
+									// Reset the sample count for when this chunk is next played
+									(*audioMixChunk)->sampleIndex = -1;
+									// We are done with this chunk, remove it from the list
+									audioMixChunk = audioMixChunks_.erase(audioMixChunk);
+								}
+								else
+								{
+									audioMixChunk++;
+								}
+							}
+
+							// Clamp to 16bit to prevent overflow
+							sample = std::clamp<int32_t>(sample, -32768, 32767);
+							// Duplicate the 16bit mono sample on both channels
+							sample = (sample << 16) | sample;
+						}
+
+						eventData = std::move(audioFrame);
+					}
+					else
+					{
+						eventData = "Failed to get the audio frame from the audio device, audio frame dropped";
+					}
+
+					// Send the mixed audio samples to the main thread
+					if (runAsync_ == true)
+					{
+						{
+							meen_hw::MH_LockGuard lg(eventQMutex_);
+							eventQ_.push_back(std::move(eventData));
+						}
+
+						eventQCv_.notify_one();
+					}
+					else
+					{
+						eventQ_.push_back(std::move(eventData));
+					}
 				}
 				break;
 			}
@@ -558,166 +721,134 @@ namespace meen_i8080_arcade
 	bool SDLIoController::HandleEvent()
 	{
 		SDL_Event e;
-		bool quit = false;
-		bool eventTriggered = runAsync_ == true ? SDL_WaitEvent(&e) : SDL_PollEvent(&e);
-
-		if (eventTriggered == true)
+		// We filter out all events execpt SDL_Quit
+		if (SDL_PollEvent(&e))
 		{
-			if(e.type == siEvent_)
+			return true;
+		}
+
+		EventData eventData;
+
+		if (runAsync_ == true)
+		{
+			meen_hw::MH_LockGuard lg(eventQMutex_);
+			eventQCv_.wait(eventQMutex_, [this]{ return eventQ_.empty() == false; });
+			eventData = std::move(eventQ_.front());
+			eventQ_.pop_front();
+		}
+		else
+		{
+			if (eventQ_.empty() == false)
 			{
-				auto eventData = std::bit_cast<EventData*>(e.user.data1);
-
-				quit = std::visit(overloaded
-				{
-					[](const std::string& error)
-					{
-						printf("%s\n", error.c_str());
-						return false;
-					},
-					[this, &e](uint8_t port)
-					{
-						std::bitset<8> audio = reinterpret_cast<uint64_t>(e.user.data2);
-						// port will either be 3 or 5
-						// when port is 3 index will be 0 and when it is 5 it will be 8
-						// which will give the correct offset into the mixChunk_ array
-						auto offset = (port - 3) << 2;
-
-						for (int i = 0; i < 8; i++)
-						{
-							if (audio.test(i) == true)
-							{
-								[[maybe_unused]] auto busy = Mix_PlayChannel(i + offset /* use a dedicated channel */, mixChunk_[i + offset], 0 /* don't loop (play it once) */);
-								// We have a channel for each sound, so busy should only be -1 when we don't have a sound for that channel
-								assert(mixChunk_[i] == nullptr || busy != -1);
-							}
-						}
-
-						return false;
-					},
-					[this, &e](meen_hw::MH_ResourcePool<std::vector<uint8_t>>::ResourcePtr& videoFrame)
-					{
-						if (sdlKbState_[SDL_SCANCODE_Q] != 0)
-						{
-							return true;
-						}
-
-						uint8_t* dst = nullptr;
-						int rowBytes = 0;
-						// For performance reasons we'll just run an assert on the following applicable SDL methods
-						auto err = SDL_LockTexture(texture_, nullptr, std::bit_cast<void**>(&dst), &rowBytes);
-						assert(err == 0);
-						i8080ArcadeIO_->BlitVRAM(std::span(dst, dstRect_.h * rowBytes), dstRect_.w, rowBytes, std::span(*(videoFrame.get())), MemoryController::frameWidth);
-						SDL_UnlockTexture(texture_);
-						// We are done with the frame, return it immediately to the memory controller by explicitly setting it to nullptr
-						videoFrame = nullptr;
-						err = SDL_RenderCopy(renderer_, texture_, nullptr, &dstRect_);
-						assert(err == 0);
-						SDL_RenderPresent(renderer_);
-
-						auto scrollIndex = [this](Uint8 key, Uint8 lastKey, int dir)
-						{
-							if (key ^ lastKey && key)
-							{
-								int romIndex = romIndex_;
-
-								romIndex = (romIndex + dir) % romCount_;
-
-								if (romIndex < 0)
-								{
-									romIndex = romCount_ - 1;
-								}
-
-								romIndex_ = romIndex;
-							}
-
-							return key;
-						};
-
-						// Halt all channels when returning to the rom select screen
-						if (sdlKbState_[SDL_SCANCODE_ESCAPE] == SDL_TRUE)
-						{
-							// -1: since we don't set any channel tags, use the default
-							Mix_HaltGroup(-1);
-						}
-
-						// Copy out the values that will be accessed from a different thread.
-						// (Do it regardless in single threaded mode, its here for demo purposes only)
-						kbState_[SDL_SCANCODE_C] = sdlKbState_[SDL_SCANCODE_C];
-						kbState_[SDL_SCANCODE_1] = sdlKbState_[SDL_SCANCODE_1];
-						kbState_[SDL_SCANCODE_2] = sdlKbState_[SDL_SCANCODE_2];
-						kbState_[SDL_SCANCODE_A] = sdlKbState_[SDL_SCANCODE_A];
-						kbState_[SDL_SCANCODE_S] = sdlKbState_[SDL_SCANCODE_S];
-						kbState_[SDL_SCANCODE_D] = sdlKbState_[SDL_SCANCODE_D];
-						kbState_[SDL_SCANCODE_3] = sdlKbState_[SDL_SCANCODE_3];
-						kbState_[SDL_SCANCODE_4] = sdlKbState_[SDL_SCANCODE_4];
-						kbState_[SDL_SCANCODE_5] = sdlKbState_[SDL_SCANCODE_5];
-						kbState_[SDL_SCANCODE_6] = sdlKbState_[SDL_SCANCODE_6];
-						kbState_[SDL_SCANCODE_T] = sdlKbState_[SDL_SCANCODE_T];
-						kbState_[SDL_SCANCODE_E] = sdlKbState_[SDL_SCANCODE_E];
-						kbState_[SDL_SCANCODE_J] = sdlKbState_[SDL_SCANCODE_J];
-						kbState_[SDL_SCANCODE_K] = sdlKbState_[SDL_SCANCODE_K];
-						kbState_[SDL_SCANCODE_L] = sdlKbState_[SDL_SCANCODE_L];
-						kbState_[SDL_SCANCODE_I] = sdlKbState_[SDL_SCANCODE_I];
-						kbState_[SDL_SCANCODE_R] = sdlKbState_[SDL_SCANCODE_R];
-						kbState_[SDL_SCANCODE_Y] = sdlKbState_[SDL_SCANCODE_Y];
-						kbState_[SDL_SCANCODE_ESCAPE] = sdlKbState_[SDL_SCANCODE_ESCAPE];
-
-						lastUp_ = scrollIndex(sdlKbState_[SDL_SCANCODE_UP], lastUp_, 1);
-						lastDown_ = scrollIndex(sdlKbState_[SDL_SCANCODE_DOWN], lastDown_, -1);
-						// Check to see if the user wants to load a rom.
-						// This will only be acknowledged in ServiceInterrupts if screen_ is RomSelect,
-						// we could check screen_ for RomSelect here, but that would mean screen_ would have
-						// to be atomic. There is logic in the ServiceInterrupts noInterrupt switch case to handle this.
-						// One could remove that logic by making screen_ atomic.
-						lastReturn_ = SetInterrupt(sdlKbState_[SDL_SCANCODE_RETURN], lastReturn_, meen::ISR::Load, false);
-						return false;
-					}
-				}, *eventData);
-
-				{
-					// We are done with the event data, return it back to the event data pool
-					std::lock_guard<std::mutex> lg(eventDataMutex_);
-					eventDataPool_.push_back(std::unique_ptr<EventData>(eventData));
-				}
-
-				if (runAsync_ == true)
-				{
-					if (sdlKbState_[SDL_SCANCODE_ESCAPE] && eventDataPool_.size() == maxEventData_)
-					{
-						eventDataCv_.notify_one();
-
-						// This uses std::atomic_flag (not quite right, hence using std:condition_variable
-						//eventDataCv_.test_and_set();
-						//eventDataCv_.notify_one();
-					}
-				}
+				assert(eventQ_.size() == 1);
+				eventData = std::move(eventQ_.front());
+				eventQ_.pop_front();
 			}
 			else
 			{
-				assert(e.type == SDL_QUIT);
-				quit = true;
+				// No event to process, nothing more to do
+				return false;
 			}
 		}
 
-		return quit;
+		return std::visit(overloaded
+		{
+			[](const std::string& error)
+			{
+				printf("%s\n", error.c_str());
+				return false;
+			},
+			[this](Frame<int32_t>& frame)
+			{
+				SDL_QueueAudio(audioDeviceId_, static_cast<const void*>(frame.bitstream->data()), obtainedSpec_.size);
+				// We are done with the frame, return it immediately to the audio frame pool by explicitly setting it to nullptr
+				frame.bitstream = nullptr;
+				return false;
+			},
+			[this](Frame<uint8_t>& frame)
+			{
+				if (sdlKbState_[SDL_SCANCODE_Q] != 0)
+				{
+					return true;
+				}
+
+				uint8_t* dst = nullptr;
+				int rowBytes = 0;
+				// For performance reasons we'll just run an assert on the following applicable SDL methods
+				auto err = SDL_LockTexture(texture_, nullptr, std::bit_cast<void**>(&dst), &rowBytes);
+				assert(err == 0);
+				i8080ArcadeIO_->BlitVRAM(std::span(dst, dstRect_.h * rowBytes), dstRect_.w, rowBytes, std::span(*(frame.bitstream.get())), MemoryController::frameWidth);
+				SDL_UnlockTexture(texture_);
+				// We are done with the frame, return it immediately to the memory controller by explicitly setting it to nullptr
+				frame.bitstream = nullptr;
+				err = SDL_RenderCopy(renderer_, texture_, nullptr, &dstRect_);
+				assert(err == 0);
+				SDL_RenderPresent(renderer_);
+
+				auto scrollIndex = [this](Uint8 key, Uint8 lastKey, int dir)
+				{
+					if (key ^ lastKey && key)
+					{
+						int romIndex = romIndex_;
+
+						romIndex = (romIndex + dir) % romCount_;
+
+						if (romIndex < 0)
+						{
+							romIndex = romCount_ - 1;
+						}
+
+						romIndex_ = romIndex;
+					}
+
+					return key;
+				};
+
+				// Copy out the values that will be accessed from a different thread.
+				// (Do it regardless in single threaded mode, its here for demo purposes only)
+				kbState_[SDL_SCANCODE_C] = sdlKbState_[SDL_SCANCODE_C];
+				kbState_[SDL_SCANCODE_1] = sdlKbState_[SDL_SCANCODE_1];
+				kbState_[SDL_SCANCODE_2] = sdlKbState_[SDL_SCANCODE_2];
+				kbState_[SDL_SCANCODE_A] = sdlKbState_[SDL_SCANCODE_A];
+				kbState_[SDL_SCANCODE_S] = sdlKbState_[SDL_SCANCODE_S];
+				kbState_[SDL_SCANCODE_D] = sdlKbState_[SDL_SCANCODE_D];
+				kbState_[SDL_SCANCODE_3] = sdlKbState_[SDL_SCANCODE_3];
+				kbState_[SDL_SCANCODE_4] = sdlKbState_[SDL_SCANCODE_4];
+				kbState_[SDL_SCANCODE_5] = sdlKbState_[SDL_SCANCODE_5];
+				kbState_[SDL_SCANCODE_6] = sdlKbState_[SDL_SCANCODE_6];
+				kbState_[SDL_SCANCODE_T] = sdlKbState_[SDL_SCANCODE_T];
+				kbState_[SDL_SCANCODE_E] = sdlKbState_[SDL_SCANCODE_E];
+				kbState_[SDL_SCANCODE_J] = sdlKbState_[SDL_SCANCODE_J];
+				kbState_[SDL_SCANCODE_K] = sdlKbState_[SDL_SCANCODE_K];
+				kbState_[SDL_SCANCODE_L] = sdlKbState_[SDL_SCANCODE_L];
+				kbState_[SDL_SCANCODE_I] = sdlKbState_[SDL_SCANCODE_I];
+				kbState_[SDL_SCANCODE_R] = sdlKbState_[SDL_SCANCODE_R];
+				kbState_[SDL_SCANCODE_Y] = sdlKbState_[SDL_SCANCODE_Y];
+				kbState_[SDL_SCANCODE_ESCAPE] = sdlKbState_[SDL_SCANCODE_ESCAPE];
+
+				lastUp_ = scrollIndex(sdlKbState_[SDL_SCANCODE_UP], lastUp_, 1);
+				lastDown_ = scrollIndex(sdlKbState_[SDL_SCANCODE_DOWN], lastDown_, -1);
+				// Check to see if the user wants to load a rom.
+				// This will only be acknowledged in GenerateInterrupts if screen_ is RomSelect,
+				// we could check screen_ for RomSelect here, but that would mean screen_ would have
+				// to be atomic. There is logic in the ServiceInterrupts noInterrupt switch case to handle this.
+				// One could remove that logic by making screen_ atomic.
+				lastReturn_ = SetInterrupt(sdlKbState_[SDL_SCANCODE_RETURN], lastReturn_, meen::ISR::Load, false);
+				return false;
+			}
+		}, eventData);
 	}
 
 	void SDLIoController::HandleError(std::string&& errorMsg)
 	{
-		auto eventData = GetEventData();
-
-		if (eventData != nullptr)
+		if (runAsync_ == true)
 		{
-			*eventData = std::move(errorMsg);
-			SDL_Event e{ .type = static_cast<Uint32>(siEvent_) };
-			e.user.data1 = eventData;
-			e.user.data2 = nullptr;
-			SDL_PushEvent(&e);
+            meen_hw::MH_LockGuard lg (eventQMutex_);
+            eventQ_.emplace_back(EventData{ errorMsg });
 		}
 		else
 		{
-			printf("Failed to dispatch error message, increase the event data pool size\n");
-			//assert(0);
+			eventQ_.emplace_back(EventData{ errorMsg });
 		}
 	}
 

@@ -21,6 +21,7 @@ SOFTWARE.
 */
 
 #include <algorithm>
+#include <bit>
 #include <time.h>
 
 #ifdef WIN32
@@ -79,7 +80,8 @@ namespace meen_i8080_arcade
         return memUsage;
     }
 
-    MemoryController::MemoryController(const std::vector<std::pair<std::string, std::string>>& jsonRoms, int framePoolSize)
+    // Need to pass in the runAsync json meen option
+    MemoryController::MemoryController(const std::vector<std::pair<std::string, std::string>>& jsonRoms)
     {
         std::string txtToBlit;
 
@@ -89,7 +91,7 @@ namespace meen_i8080_arcade
         }
 
         std::transform(txtToBlit.begin(), txtToBlit.end(), txtToBlit.begin(), ::toupper);
-        txtToBlit.erase(txtToBlit.end() - 3, txtToBlit.end());
+        txtToBlit.erase(txtToBlit.end() - 3 /*"\n\n\n"*/, txtToBlit.end());
 
         romList_.SetText(std::move(txtToBlit));
         romList_.SetJustification(GlyphRenderer::Justification::Centre);
@@ -201,8 +203,6 @@ namespace meen_i8080_arcade
 
     void MemoryController::Clear(std::vector<uint8_t>* backBuffer)
     {
-        std::vector<meen_hw::MH_ResourcePool<std::vector<uint8_t>>::ResourcePtr> frames;
-        auto frame = framePool_.GetResource();
         // Clear the memory to 0
         memory_.assign(memory_.size(), 0);
 
@@ -214,21 +214,25 @@ namespace meen_i8080_arcade
             }
         };
 
-        if (backBuffer != nullptr)
+        // Wait for the memory controller frame pool size to return back to its maximum size
+        framePool_.Wait(framePool_.GetSize() - (backBuffer != nullptr), [&] // The back buffer is always in flight and passed in here, hence we don't have to wait for it (we would deadlock otherwise)
         {
-            // Clear the vram section of the back buffer
-            clearBuffer(backBuffer);
-        }
+            // All the frames should now be available to clear
+            std::vector<meen_hw::MH_ResourcePool<std::vector<uint8_t>>::ResourcePtr> frames;
 
-        while(frame != nullptr)
-        {
-            // Clear the vram section of the remaining buffers
-            clearBuffer(frame.get());
-            frames.emplace_back(std::move(frame));
-            frame = framePool_.GetResource();
-        }
+            while(auto frame = framePool_.GetResource())
+            {
+                // Clear the vram section of the remaining buffers
+                clearBuffer(frame.get());
+                frames.emplace_back(std::move(frame));
+            }
 
-        // frames will get returned to the pool once this method returns.
+            if (backBuffer != nullptr)
+            {
+                // Clear the vram section of the back buffer
+                clearBuffer(backBuffer);
+            }
+        });
     }
 
     meen_hw::MH_ResourcePool<std::vector<uint8_t>>::ResourcePtr MemoryController::MakeFramePool(int framePoolSize)
