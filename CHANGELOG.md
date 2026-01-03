@@ -1,3 +1,8 @@
+1.2.0
+
+* Moved all common code used by all controllers
+  to a base template io controller class.
+
 1.1.0 [26/12/25]
 * Added disabled GitHub Actions CI/CD support.
   (github.com/nbeddows/meen-i8080-arcade/issues/128)
