@@ -265,7 +265,7 @@ int main(int argc, char** argv)
 		CHECK_ERROR(!backBuffer, printf("Failed to create the memory controller frame pool\n"));
 
 		// Create our custom i8080 arcade I/O controller based on a specific configuration.
-		auto ioController = new IOController<IOCONTROLLABLE>(meen["runAsync"], jsonRoms.size(), hardware["audio"], hardware["video"]);
+		auto ioController = new IOController<IOCONTROLLABLE>(meen["runAsync"], std::move(backBuffer), jsonRoms.size(), hardware["audio"], hardware["video"]);
 		CHECK_ERROR(!ioController, printf("Failed to create the i/o controller\n"));
 
 		// Set up the custom controllers prior to configuring the machine.

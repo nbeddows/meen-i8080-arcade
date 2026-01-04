@@ -454,13 +454,15 @@ public:
             by the IOControllable template implementation.
 
             @param    runAsync         Run this io controller asynchronously.
+            @param    backBuffer       The first frame to use for double buffering.
             @param    romCount         The number of supported roms.
             @param    audioHardware    Audio hardware configuration options.
             @param    videoHardware    Video hardware configuration options.
         */
-        IOController(bool runAsync, int romCount, const JsonVariantConst audioHardware, const JsonVariantConst videoHardware)
+        IOController(bool runAsync, meen_hw::MH_ResourcePool<std::vector<uint8_t>>::ResourcePtr&& backBuffer, int romCount, const JsonVariantConst audioHardware, const JsonVariantConst videoHardware)
             : runAsync_{ runAsync }
             , romCount_{ romCount }
+            , backBuffer_{ std::move(backBuffer) }
         {
             printf("MEEN HW Version: %s\n", meen_hw::Version());
 
@@ -968,7 +970,7 @@ public:
         
             Once a rom has been successfully loaded, this method will be called.
         */
-        void HandleLoadComplete()
+        meen::errc HandleLoadComplete()
         {
             ioController_.ScreenTransition(screen_, Screen::Gameplay);
 
@@ -981,6 +983,8 @@ public:
             // for example, audio effects which repeat (ufo for space invaders) may not be the same for other roms,
             // need to confirm this.
             // i8080ArcadeIO_->SetOptions(R"({"repeat_samples":[1, 2, 4]})")
+
+            return meen::errc::no_error;
         }
 
         /** Load Video Textures
