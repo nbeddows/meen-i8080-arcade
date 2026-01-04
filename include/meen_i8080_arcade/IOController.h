@@ -128,7 +128,7 @@ namespace meen_i8080_arcade
 
         /** Peripheral device reading
         
-            Called when the peripheral device needs to be read
+            Called when the peripheral device needs to be read.
         */
         { ioc.ReadPeripheralDevice() } -> std::same_as<uint32_t>;
     };
@@ -567,11 +567,6 @@ public:
                     {
                         if (port == 1)
                         {
-                            if (input & Input::Credit)
-                            {
-                                printf("CREDIT: %x\n", input);
-                            }
-
                             ret = 0x08; 
                             ret |= ((input & Input::Credit) != 0) * 0x01; // Credit
                             ret |= ((input & Input::OnePlayer) != 0) * 0x04; // 1P
