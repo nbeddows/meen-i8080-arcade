@@ -2,6 +2,8 @@
 
 * Moved all common code used by all controllers
   to a base template io controller class.
+* Added an SDL2IO controllable which replaces
+  the old SdlIoController. 
 
 1.1.0 [26/12/25]
 * Added disabled GitHub Actions CI/CD support.
