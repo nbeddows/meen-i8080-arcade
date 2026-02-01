@@ -91,6 +91,10 @@ namespace meen_i8080_arcade
 
         int height_{};
 
+        int textureWidth_{};
+
+        int textureHeight_{};
+
         /** The current screen
 
             See the Screen enumeration for further details.

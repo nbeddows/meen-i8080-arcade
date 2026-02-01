@@ -257,9 +257,10 @@ namespace meen_i8080_arcade
         // Used to center the video ram on the display
         widthOffset_ = (width_ - textureWidth) / 2;
         heightOffset_ = (height_ - textureHeight) / 2;
-        textureWidth_ = textureWidth;
-        textureHeight_ = textureHeight;
 
+        // This needs to be done via ClearDisplay
+        // Rather than taking a bool, it needs to take a bounding box of the screen to clear
+/*
         // Blit the first frame
 
         gpio_put(Pin::CS, 1);
@@ -276,7 +277,7 @@ namespace meen_i8080_arcade
         gpio_put(Pin::CS, 0);
 
         auto bb = backBuffer_->data();
-        auto compressedWidth = textureWidth_ >> 3;
+        auto compressedWidth = textureWidth >> 3;
         auto dst = texture_.data();
         auto dstSize = texture_.size();
         auto dst16 = std::bit_cast<uint16_t*>(dst);
@@ -284,11 +285,14 @@ namespace meen_i8080_arcade
         // loop back buffer, blit each scan line
         for(int i = 0; i < textureHeight_; i++)
         {
-            i8080ArcadeIO_->BlitVRAM(std::span(dst, dstSize), textureWidth_, dstSize, std::span(bb, compressedWidth), MemoryController::frameWidth);
-            spi_write16_blocking(spi1, dst16, textureWidth_);
+            i8080ArcadeIO_->BlitVRAM(std::span(dst, dstSize), textureWidth, dstSize, std::span(bb, compressedWidth), MemoryController::frameWidth);
+            spi_write16_blocking(spi1, dst16, textureWidth);
             bb += compressedWidth;
         }
+*/
 
+        textureWidth_ = textureWidth;
+        textureHeight_ = textureHeight;
         return std::errc{};
     }
 
@@ -307,7 +311,7 @@ namespace meen_i8080_arcade
             uint offset = pio_add_program(pio0, &audio_pio_program);
             audio_pio_program_init(pio0, 0 /* state machine index */, offset, Pin::ADIN, Pin::BCK);
             uint32_t system_clock_frequency = clock_get_hz(clk_sys);
-            uint32_t divider = system_clock_frequency * 4 / sampleRate_; // avoid arithmetic overflow
+            uint32_t divider = system_clock_frequency * 4 / sampleRate; // avoid arithmetic overflow
             pio_sm_set_clkdiv_int_frac(pio0, 0 /* state machine index */, divider >> 8u, divider & 0xffu);
             pio_sm_set_enabled(pio0, 0 /* state machine index */, true);
 
