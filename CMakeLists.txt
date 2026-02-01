@@ -110,8 +110,8 @@ set(${project_name}_deps meen::meen meen_hw::meen_hw ArduinoJson)
 
 if(${build_os} STREQUAL "baremetal")
   if(${enable_board} STREQUAL "pico")
-    set(${project_name}_include_files ${${project_name}_include_files} include/meen_i8080_arcade/RPIoController.h)
-    set(${project_name}_source_files ${${project_name}_source_files} source/RPConfig.S source/RPIoController.cpp)
+    set(${project_name}_include_files ${${project_name}_include_files} include/meen_i8080_arcade/io_controllables/PicoIO.h)
+    set(${project_name}_source_files ${${project_name}_source_files} source/io_controllables/PicoIOConfig.S source/io_controllables/PicoIO.cpp)
     set(${project_name}_deps ${${project_name}_deps} pico_stdlib hardware_dma hardware_spi hardware_gpio hardware_pio hardware_pwm)
   endif()
 else()
@@ -138,12 +138,14 @@ target_include_directories(${project_name} PRIVATE ${CMAKE_SOURCE_DIR}/include)
 if(${build_os} STREQUAL "baremetal")
   # This is here for reference only. We don't do it this way since there is a conflict with the Conan and Pico
   # toolchain files which results in the wrong compiler being used to build pioasm.
-  #pico_generate_pio_header(${project_name} ${CMAKE_SOURCE_DIR}/source/RPAudioOut.pio)
+  #pico_generate_pio_header(${project_name} ${CMAKE_SOURCE_DIR}/source/io_controllables/PicoIOAudioOut.pio)
 
   # Use the prebuilt pioasm to generate the header (see the README for further details).
   add_executable(pio-asm IMPORTED)
   set_property(TARGET pio-asm PROPERTY IMPORTED_LOCATION $ENV{PICO_SDK_PATH}/build/pioasm/pioasm)
-  add_custom_target(${project_name}-audio-pio-header COMMAND pio-asm RPAudioOut.pio RPAudioOut.pio.h WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/source COMMENT "Building Audio PIO Header")
+  add_custom_target(${project_name}-audio-pio-header
+    COMMAND pio-asm ${CMAKE_SOURCE_DIR}/source/io_controllables/PicoIOAudioOut.pio ${CMAKE_SOURCE_DIR}/include/meen_i8080_arcade/io_controllables/PicoIOAudioOut.pio.h WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/source/io_controllables COMMENT "Building Audio PIO Header"
+  )
   add_dependencies(${project_name} ${project_name}-audio-pio-header)
 
   target_include_directories(${project_name} PRIVATE ${CMAKE_SOURCE_DIR}/conf ${CMAKE_SOURCE_DIR}/rom-files ${CMAKE_SOURCE_DIR}/audio-files)
