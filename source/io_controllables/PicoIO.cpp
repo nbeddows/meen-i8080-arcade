@@ -484,7 +484,7 @@ namespace meen_i8080_arcade
             // if are in screen::gameplay
             if (PicoIO::buttonPress_[Pin::K1] == true)
             {
-                PicoIO::buttonPress_[Pin::K1] == false
+                PicoIO::buttonPress_[Pin::K1] == false;
                 buttons = Input::QuitRom;
             }
             else
