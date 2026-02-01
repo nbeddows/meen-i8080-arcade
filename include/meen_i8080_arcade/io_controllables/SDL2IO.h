@@ -173,7 +173,7 @@ namespace meen_i8080_arcade
 
 				@return                 A std::errc indicating success or failure.
 			*/
-			std::errc RenderVideoFrame(const uint8_t* videoFrame, int videoFrameSize, uint64_t timestamp);
+			std::errc RenderVideoFrame(const uint8_t* backBuffer, const uint8_t* videoFrame, int videoFrameSize, uint64_t timestamp);
 
 			/** Print an error message
 			

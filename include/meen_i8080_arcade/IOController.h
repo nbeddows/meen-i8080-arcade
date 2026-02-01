@@ -51,9 +51,9 @@ namespace meen_i8080_arcade
         IOControllable concept.
     */
     template<class T>
-    concept IOControllable = requires(T ioc, const int32_t* audioFrame, int audioFrameSize, uint64_t audioFrameTimestamp, const uint8_t* videoFrame,
-                                      int videoFrameSize, uint64_t videoFrameTimestamp, const std::string& error, bool clearDisplay, int width,
-                                      int height, int fullscreen, int bpp, int textureWidth, int textureHeight, int sampleRate, int channels,
+    concept IOControllable = requires(T ioc, const int32_t* audioFrame, int audioFrameSize, uint64_t audioFrameTimestamp, const uint8_t* videoBackBuffer,
+                                      const uint8_t* videoFrame, int videoFrameSize, uint64_t videoFrameTimestamp, const std::string& error, bool clearDisplay,
+                                      int width, int height, int fullscreen, int bpp, int textureWidth, int textureHeight, int sampleRate, int channels,
                                       int sampleSize, uint8_t** dst, int* dstRowBytes, Screen curr, Screen next)
     {
 
@@ -76,7 +76,7 @@ namespace meen_i8080_arcade
 
             TODO: videoFrameSize needs to be a bounding box struct pointer, nullptr to render the entire frame
         */
-        { ioc.RenderVideoFrame(videoFrame, videoFrameSize, videoFrameTimestamp) } -> std::same_as<std::errc>;
+        { ioc.RenderVideoFrame(videoBackBuffer, videoFrame, videoFrameSize, videoFrameTimestamp) } -> std::same_as<std::errc>;
 
         /** Render error string
 
@@ -966,7 +966,7 @@ public:
                     int size = videoFrame.bitstream->size();
                     videoFrame.bitstream = nullptr;
 
-                    return ioController_.RenderVideoFrame(dst, size, videoFrame.timestamp) != std::errc{};
+                    return ioController_.RenderVideoFrame(backBuffer_.get()->data(), dst, size, videoFrame.timestamp) != std::errc{};
                 }
 		    }, eventData);
         }

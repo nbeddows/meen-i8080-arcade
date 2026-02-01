@@ -423,14 +423,14 @@ namespace meen_i8080_arcade
         return std::errc{};
     }
 
-    std::errc PicoIO::RenderVideoFrame(const uint8_t* videoFrame, [[maybe_unused]] int videoFrameSize, [[maybe_unused]] uint64_t timestamp)
+    std::errc PicoIO::RenderVideoFrame(const uint8_t* backBuffer, const uint8_t* videoFrame, [[maybe_unused]] int videoFrameSize, [[maybe_unused]] uint64_t timestamp)
     {
         auto compressedWidth = textureWidth_ >> 3;
         auto dst = texture_.data();
         auto dstSize = texture_.size();
         auto dst16 = std::bit_cast<uint16_t*>(dst);
         auto vf = frame.bitstream->data();
-        uint8_t* bb = backBuffer_->data();
+        auto bb = backBuffer;
 
         for(int i = 0, lastScanline = 0; i < textureHeight_; i++, bb += compressedWidth, vf += compressedWidth)
         {

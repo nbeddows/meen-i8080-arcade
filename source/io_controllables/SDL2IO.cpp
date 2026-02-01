@@ -262,7 +262,7 @@ namespace meen_i8080_arcade
 		return std::errc{};
 	}
 
-	std::errc SDL2IO::RenderVideoFrame(const uint8_t* videoFrame, [[maybe_unused]] int videoFrameSize, [[maybe_unused]] uint64_t timestamp)
+	std::errc SDL2IO::RenderVideoFrame([[maybe_unused]] const uint8_t* backBuffer, const uint8_t* videoFrame, [[maybe_unused]] int videoFrameSize, [[maybe_unused]] uint64_t timestamp)
 	{
 		// todo: need to move pumpEvents/HasEvent to ReadPeripheralDevice, it needs to return std::expected or negative -1
 		SDL_PumpEvents();
