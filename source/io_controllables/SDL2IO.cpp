@@ -64,6 +64,9 @@ namespace meen_i8080_arcade
 			}
 		}
 
+		// We don't use a back buffer, return it immediately
+		//backBuffer_ = nullptr;
+
 		return std::errc{};
 	}
 
@@ -246,7 +249,7 @@ namespace meen_i8080_arcade
 		return{ 0x22, 0x61, 0xC9, 0x53, 0x9A, 0x36, 0x4B, 0xD3, 0xB9, 0x68, 0x47, 0x67, 0x6F, 0x52, 0x6D, 0x48 };
 	}
 
-	std::errc SDL2IO::RenderAudioFrame(const int32_t* audioFrame, [[maybe_unused]] uint64_t timestamp)
+	std::errc SDL2IO::RenderAudioFrame(const int32_t* audioFrame, int audioFrameSize, [[maybe_unused]] uint64_t timestamp)
 	{
         SDL_QueueAudio(audioDeviceId_, static_cast<const void*>(audioFrame), obtainedSpec_.size);
         return std::errc{};
@@ -259,9 +262,9 @@ namespace meen_i8080_arcade
 		return std::errc{};
 	}
 
-	std::errc SDL2IO::RenderVideoFrame(const uint8_t* videoFrame, [[maybe_unused]] uint64_t timestamp)
+	std::errc SDL2IO::RenderVideoFrame(const uint8_t* videoFrame, [[maybe_unused]] int videoFrameSize, [[maybe_unused]] uint64_t timestamp)
 	{
-		// todo: need to move pumpEvents/HasEvent to ReadPeripheralDevice, it needs to return std::expected
+		// todo: need to move pumpEvents/HasEvent to ReadPeripheralDevice, it needs to return std::expected or negative -1
 		SDL_PumpEvents();
 
 		if (SDL_HasEvent(SDL_EventType::SDL_QUIT))
@@ -277,6 +280,7 @@ namespace meen_i8080_arcade
         return std::errc{};
     }
 
+	// TODO: we could return negative to abort (change return type to int32_t)
 	uint32_t SDL2IO::ReadPeripheralDevice()
 	{
 		int keys = 0;

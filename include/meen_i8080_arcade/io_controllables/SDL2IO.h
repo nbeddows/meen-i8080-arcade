@@ -154,24 +154,26 @@ namespace meen_i8080_arcade
 			
 				Use SDL_QueueAudio API to deliver the next audio frame to the speaker.
 
-				@param    audioFrame    The next audio frame to render. The format of the
-				                        output audio frame will always be 8 bit stereo.
-				@param    timstamp      Not used.
+				@param    audioFrame        The next audio frame to render. The format of the
+				                            output audio frame will always be 8 bit stereo.
+				@param    audioFrameSize    The length of the audio frame in bytes.
+				@param    timstamp          Not used.
 
-				@return                 A std::errc indicating success or failure.
+				@return                     A std::errc indicating success or failure.
 			*/
-			std::errc RenderAudioFrame(const int32_t* audioFrame, uint64_t timestamp);
+			std::errc RenderAudioFrame(const int32_t* audioFrame, int audioFrameSize, uint64_t timestamp);
             
 			/** Render the next video frame.
 			
 			    Unlock the SDL texture and present the texture for display to the screen.
 
-				@param    videoFrame    The next video frame to blit.
-				@param    timestamp     Not used.
+				@param    videoFrame        The next video frame to blit.
+				@param    videoFrameSize    The length of the video frame in bytes.
+				@param    timestamp         Not used.
 
 				@return                 A std::errc indicating success or failure.
 			*/
-			std::errc RenderVideoFrame(const uint8_t* videoFrame, uint64_t timestamp);
+			std::errc RenderVideoFrame(const uint8_t* videoFrame, int videoFrameSize, uint64_t timestamp);
 
 			/** Print an error message
 			

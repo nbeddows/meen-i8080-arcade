@@ -400,7 +400,7 @@ namespace meen_i8080_arcade
         return{ 0x87, 0x4C, 0xD4, 0x1C, 0xC1, 0xB0, 0x44, 0x86, 0xA2, 0x02, 0xCC, 0xB7, 0x0B, 0xB3, 0x44, 0xBB };
     }
 
-    std::errc PicoIO::RenderAudioFrame(const int32_t* audioFrame, [[maybe_unused]] uint64_t timestamp)
+    std::errc PicoIO::RenderAudioFrame(const int32_t* audioFrame, int audioFrameSize, [[maybe_unused]] uint64_t timestamp)
     {
         // The timing won't be precise (but close enough), so we need to possibly wait for the dmac to finish.
         // This is good enough for this application.
@@ -410,7 +410,7 @@ namespace meen_i8080_arcade
         }
 
         // Start the audio transfer
-        dma_channel_transfer_from_buffer_now(0, frame.bitstream->data(), frame.bitstream->size());
+        dma_channel_transfer_from_buffer_now(0, audioFrame, audioFrameSize);
 
         return std::errc{}
     }
@@ -423,7 +423,7 @@ namespace meen_i8080_arcade
         return std::errc{};
     }
 
-    std::errc PicoIO::RenderVideoFrame(const uint8_t* videoFrame, [[maybe_unused]] uint64_t timestamp)
+    std::errc PicoIO::RenderVideoFrame(const uint8_t* videoFrame, [[maybe_unused]] int videoFrameSize, [[maybe_unused]] uint64_t timestamp)
     {
         auto compressedWidth = textureWidth_ >> 3;
         auto dst = texture_.data();

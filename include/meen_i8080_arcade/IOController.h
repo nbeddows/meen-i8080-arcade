@@ -51,9 +51,10 @@ namespace meen_i8080_arcade
         IOControllable concept.
     */
     template<class T>
-    concept IOControllable = requires(T ioc, const int32_t* audioFrame, uint64_t audioFrameTimestamp, const uint8_t* videoFrame, uint64_t videoFrameTimestamp,
-                                      const std::string& error, bool clearDisplay, int width, int height, int fullscreen, int bpp, int textureWidth,
-                                      int textureHeight, int sampleRate, int channels, int sampleSize, uint8_t** dst, int* dstRowBytes, Screen curr, Screen next)
+    concept IOControllable = requires(T ioc, const int32_t* audioFrame, int audioFrameSize, uint64_t audioFrameTimestamp, const uint8_t* videoFrame,
+                                      int videoFrameSize, uint64_t videoFrameTimestamp, const std::string& error, bool clearDisplay, int width,
+                                      int height, int fullscreen, int bpp, int textureWidth, int textureHeight, int sampleRate, int channels,
+                                      int sampleSize, uint8_t** dst, int* dstRowBytes, Screen curr, Screen next)
     {
 
         /** One time callback registration
@@ -67,13 +68,15 @@ namespace meen_i8080_arcade
 
             Called when an audio frame is ready to be rendered.
         */
-        { ioc.RenderAudioFrame(audioFrame, audioFrameTimestamp) } -> std::same_as<std::errc>;
+        { ioc.RenderAudioFrame(audioFrame, audioFrameSize, audioFrameTimestamp) } -> std::same_as<std::errc>;
 
         /** Render video frame
 
             Called when a video frame is ready to be rendered.
+
+            TODO: videoFrameSize needs to be a bounding box struct pointer, nullptr to render the entire frame
         */
-        { ioc.RenderVideoFrame(videoFrame, videoFrameTimestamp) } -> std::same_as<std::errc>;
+        { ioc.RenderVideoFrame(videoFrame, videoFrameSize, videoFrameTimestamp) } -> std::same_as<std::errc>;
 
         /** Render error string
 
@@ -282,6 +285,8 @@ private:
             Frame<int32_t>:  The next audio frame is ready to be rendered. This is a video frame duration worth of samples.
             Frame<uint8_t>:  The next video frame is ready to be rendered. This event drives the control loop.
         */
+
+        /** TODO: the clear variant needs to be a bounding box: struct{ x, y, w, h }, rather than a bool */
         using EventData = std::variant<std::string, bool, Frame<int32_t>, Frame<uint8_t>>;
 
         /** Event data queue
@@ -891,7 +896,7 @@ public:
                 },
 			    [this](Frame<int32_t>& audioFrame)
 			    {
-                    return ioController_.RenderAudioFrame(audioFrame.bitstream->data(), audioFrame.timestamp) != std::errc{};
+                    return ioController_.RenderAudioFrame(audioFrame.bitstream->data(), audioFrame.bitstream->size(), audioFrame.timestamp) != std::errc{};
                     // frame.bitstream = nullptr ... or not
                 },
 			    [this](Frame<uint8_t>& videoFrame)
@@ -958,9 +963,10 @@ public:
                     ioController_.GetTextureBuffer(&dst, &dstRowBytes);
                     i8080ArcadeIO_->BlitVRAM(std::span(dst, textureHeight_ * dstRowBytes), textureWidth_, dstRowBytes, std::span(*(videoFrame.bitstream.get())), MemoryController::frameWidth);
                     // Release the video frame bitstream immediately back to the memory controller frame pool
+                    int size = videoFrame.bitstream->size();
                     videoFrame.bitstream = nullptr;
 
-                    return ioController_.RenderVideoFrame(dst, videoFrame.timestamp) != std::errc{};
+                    return ioController_.RenderVideoFrame(dst, size, videoFrame.timestamp) != std::errc{};
                 }
 		    }, eventData);
         }
