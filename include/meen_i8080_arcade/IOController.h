@@ -63,79 +63,79 @@ namespace meen_i8080_arcade
         { T::Init() } -> std::same_as<void>;
 
         /** Render audio frame
-        
+
             Called when an audio frame is ready to be rendered.
         */
         { ioc.RenderAudioFrame(audioFrame, audioFrameTimestamp) } -> std::same_as<std::errc>;
 
         /** Render video frame
-        
+
             Called when a video frame is ready to be rendered.
         */
         { ioc.RenderVideoFrame(videoFrame, videoFrameTimestamp) } -> std::same_as<std::errc>;
- 
+
         /** Render error string
-        
+
             Called when an error has been encountered.
         */
         { ioc.RenderErrorString(error) } -> std::same_as<std::errc>;
 
         /** Clear display
-        
+
             Called when the display needs to be cleared.
         */
         { ioc.ClearDisplay(clearDisplay) } -> std::same_as<std::errc>;
 
         /** UUID
-        
+
             Called when the uuid is required.
         */
         { ioc.Uuid() } -> std::same_as<std::array<uint8_t, 16>>;
 
         /** Video device configuration
-        
+
             Called when the video device needs to be configured.
         */
         { ioc.ConfigureVideoDevice(width, height, fullscreen) } -> std::same_as<std::errc>;
 
         /** Audio device configuration
-        
+
             Called when the audio device needs to be configured.
         */
         { ioc.ConfigureAudioDevice(sampleRate, channels, sampleSize) } -> std::same_as<std::errc>;
 
         /** Peripheral device configuration
-        
+
             Called when peipheral devices need to be configured.
         */
         { ioc.ConfigurePeripheralDevice() } -> std::same_as<std::errc>;
 
         /** Audio sample loading
-        
+
             Called when audio samples need to be loaded.
         */
         { ioc.LoadAudioSamples(sampleRate, channels, sampleSize) } -> std::same_as<std::errc>;
 
         /** Video sample loading
-        
+
             Called when video textures need to be loaded.
         */
         { ioc.LoadVideoTextures(bpp, textureWidth, textureHeight) } -> std::same_as<std::errc>;
 
         /** Get texture buffer
-        
+
             Called when the current texture buffer is required.
         */
         { ioc.GetTextureBuffer(dst, dstRowBytes) } -> std::same_as<std::errc>;
 
         /** Screen transition
-        
+
             Called when the screen changes from one type to another.
         */
         { ioc.ScreenTransition(curr, next) } -> std::same_as<void>;
 
         /** Peripheral device reading
-        
+
             Called when the peripheral device needs to be read.
         */
         { ioc.ReadPeripheralDevice() } -> std::same_as<uint32_t>;
@@ -157,14 +157,14 @@ private:
             @remark    A frame templated with uint8_t is a video frame taken from video ram.
             @remark    A frame templated with int32_t is a video frame duration worth of mixed audio samples (signed 16 bit stereo).
         */
-        template<class T>
+        template<class F>
         struct Frame
         {
             /** Audio/Video frame
 
                 Video frames belong to the memory controller frame pool and audio frames belong to the audio frame pool.
             */
-            meen_hw::MH_ResourcePool<std::vector<T>>::ResourcePtr bitstream;
+            meen_hw::MH_ResourcePool<std::vector<F>>::ResourcePtr bitstream;
 
             /** Time stamp
 
