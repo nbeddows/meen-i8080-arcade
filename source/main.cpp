@@ -40,7 +40,7 @@ while(value)\
 
 #include <pico/stdlib.h>
 
-#include "meen_i8080_arcade/RPIoController.h"
+#include "meen_i8080_arcade/io_controllables/PicoIO.h"
 
 extern uint8_t invadersHStart;
 extern uint8_t invadersHEnd;
@@ -120,6 +120,10 @@ extern uint8_t mvt4End;
 
 extern char rpConfigStart;
 extern char rpConfigEnd;
+
+
+#define IOCONTROLLABLE PicoIO
+
 #else
 /*
  Print out the error message and exit
@@ -314,9 +318,8 @@ int main(int argc, char** argv)
 		//cppcheck-suppress constParameterPointer
 		machine->OnInit([](meen::IController* ioController)
 		{
-#ifdef ENABLE_MH_RP2040
-			RPIoController::Init();
-#endif // ENABLE_MH_RP2040
+			IOCONTROLLABLE::Init();
+
 			return meen::errc::no_error;
 		});
 
