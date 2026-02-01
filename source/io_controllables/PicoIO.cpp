@@ -292,7 +292,7 @@ namespace meen_i8080_arcade
         return std::errc{};
     }
 
-    std::errc PicoIO::LoadAudioSamples([[maybe_unued]] int sampleRate, [[maybe_unuse]] int channels, [[maybe_unused]] int sampleSize)
+    std::errc PicoIO::LoadAudioSamples([[maybe_unused]] int sampleRate, [[maybe_unused]] int channels, [[maybe_unused]] int sampleSize)
     {
 #if 0
             dma_channel_cleanup(0);
