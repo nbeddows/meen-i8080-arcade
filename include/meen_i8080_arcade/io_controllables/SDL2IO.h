@@ -101,6 +101,15 @@ namespace meen_i8080_arcade
 			*/
 			~SDL2IO();
 
+            /** One time callback registration
+
+                This method is registered with MEEN who will invoke it on a thread determined
+                by the MEEN `runAsync` configuration parameter.
+
+				@remark		This method is a no-op for this controllable.
+            */
+            static void Init() {};
+
 			/** Video Device setup
 			
 				Configure the SDL video subsystem in order to render video frames.

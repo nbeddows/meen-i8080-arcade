@@ -54,6 +54,14 @@ namespace meen_i8080_arcade
                                       const std::string& error, bool clearDisplay, int width, int height, int fullscreen, int bpp, int textureWidth,
                                       int textureHeight, int sampleRate, int channels, int sampleSize, uint8_t** dst, int* dstRowBytes, Screen curr, Screen next)
     {
+
+        /** One time callback registration
+
+            This method is registered with MEEN who will invoke it on a thread determined
+            by the MEEN `runAsync` configuration parameter.
+        */
+        { T::Init() } -> std::same_as<void>;
+
         /** Render audio frame
         
             Called when an audio frame is ready to be rendered.
@@ -393,7 +401,7 @@ private:
             
             True to run the emulation at fullscreen, false otherwise.
 
-            @remark    This option won't be valid certain platforms
+            @remark    This option won't be valid on certain platforms.
         */
         bool fullscreen_{};
 
