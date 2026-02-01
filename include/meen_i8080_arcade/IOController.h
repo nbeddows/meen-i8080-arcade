@@ -27,6 +27,7 @@ SOFTWARE.
 
 #include <algorithm>
 #include <ArduinoJson.h>
+#include <atomic>
 #include <bit>
 #include <bitset>
 #include <charconv>
@@ -146,7 +147,7 @@ namespace meen_i8080_arcade
     {
 private:
         /** Custom IO Controllable
-        
+
             A controller that adheres to the IOControllable concept that allows the base IOController to
             target different frameworks.
         */
@@ -331,7 +332,7 @@ private:
         std::atomic_int romIndex_{};
 
         /** User input
-        
+
             The user input represents to possible actions that can be taken by the user. Certain inputs are only
             valid in certain screens of the emulation. The `Input` enumeration in `IOControllerTypes.h` describes
             all the supported inputs.
@@ -341,11 +342,10 @@ private:
             @see Input
         */
         std::atomic_int input_{};
-        
-        /** Previous user input
-        
-            This the previous value of the last sampled values of `input_`.
 
+        /** Previous user input
+
+            This the previous value of the last sampled values of `input_`.
         */
         int lastInput_{};
 
@@ -370,13 +370,13 @@ private:
         Screen screen_{};
 
         /** The audio hardware output sample rate
-        
+
             This is set via the audio hardware section of the configuration file.
         */
         int sampleRate_{};
 
         /** The audio hardware output channel count
-        
+
             This is set via the audio hardware section of the configuration file.
 
             @remark    Only a value of 2 (stereo) is supported.
@@ -384,13 +384,13 @@ private:
         int channels_{};
 
         /** The width of the output display
-        
+
             This is set via the video hardware section of the configuration file.
         */
         int width_{};
 
         /** The height of the output display
-        
+
             This is set via the audio hardware section of the configuration file.
         */
         int height_{};
@@ -398,7 +398,7 @@ private:
         /** Fullscreen output
 
             This is set via the audio hardware section of the configuration file.
-            
+
             True to run the emulation at fullscreen, false otherwise.
 
             @remark    This option won't be valid on certain platforms.
@@ -410,7 +410,7 @@ private:
             The value is used for texture memory allocation for rendering onto the output display.
         */
         int textureWidth_{};
-        
+
         /** The height of the uncompressed video ram
 
             The value is used for texture memory allocation for rendering onto the output display.
@@ -418,7 +418,7 @@ private:
         int textureHeight_{};
 
         /** Add an event to the event queue
-        
+
             This method is thread safe and will notify the condition
             variable when the event is added so any witing threads can
             process the new event.
@@ -431,7 +431,7 @@ private:
             {
                 {
                     meen_hw::MH_LockGuard lg(eventQMutex_);
-                    
+
                     if (eventQ_.size() < 5)
                     {
                         eventQ_.emplace_back(std::move(eventData));
@@ -533,7 +533,7 @@ public:
                     if (input & Input::QuitRom)
                     {
                         ioController_.ScreenTransition(screen_, Screen::RomSelect);
-                        
+
                         // Clear all queued chunks and reset chunk->samples to -1
                         while (audioMixChunks_.empty() == false)
                         {
@@ -577,7 +577,7 @@ public:
                     {
                         if (port == 1)
                         {
-                            ret = 0x08; 
+                            ret = 0x08;
                             ret |= ((input & Input::Credit) != 0) * 0x01; // Credit
                             ret |= ((input & Input::OnePlayer) != 0) * 0x04; // 1P
                             ret |= ((input & Input::TwoPlayer) != 0) * 0x02; // 2P
@@ -860,7 +860,7 @@ public:
                 {
                     return eventQ_.empty() == false;
                 });
-                
+
                 eventData = std::move(eventQ_.front());
                 eventQ_.pop_front();
             }
@@ -933,7 +933,7 @@ public:
                     auto scrollIndex = [this, input, &noRepeatInput](Input i, int dir)
                     {
                         int romIndex = romIndex_;
-                            
+
                         if(noRepeatInput(i) == true)
                         {
                             romIndex = (romIndex + dir) % romCount_;
@@ -959,14 +959,14 @@ public:
                     i8080ArcadeIO_->BlitVRAM(std::span(dst, textureHeight_ * dstRowBytes), textureWidth_, dstRowBytes, std::span(*(videoFrame.bitstream.get())), MemoryController::frameWidth);
                     // Release the video frame bitstream immediately back to the memory controller frame pool
                     videoFrame.bitstream = nullptr;
-                    
-                    return ioController_.RenderVideoFrame(dst, videoFrame.timestamp) != std::errc{};                    
+
+                    return ioController_.RenderVideoFrame(dst, videoFrame.timestamp) != std::errc{};
                 }
 		    }, eventData);
         }
 
         /** Process the error string.
-        
+
             @param    errorMsg    The generated error message.
         */
         void HandleError(std::string&& errorMsg)
@@ -975,7 +975,7 @@ public:
         }
 
         /** Perfom post load actions
-        
+
             Once a rom has been successfully loaded, this method will be called.
         */
         meen::errc HandleLoadComplete()
@@ -1271,7 +1271,7 @@ public:
         };
 
         /** Absolute save file path
-        
+
             Constructs the path to save the machine state to.
 
             @param    jsonRoms        The list of supported roms.
@@ -1279,7 +1279,7 @@ public:
             @param    uri             A buffer supplied by the caller to write the final path to.
             @param    uriLen          The length in bytes of uri parameter. The final length of
                                       of the uri parameter will be written to uriLen.
-                                      
+
             @return                   A meen::errc denoting the success of the path write.
         */
         meen::errc GetSaveUri(const std::vector<std::pair<std::string, std::string>>& jsonRoms, const std::string& saveFilePath, char* uri, int* uriLen) //change to std::span
@@ -1289,7 +1289,7 @@ public:
         }
 
         /** The path to the rom to load
-        
+
             The path is determined by whether or not a rom is being loaded or a save state. For rom loading
             the rom path will be used, otherwise the save directory will be used.
 
@@ -1298,7 +1298,7 @@ public:
             @param    uri             A buffer supplied by the caller to write the final path to.
             @param    uriLen          The length in bytes of uri parameter. The final length of
                                       of the uri parameter will be written to uriLen.
-                                      
+
             @return                   A meen::errc denoting the success of the path write.
         */
         meen::errc GetLoadUri(const std::vector<std::pair<std::string, std::string>>& jsonRoms, const std::string& saveFilePath, char* uri, int* uriLen) //change to std::span
