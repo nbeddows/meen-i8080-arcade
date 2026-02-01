@@ -203,6 +203,8 @@ namespace meen_i8080_arcade
         // TODO: need to check that the width/height is that of the target panel, return not_supported on failure.
         width_ = width;
         height_ = height;
+
+        return std::errc{};
     }
 
     std::errc PicoIO::ConfigureAudioDevice(int sampleRate, int channels, int sampleSize)
@@ -525,6 +527,8 @@ namespace meen_i8080_arcade
                 PicoIO::buttonPress_[Pin::K3] = false;
             }
         }
+
+        return buttons;
     }
 
     std::errc PicoIO::RenderErrorString(const std::string& error)
