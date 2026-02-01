@@ -29,6 +29,8 @@ SOFTWARE.
 #include <variant>
 #include <vector>
 
+#include "meen_i8080_arcade/IOControllerTypes.h"
+
 namespace meen_i8080_arcade
 {
     /** Custom Raspberry Pi Pico io controllable.

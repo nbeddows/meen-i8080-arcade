@@ -962,11 +962,20 @@ public:
                     int dstRowBytes = 0;
                     ioController_.GetTextureBuffer(&dst, &dstRowBytes);
                     i8080ArcadeIO_->BlitVRAM(std::span(dst, textureHeight_ * dstRowBytes), textureWidth_, dstRowBytes, std::span(*(videoFrame.bitstream.get())), MemoryController::frameWidth);
+
+                    auto ret = ioController_.RenderVideoFrame(backBuffer_.get()->data(), dst, videoFrame.bitstream->size(), videoFrame.timestamp) != std::errc{};
+
+                    // We are done, move the video frame to the back buffer.
+                    // This will return the previous back buffer to the memory controller frame pool.
+                    // TODO: should we have an option to enable back buffering?
+                    // THIS IS NOT WORKING UNDER SDL, INVESTIGATE ME!!
+                    //backBuffer_ = std::move(videoFrame.bitstream);
+
                     // Release the video frame bitstream immediately back to the memory controller frame pool
-                    int size = videoFrame.bitstream->size();
+                    // TODO: this needs to be removed once the back bufering is fixed
                     videoFrame.bitstream = nullptr;
 
-                    return ioController_.RenderVideoFrame(backBuffer_.get()->data(), dst, size, videoFrame.timestamp) != std::errc{};
+                    return ret;
                 }
 		    }, eventData);
         }
