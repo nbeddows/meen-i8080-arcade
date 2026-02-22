@@ -51,10 +51,10 @@ namespace meen_i8080_arcade
         IOControllable concept.
     */
     template<class T>
-    concept IOControllable = requires(T ioc, const int32_t* audioFrame, int audioFrameSize, uint64_t audioFrameTimestamp, const uint8_t* videoBackBuffer,
-                                      const uint8_t* videoFrame, int videoFrameSize, uint64_t videoFrameTimestamp, const std::string& error, bool clearDisplay,
-                                      int width, int height, int fullscreen, int bpp, int textureWidth, int textureHeight, int sampleRate, int channels,
-                                      int sampleSize, uint8_t** dst, int* dstRowBytes, Screen curr, Screen next)
+    concept IOControllable = requires(T ioc, const int32_t* audioFrame, int audioFrameSize, uint64_t audioFrameTimestamp, int scanlineStart,
+                                      int numScanlines, int* scanlinesToRender, uint64_t videoFrameTimestamp, const std::string& error,
+                                      bool clearDisplay, int width, int height, int fullscreen, int bpp, int textureWidth, int textureHeight,
+                                      int sampleRate, int channels, int sampleSize, uint8_t** dst, int* dstRowBytes, Screen curr, Screen next)
     {
 
         /** One time callback registration
@@ -70,13 +70,26 @@ namespace meen_i8080_arcade
         */
         { ioc.RenderAudioFrame(audioFrame, audioFrameSize, audioFrameTimestamp) } -> std::same_as<std::errc>;
 
+        /** Start video frame rendering
+
+            Called when a new frame is ready to be rendered.
+            The callee fills the dst and dstRowBytes pts with the frame buffer from scalineStart for numScanlines
+        */
+        { ioc.GetVideoFrameBuffer(dst, dstRowBytes, scanlineStart, numScanlines) } -> std::same_as<std::errc>;
+
         /** Render video frame
 
             Called when a video frame is ready to be rendered.
 
-            TODO: videoFrameSize needs to be a bounding box struct pointer, nullptr to render the entire frame
+            scanline: the row of pixels from the src frame to render, -1 to render the entire frame
         */
-        { ioc.RenderVideoFrame(videoBackBuffer, videoFrame, videoFrameSize, videoFrameTimestamp) } -> std::same_as<std::errc>;
+        { ioc.RenderVideoFrame(videoFrameTimestamp) } -> std::same_as<std::errc>;
+
+        /** End video frame rendering
+        
+            Signal to the renderer that the frame rendering is done and can be displayed.
+        */
+        { ioc.DisplayVideoFrame(videoFrameTimestamp) } -> std::same_as<std::errc>;
 
         /** Render error string
 
@@ -124,13 +137,7 @@ namespace meen_i8080_arcade
 
             Called when video textures need to be loaded.
         */
-        { ioc.LoadVideoTextures(bpp, textureWidth, textureHeight) } -> std::same_as<std::errc>;
-
-        /** Get texture buffer
-
-            Called when the current texture buffer is required.
-        */
-        { ioc.GetTextureBuffer(dst, dstRowBytes) } -> std::same_as<std::errc>;
+        { ioc.LoadVideoTextures(bpp, textureWidth, textureHeight, scanlinesToRender) } -> std::same_as<std::errc>;
 
         /** Screen transition
 
@@ -421,6 +428,15 @@ private:
             The value is used for texture memory allocation for rendering onto the output display.
         */
         int textureHeight_{};
+
+        /** Render the frame in scanlines
+        
+            The number of scanlines to render at a time.
+
+            @remark     A value of 1 would render out the frame scanline at a time.
+                        A value of the texture height would do full frame rendering.
+        */
+        int scanlinesToRender_{};
 
         /** Add an event to the event queue
 
@@ -956,24 +972,53 @@ public:
                     romIndex_ = scrollIndex(Input::NextRom, -1);
                     lastInput_ = input;
 
-                    // Do the video rendering
-
                     uint8_t* dst = nullptr;
                     int dstRowBytes = 0;
-                    ioController_.GetTextureBuffer(&dst, &dstRowBytes);
-                    i8080ArcadeIO_->BlitVRAM(std::span(dst, textureHeight_ * dstRowBytes), textureWidth_, dstRowBytes, std::span(*(videoFrame.bitstream.get())), MemoryController::frameWidth);
+                    uint8_t* bb = nullptr;
+                    auto vf = videoFrame.bitstream.get()->data();
 
-                    auto ret = ioController_.RenderVideoFrame(backBuffer_.get()->data(), dst, videoFrame.bitstream->size(), videoFrame.timestamp) != std::errc{};
+                    if (backBuffer_ != nullptr)
+                    {
+                        bb = backBuffer_.get()->data();
+                    }
 
-                    // We are done, move the video frame to the back buffer.
-                    // This will return the previous back buffer to the memory controller frame pool.
-                    // TODO: should we have an option to enable back buffering?
-                    // THIS IS NOT WORKING UNDER SDL, INVESTIGATE ME!!
-                    //backBuffer_ = std::move(videoFrame.bitstream);
+                    int compressedBytes = (textureWidth_ >> 3) * scanlinesToRender_;
 
-                    // Release the video frame bitstream immediately back to the memory controller frame pool
-                    // TODO: this needs to be removed once the back bufering is fixed
-                    videoFrame.bitstream = nullptr;
+                    for (int i = 0; i < textureHeight_; i += scanlinesToRender_)
+                    {
+                        if (bb == nullptr || std::memcmp(bb, vf, compressedBytes) != 0)
+                        {
+                            ioController_.GetVideoFrameBuffer(&dst, &dstRowBytes, i, scanlinesToRender_);
+                            i8080ArcadeIO_->BlitVRAM(std::span<uint8_t>(dst, scanlinesToRender_ * dstRowBytes), textureWidth_, dstRowBytes, std::span<uint8_t>(vf, compressedBytes), MemoryController::frameWidth);
+                            // some io controllables may render to the display directly, others may need to have their frame presented to the display (see DisplayVideoFrame below)
+                            ioController_.RenderVideoFrame(videoFrame.timestamp);
+                        }
+
+                        if (bb != nullptr)
+                        {
+                            bb += compressedBytes;
+                        }
+
+                        vf += compressedBytes;
+                    }
+
+                    // Some io controllables may have an internal buffering system which may require the frame to be displayed, ie; flipped onto the presentation display
+                    auto ret = ioController_.DisplayVideoFrame(videoFrame.timestamp) != std::errc{};
+
+                    if (backBuffer_ != nullptr)
+                    {
+                        // TODO: SDL2IO - returning back to the rom select screen from gameplay gives flickering screen with scanlineToRender_ being 1 with back buffer support
+
+                        // We are done, move the video frame to the back buffer.
+                        // This will return the previous back buffer to the memory controller frame pool.                    
+                        backBuffer_ = std::move(videoFrame.bitstream);
+                    }
+                    else
+                    {
+                        // Release the video frame bitstream immediately back to the memory controller frame pool
+                        videoFrame.bitstream = nullptr;
+                    }
+
 
                     return ret;
                 }
@@ -1047,15 +1092,40 @@ public:
                 return std::make_error_code(std::errc::io_error);
             }
 
-            if (videoTextures["orientation"] != nullptr && videoTextures["orientation"].as<std::string>() == "upright")
+            bool upright = videoTextures["orientation"] != nullptr && videoTextures["orientation"].as<std::string>() == "upright";
+
+            if (upright == true)
             {
                 textureWidth ^= textureHeight ^= textureWidth ^= textureHeight;
             }
 
+            err = std::make_error_code(ioController_.LoadVideoTextures(videoTextures["bpp"], textureWidth, textureHeight, &scanlinesToRender_));
+        
+            if (scanlinesToRender_ <= 0 || scanlinesToRender_ > textureHeight)
+            {
+                return std::make_error_code(std::errc::result_out_of_range);
+            }
+            
+            // NOTE: NON FULLFRAME RENDERING ONLY WORKS IN COCKTAIL MODE
+            if (upright == true && scanlinesToRender_ != textureHeight)
+            {
+                return std::make_error_code(std::errc::not_supported);
+            }
+
+            // For now we will disable the backbuffer optimisation when we are not scanline rendering, we could change this in the future via a config option (raster_optimise=True/False for example)
+            if (scanlinesToRender_ != 1)
+            {
+                // return the back buffer back to the frame pool, ultimately we should reduce the frame pool size when we don't want this opimisation, therefore we would have to set the enable/disable of this via a config option
+                // and handle it in the main function; ie; set the frame pool size in the main function and pass in nullptr for the back buffer for this io controllable during contruction rather than setting nullptr here.
+                backBuffer_ = nullptr;
+            }
+
+            // TODO: push an event to the queue to clear the display
+
             textureWidth_ = textureWidth;
             textureHeight_ = textureHeight;
 
-            return std::make_error_code(ioController_.LoadVideoTextures(videoTextures["bpp"], textureWidth, textureHeight));
+            return err;
         }
 
         /** Load Audio Samples
