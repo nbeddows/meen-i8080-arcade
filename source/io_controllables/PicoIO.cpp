@@ -250,8 +250,10 @@ namespace meen_i8080_arcade
         return std::errc{};
     }
 
-    std::errc PicoIO::LoadVideoTextures(int bpp, int textureWidth, int textureHeight)
+    std::errc PicoIO::LoadVideoTextures(int bpp, int textureWidth, int textureHeight, int* numScanlines)
     {
+        assert(numScanlines != nullptr);
+
         // We decompress and write one scanline at a time to lcd ram
         texture_.resize((textureWidth * bpp) / 8); // 8 - bits per pixel
         // Used to center the video ram on the display
@@ -291,7 +293,11 @@ namespace meen_i8080_arcade
         }
 */
 
+        // Scanline rendering thankyou
+        *numScanlines = 1;
+
         textureWidth_ = textureWidth;
+        // This is no longer needed, remove me!
         textureHeight_ = textureHeight;
         return std::errc{};
     }
@@ -415,40 +421,48 @@ namespace meen_i8080_arcade
         return std::errc{};
     }
 
-    std::errc PicoIO::GetTextureBuffer(uint8_t** dst, int* dstRowBytes) const
+    // When this method is called, it is assumed that your rendering a new frame from the top of the display
+    std::errc PicoIO::GetVideoFrameBuffer(uint8_t** dst, int* dstRowBytes, [[maybe_unused]] int scanlineStart, [[maybe_unused]] int numScanLines) const
     {
+        assert(numScanlines == 1);
+
         *dst = const_cast<uint8_t*>(texture_.data());
         *dstRowBytes = textureWidth_;
+
+        // We are rendering a new frame, reset the last scanline to 0
+        lastScanline_ = 0
 
         return std::errc{};
     }
 
-    std::errc PicoIO::RenderVideoFrame(const uint8_t* backBuffer, const uint8_t* videoFrame, [[maybe_unused]] int videoFrameSize, [[maybe_unused]] uint64_t timestamp)
+    std::errc PicoIO::RenderVideoFrame(int scanline, [[maybe_unused]] numScanlines, [[maybe_unused]] uint64_t timestamp)
     {
-        auto compressedWidth = textureWidth_ >> 3;
+        assert(numScanlines == 1);
+
+        //auto compressedWidth = textureWidth_ >> 3;
         auto dst = texture_.data();
         auto dstSize = texture_.size();
         auto dst16 = std::bit_cast<uint16_t*>(dst);
-        auto vf = videoFrame;
-        auto bb = backBuffer;
+        //auto vf = videoFrame;
+        //auto bb = backBuffer;
 
         // TODO: this loop needs to be abstracted to the IOController, it should be able to render in scanlines, or any amount of bytes for that matter.
         // This should mean that we should not have to pass in the back buffer to RenderVideoFrame.
-        for(int i = 0, lastScanline = 0; i < textureHeight_; i++, bb += compressedWidth, vf += compressedWidth)
-        {
+        //for(int i = 0, lastScanline = 0; i < textureHeight_; i++, bb += compressedWidth, vf += compressedWidth)
+        //{
             // Blit a scanline at a time for performance reasons
 
             // Check to see if this scanline has changed compared to its counterpart in the back buffer (previous frame)
-            if(std::memcmp(bb, vf, compressedWidth) != 0)
-            {
+        //    if(std::memcmp(bb, vf, compressedWidth) != 0)
+        //    {
                 // Update the region only if the scanline to be rendered is non contiguous from the previous scanline
-                if(i - lastScanline > 1)
+                if(scanline - lastScanline > 1)
                 {
                     gpio_put(Pin::CS, 1);
                     // Write 8 bits at a time
                     spi_set_format(spi1, 8, SPI_CPOL_0, SPI_CPHA_0, SPI_MSB_FIRST);
                     // Center the graphics on the display
-                    PicoIO::SetRegion(widthOffset_, heightOffset_ + i, width_ - widthOffset_, height_ - heightOffset_);
+                    PicoIO::SetRegion(widthOffset_, heightOffset_ + scanline, width_ - widthOffset_, height_ - heightOffset_);
                     // write to lcd ram
                     PicoIO::WriteCmd(0X2C);
                     // Write 16 bits at a time
@@ -464,16 +478,21 @@ namespace meen_i8080_arcade
                 spi_write16_blocking(spi1, dst16, textureWidth_);
 
                 // Update the last scanline index
-                lastScanline = i;
-            }
+                lastScanline_ = scanline;
+        //    }
 //          else
 //              this scanline is the same as its counterpart in the previous frame, no need to render this scanline
-        }
+        //}
 
         // We are done, move the video frame to the back buffer.
         // This will return the previous back buffer to the memory controller frame pool.
         //backBuffer_ = std::move(frame.bitstream);
 
+        return std::errc{};
+    }
+
+    std::errc PicoIO::DisplayVideoFrame([[maybe_unused]] uint64_t timestamp)
+    {
         return std::errc{};
     }
 

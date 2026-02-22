@@ -123,6 +123,13 @@ namespace meen_i8080_arcade
         */
         int heightOffset_{};
 
+        /** last scanline rendered
+        
+            We cache the last scanline for optimisation purposes. We only reset the rendering region when the scanlines
+            are non-contiguous.
+        */
+        int lastScanline_{}
+
         /** Video frame buffer
 
             The pixels that will be rendered to the display.
@@ -241,13 +248,31 @@ namespace meen_i8080_arcade
         */
         std::errc RenderAudioFrame(const int32_t* audioFrame, int audioFrameSize, uint64_t timestamp);
         
+        /** Video display buffer
+        
+            Return the raw buffer for blitting.
+
+            @param    dst            A pointer to the raw texture buffer that was configured
+                                     in `ConfigureVideoDevice`.
+            @param    rowBytes       The number of bytes in each scanline of the raw texture
+                                     buffer pointed to by dst.
+            @param    scanlineStart  The row number in the texture buffer to set the dst pointer to.
+            @param    numScanlines   The number of scanlines that the dst pointer refers to.
+
+            @remark                  The scanlineStart parameter is unused since PicoIO only has enough
+                                     ram to hold a single scanline.
+            @remark                  The numScanlines parameter should be 1.
+
+            @return                  A std::errc indicating success or failure.
+        */
+        std::errc GetVideoFrameBuffer(uint8_t** dst, int* dstRowBytes, int scanlineStart, int numScanlines) const;
+
         /** Render the next video frame.
         
             Write the texture scanline by scanline to the display.
 
-            @param    backBuffer        The previous video frame.
-            @param    videoFrame        The next video frame to blit.
-            @param    videoFrameSize    The length of the video frame in bytes.
+            @param    scanline          The start of the current scanline.
+            @param    numScanlines      The number of scanline to be rendered.
             @param    timestamp         Not used.
 
             @return                     A std::errc indicating success or failure.
@@ -259,7 +284,15 @@ namespace meen_i8080_arcade
                                         frame being rendered. This allows for improved rendering performance by not rendering
                                         scanlines that are identical to the previous frame.
         */
-        std::errc RenderVideoFrame(const uint8_t* backBuffer, const uint8_t* videoFrame, int videoFrameSize, uint64_t timestamp);
+        std::errc RenderVideoFrame(int scanline, int numScanlines, uint64_t timestamp);
+
+        /** End the video frame rendering process.
+
+            This method is essentially a no-op for PicoIO as `RenderVideoFrame` renders to the display directly.
+
+            @param    timestamp           Not used.
+        */
+        std::errc DisplayVideoFrame(uint64_t timestamp);
 
         /** Print an error message
         
@@ -293,19 +326,6 @@ namespace meen_i8080_arcade
             @sa        IOControllerTypes.h
         */
         uint32_t ReadPeripheralDevice();
-
-        /** Video display buffer
-        
-            Return the raw buffer for blitting.
-
-            @param    dst        A pointer to the raw texture buffer that was configured
-                                 in `ConfigureVideoDevice`.
-            @param    rowBytes   The number of bytes in each scanline of the raw texture
-                                 buffer pointed to by dst.
-
-            @return              A std::errc indicating success or failure.
-        */
-        std::errc GetTextureBuffer(uint8_t** dst, int* dstRowBytes) const;
         
         /** Perform required tasks when the screen is updated.
         
@@ -336,10 +356,13 @@ namespace meen_i8080_arcade
             @param    bpp            The bit depth of the texture to create. Only 8 and 16 bit is supported.
             @param    textureWidth   The width of the texture to create.
             @param    textureHeight  The height of the texture to create.
+            @param    numScanlines   The number of scanlines that should be rendered in one pass.
+                                     For PicoIO this should be set to 1 (scanline rendering).
+                                     Setting it to other values may cause issues with rendering performance.
         
             @return                  A std::errc indicating success or failure.
         */
-        std::errc LoadVideoTextures(int bpp, int textureWidth, int textureHeight);
+        std::errc LoadVideoTextures(int bpp, int textureWidth, int textureHeight, int* numScanlines);
     };
 } // namespace meen_i8080_arcade
 #endif // RPIOCONTROLLER_H
