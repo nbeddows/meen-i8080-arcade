@@ -81,9 +81,10 @@ namespace meen_i8080_arcade
 
             Called when a video frame is ready to be rendered.
 
-            scanline: the row of pixels from the src frame to render, -1 to render the entire frame
+            scanline: the start of the target row to be rendered to.
+            numScanlines: the number of row to render.
         */
-        { ioc.RenderVideoFrame(videoFrameTimestamp) } -> std::same_as<std::errc>;
+        { ioc.RenderVideoFrame(scanlineStart, numScanlines, videoFrameTimestamp) } -> std::same_as<std::errc>;
 
         /** End video frame rendering
         
@@ -991,7 +992,7 @@ public:
                             ioController_.GetVideoFrameBuffer(&dst, &dstRowBytes, i, scanlinesToRender_);
                             i8080ArcadeIO_->BlitVRAM(std::span<uint8_t>(dst, scanlinesToRender_ * dstRowBytes), textureWidth_, dstRowBytes, std::span<uint8_t>(vf, compressedBytes), MemoryController::frameWidth);
                             // some io controllables may render to the display directly, others may need to have their frame presented to the display (see DisplayVideoFrame below)
-                            ioController_.RenderVideoFrame(videoFrame.timestamp);
+                            ioController_.RenderVideoFrame(i, scanlinesToRender_, videoFrame.timestamp);
                         }
 
                         if (bb != nullptr)
