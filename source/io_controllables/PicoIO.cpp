@@ -429,13 +429,10 @@ namespace meen_i8080_arcade
         *dst = const_cast<uint8_t*>(texture_.data());
         *dstRowBytes = textureWidth_;
 
-        // We are rendering a new frame, reset the last scanline to 0
-        lastScanline_ = 0
-
         return std::errc{};
     }
 
-    std::errc PicoIO::RenderVideoFrame(int scanline, [[maybe_unused]] numScanlines, [[maybe_unused]] uint64_t timestamp)
+    std::errc PicoIO::RenderVideoFrame(int scanline, [[maybe_unused]] int numScanlines, [[maybe_unused]] uint64_t timestamp)
     {
         assert(numScanlines == 1);
 
@@ -456,7 +453,7 @@ namespace meen_i8080_arcade
         //    if(std::memcmp(bb, vf, compressedWidth) != 0)
         //    {
                 // Update the region only if the scanline to be rendered is non contiguous from the previous scanline
-                if(scanline - lastScanline > 1)
+                if(scanline - lastScanline_ > 1)
                 {
                     gpio_put(Pin::CS, 1);
                     // Write 8 bits at a time
@@ -493,6 +490,9 @@ namespace meen_i8080_arcade
 
     std::errc PicoIO::DisplayVideoFrame([[maybe_unused]] uint64_t timestamp)
     {
+        // We are rendering a new frame, reset the last scanline to 0
+        lastScanline_ = 0;
+
         return std::errc{};
     }
 
@@ -543,13 +543,13 @@ namespace meen_i8080_arcade
 
             if(PicoIO::buttonPress_[Pin::K2] == true)
             {
-                buttons |= (PicoIO::buttonPress_[Pin::K2] * Input::NextRom);
+                buttons |= (PicoIO::buttonPress_[Pin::K2] * Input::PreviousRom);
                 PicoIO::buttonPress_[Pin::K2] = false;
             }
 
             if(PicoIO::buttonPress_[Pin::K3] == true)
             {
-                buttons |= (PicoIO::buttonPress_[Pin::K3] * Input::PreviousRom);
+                buttons |= (PicoIO::buttonPress_[Pin::K3] * Input::NextRom);
                 PicoIO::buttonPress_[Pin::K3] = false;
             }
         }

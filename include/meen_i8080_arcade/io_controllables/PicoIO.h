@@ -124,11 +124,11 @@ namespace meen_i8080_arcade
         int heightOffset_{};
 
         /** last scanline rendered
-        
+
             We cache the last scanline for optimisation purposes. We only reset the rendering region when the scanlines
             are non-contiguous.
         */
-        int lastScanline_{}
+        int lastScanline_{};
 
         /** Video frame buffer
 
@@ -178,7 +178,7 @@ namespace meen_i8080_arcade
 
             Creates an RP2040 io controllable specific i8080 arcade IO controller.
         */
-        PicoIO();
+        PicoIO() = default;
 
         /** Destructor
 
@@ -194,7 +194,7 @@ namespace meen_i8080_arcade
         static void Init();
 
         /** Video Device setup
-        
+
             Configure the Pico video subsystem in order to render video frames.
 
             @param	width		The width of the display window.
@@ -208,7 +208,7 @@ namespace meen_i8080_arcade
         std::errc ConfigureVideoDevice(int width, int height, int fullscreen);
 
         /** Audio device setup
-        
+
             Configure the Pico audio subsystem in order to render audio frames.
 
             @param	sampleRate	The output audio device number of samples per second.
@@ -220,7 +220,7 @@ namespace meen_i8080_arcade
         std::errc ConfigureAudioDevice(int sampleRate, int channels, int sampleSize);
 
         /** Peripheral device setup
-        
+
             Configure the Pico events subsystem in order to process user input.
 
             @return            A std::errc indicating success or failure.
@@ -236,7 +236,7 @@ namespace meen_i8080_arcade
         std::array<uint8_t, 16> Uuid() const;
 
         /** Queue the next audio sample
-        
+
             Use the Pico DMAC API to deliver the next audio frame to the speaker.
 
             @param    audioFrame        The next audio frame to render. The format of the
@@ -247,9 +247,9 @@ namespace meen_i8080_arcade
             @return                     A std::errc indicating success or failure.
         */
         std::errc RenderAudioFrame(const int32_t* audioFrame, int audioFrameSize, uint64_t timestamp);
-        
+
         /** Video display buffer
-        
+
             Return the raw buffer for blitting.
 
             @param    dst            A pointer to the raw texture buffer that was configured
@@ -268,7 +268,7 @@ namespace meen_i8080_arcade
         std::errc GetVideoFrameBuffer(uint8_t** dst, int* dstRowBytes, int scanlineStart, int numScanlines) const;
 
         /** Render the next video frame.
-        
+
             Write the texture scanline by scanline to the display.
 
             @param    scanline          The start of the current scanline.
@@ -287,15 +287,17 @@ namespace meen_i8080_arcade
         std::errc RenderVideoFrame(int scanline, int numScanlines, uint64_t timestamp);
 
         /** End the video frame rendering process.
-
-            This method is essentially a no-op for PicoIO as `RenderVideoFrame` renders to the display directly.
+        
+            This sets the last scanline rendered back to 0 in preperation for rendering the next frame
 
             @param    timestamp           Not used.
+
+            @remark  This method is essentially a no-op as far as rendering is concerned for PicoIO as `RenderVideoFrame` renders to the display directly.
         */
         std::errc DisplayVideoFrame(uint64_t timestamp);
 
         /** Print an error message
-        
+
             Print the error message to the console.
 
             @param    error    The error message string
@@ -307,7 +309,7 @@ namespace meen_i8080_arcade
         std::errc RenderErrorString(const std::string& error);
         
         /** Clear the display
-        
+
             Clean the display to black scanline at a time.
 
             @param    clearDisplay    Not used.
@@ -315,20 +317,20 @@ namespace meen_i8080_arcade
             @return                   Always returns std::errc{}.
         */
         std::errc ClearDisplay(bool clearDisplay);
-        
+
         /** Read user input
-        
+
             Scan the GPIO buttons for user input. Each button is mapped
             to an Input enum.
-            
+
             @return    A uint32_t mask of Input values. At most 32 buttons can be supported.
 
             @sa        IOControllerTypes.h
         */
         uint32_t ReadPeripheralDevice();
-        
+
         /** Perform required tasks when the screen is updated.
-        
+
             The main action performed is pausing/unpausing the audio device
             as well as cleaning and queued audio.
 
@@ -338,7 +340,7 @@ namespace meen_i8080_arcade
         void ScreenTransition(Screen curr, Screen next);
 
         /** Perform any actions once the audio samples are loaded
-        
+
             Currently, this method is unsed.
 
             @param    sampleRate    Not used.
@@ -348,7 +350,7 @@ namespace meen_i8080_arcade
             @return                 A std::errc indicating success or failure.
         */
         std::errc LoadAudioSamples(int sampleRate, int channels, int sampleSize);
-        
+
         /** Create the raw scanline buffer
 
             Sets the required texure properties.
