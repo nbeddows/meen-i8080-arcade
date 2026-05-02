@@ -345,7 +345,7 @@ namespace meen_i8080_arcade
         return std::errc{};
 	}
 
-    std::errc SDL2IO::ClearDisplay([maybe_unused] BoundingBox&& rect)
+    std::errc SDL2IO::ClearDisplay([[maybe_unused]] BoundingBox&& rect)
 	{
 		/*
 			The backbuffer should be considered invalidated after each present; do not assume that previous contents will exist between frames.
