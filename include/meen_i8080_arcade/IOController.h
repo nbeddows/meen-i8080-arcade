@@ -32,6 +32,7 @@ SOFTWARE.
 #include <bitset>
 #include <charconv>
 #include <concepts>
+#include <cstring>
 #include <string>
 #include <system_error>
 #include <variant>
@@ -44,7 +45,7 @@ SOFTWARE.
 namespace meen_i8080_arcade
 {
     /** IO Controllable concept
-    
+
         The rules that an io controllable must adhere to in order to be valid.
 
         An IO Controllable MUST implement the methods defined in the
@@ -87,7 +88,7 @@ namespace meen_i8080_arcade
         { ioc.RenderVideoFrame(scanlineStart, numScanlines, videoFrameTimestamp) } -> std::same_as<std::errc>;
 
         /** End video frame rendering
-        
+
             Signal to the renderer that the frame rendering is done and can be displayed.
         */
         { ioc.DisplayVideoFrame(videoFrameTimestamp) } -> std::same_as<std::errc>;
@@ -431,7 +432,7 @@ private:
         int textureHeight_{};
 
         /** Render the frame in scanlines
-        
+
             The number of scanlines to render at a time.
 
             @remark     A value of 1 would render out the frame scanline at a time.
@@ -644,7 +645,7 @@ public:
 
             @remark                     Chunks will be mixed and sent out in video frame duration
                                         sample sizes when the meen::ISR::Two interrupt is triggered
-                                        in the `GenerateInterrupts` method. 
+                                        in the `GenerateInterrupts` method.
         */
         void Write(uint16_t port, uint8_t data, [[maybe_unused]] meen::IController* memoryController) final
         {
@@ -905,7 +906,7 @@ public:
             return std::visit(overloaded
 		    {
                 [this](BoundingBox& rect)
-                {                    
+                {
                     // Clear the back buffer, the remaining memory controller frame pool frames will be cleared at this point
                     if (backBuffer_)
                     {
@@ -918,7 +919,7 @@ public:
                             std::ranges::fill(backBuffer_->begin() + offset, backBuffer_->begin() + offset + cw, 0x00);
                         }
                     }
-    
+
                     // Clear the display device
                     return ioController_.ClearDisplay(std::move(rect)) != std::errc{};
                 },
@@ -1024,7 +1025,7 @@ public:
                     if (backBuffer_ != nullptr)
                     {
                         // We are done, move the video frame to the back buffer.
-                        // This will return the previous back buffer to the memory controller frame pool.                    
+                        // This will return the previous back buffer to the memory controller frame pool.
                         backBuffer_ = std::move(videoFrame.bitstream);
                     }
                     else
@@ -1113,12 +1114,12 @@ public:
             }
 
             err = std::make_error_code(ioController_.LoadVideoTextures(videoTextures["bpp"], textureWidth, textureHeight, &scanlinesToRender_));
-        
+
             if (scanlinesToRender_ <= 0 || scanlinesToRender_ > textureHeight)
             {
                 return std::make_error_code(std::errc::result_out_of_range);
             }
-            
+
             // NOTE: NON FULLFRAME RENDERING ONLY WORKS IN COCKTAIL MODE
             if (upright == true && scanlinesToRender_ != textureHeight)
             {
