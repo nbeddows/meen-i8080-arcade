@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2021-2025 Nicolas Beddows <nicolas.beddows@gmail.com>
+Copyright (c) 2021-2026 Nicolas Beddows <nicolas.beddows@gmail.com>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -80,7 +80,6 @@ namespace meen_i8080_arcade
         return memUsage;
     }
 
-    // Need to pass in the runAsync json meen option
     MemoryController::MemoryController(const std::vector<std::pair<std::string, std::string>>& jsonRoms)
     {
         std::string txtToBlit;
@@ -129,6 +128,8 @@ namespace meen_i8080_arcade
 
         if (frame != nullptr)
         {
+            BlitBorderAndCredits(frame.get());
+
             auto errc = romList_.Blit(frame->begin(), frame->end(), 1 /* invert one line */, romIndex /* starting at the rom index */); // maybe todo: add line to blit, much like invert - blitLineStart, blitLineCount ... probably a bit complicated for now
 
             if (errc)
@@ -148,6 +149,8 @@ namespace meen_i8080_arcade
 
         if(frame != nullptr)
         {
+            BlitBorderAndCredits(frame.get());
+
             if (vramWidth == frameWidth)
             {
                 std::ranges::copy_n(memory_.begin() + vramOffset_, vramWidth * vramHeight, frame->begin() + centreOffset_);
@@ -166,6 +169,51 @@ namespace meen_i8080_arcade
         }
 
         return frame;
+    }
+
+    void MemoryController::BlitBorderAndCredits(std::vector<uint8_t>* frame)
+    {
+        // This does not take into account bounds checks ... negative values here will result in ub
+        auto blitBorder = [frameBegin = frame->begin()](int x0Start, int x1Start, int width, int y0Start, int y1Start, int height, int lpm, int rpm)
+        {
+            auto p1 = frameBegin + x1Start;
+
+            for (auto p0 = frameBegin + x0Start; p0 < frameBegin + x0Start + width; std::advance(p0, 1), std::advance(p1, 1))
+            {
+                *p0 = *p1 = 0xFF;
+            }
+
+            p1 = frameBegin + y1Start;
+
+            for (auto p0 = frameBegin + y0Start; p0 < frameBegin + ((height - 1) * frameWidth); std::advance(p0, frameWidth), std::advance(p1, frameWidth))
+            {
+                *p0 = lpm & 0xFF;
+                *p1 = rpm & 0xFF;
+
+                // This will keep the remaining pixels in the frame buffer
+                // *p0 |= lpm;
+                // *p1 |= rpm;
+            }
+        };
+
+        // blit a border around the surface
+        blitBorder(0, frame->size() - frameWidth, frameWidth, frameWidth, frameWidth * 2 - 1, frameHeight, 0x01, 0x80);
+        // blit a border around the vram
+        blitBorder(centreOffset_ - frameWidth, centreOffset_ + (vramHeight * frameWidth), vramWidth, centreOffset_ - frameWidth - 1, centreOffset_ + vramWidth - frameWidth, vramHeight + 10, 0x80, 0x01);
+
+        auto errc = metadata_.Blit(frame->begin(), frame->end(), 0 /* invert no lines */, 0 /* starting from line 0 */); // maybe todo: add line to blit, much like invert - blitLineStart, blitLineCount ... probably a bit complicated for now
+
+        if (errc)
+        {
+            printf("Failed to blit text: %s\n", errc.message().c_str());
+        }
+
+        errc = credits_.Blit(frame->begin(), frame->end(), 0 /* invert no lines */, 0 /* starting from line 0 */); // maybe todo: add line to blit, much like invert - blitLineStart, blitLineCount ... probably a bit complicated for now
+
+        if (errc)
+        {
+            printf("Failed to blit text: %s\n", errc.message().c_str());
+        }
     }
 
     void MemoryController::UpdateAndBlitMetadata(uint64_t currTime, std::vector<uint8_t>* frame)
@@ -205,33 +253,22 @@ namespace meen_i8080_arcade
     {
         // Clear the memory to 0
         memory_.assign(memory_.size(), 0);
-
-        auto clearBuffer = [](std::vector<uint8_t>* buffer)
-        {
-            for (auto vram = buffer->begin() + centreOffset_; vram < buffer->cbegin() + centreOffset_ + (vramHeight * frameWidth); std::advance(vram, frameWidth))
-            {
-                std::ranges::fill(vram, vram + vramWidth, 0x00);
-            }
-        };
-
-        // Wait for the memory controller frame pool size to return back to its maximum size
-        framePool_.Wait(framePool_.GetSize() - (backBuffer != nullptr), [&] // The back buffer is always in flight and passed in here, hence we don't have to wait for it (we would deadlock otherwise)
+        
+        // Wait for the memory controller frame pool size to return back to its maximum size. We subtract one from this value if we have a valid back buffer
+        // The back buffer (when in use) is always in flight, hence we don't have to wait for it (we would deadlock otherwise)
+        framePool_.Wait(framePool_.GetSize() - (backBuffer != nullptr), [&] 
         {
             // All the frames should now be available to clear
             std::vector<meen_hw::MH_ResourcePool<std::vector<uint8_t>>::ResourcePtr> frames;
 
             while(auto frame = framePool_.GetResource())
             {
-                // Clear the vram section of the remaining buffers
-                clearBuffer(frame.get());
+                // Clear the memory pool frames to black
+                std::ranges::fill(frame->begin(), frame->end(), 0x00);
                 frames.emplace_back(std::move(frame));
             }
 
-            if (backBuffer != nullptr)
-            {
-                // Clear the vram section of the back buffer
-                clearBuffer(backBuffer);
-            }
+            // all frames in frames will be returned back to the frame pool once this method returns
         });
     }
 
@@ -242,49 +279,7 @@ namespace meen_i8080_arcade
         for(int i = 0; i < framePoolSize; i++)
         {
             auto frame = new std::vector<uint8_t>(frameWidth * frameHeight, 0);
-
-            // This does not take into account bounds checks ... negative values here will result in ub
-            auto blitBorder = [frameBegin = frame->begin()](int x0Start, int x1Start, int width, int y0Start, int y1Start, int height, int lpm, int rpm)
-            {
-                auto p1 = frameBegin + x1Start;
-
-                for (auto p0 = frameBegin + x0Start; p0 < frameBegin + x0Start + width; std::advance(p0, 1), std::advance(p1, 1))
-                {
-                    *p0 = *p1 = 0xFF;
-                }
-
-                p1 = frameBegin + y1Start;
-
-                for (auto p0 = frameBegin + y0Start; p0 < frameBegin + ((height - 1) * frameWidth); std::advance(p0, frameWidth), std::advance(p1, frameWidth))
-                {
-                    *p0 = lpm & 0xFF;
-                    *p1 = rpm & 0xFF;
-
-                    // This will keep the remaining pixels in the frame buffer
-                    // *p0 |= lpm;
-                    // *p1 |= rpm;
-                }
-            };
-
-            // blit a border around the surface
-            blitBorder(0, frame->size() - frameWidth, frameWidth, frameWidth, frameWidth * 2 - 1, frameHeight, 0x01, 0x80);
-            // blit a border around the vram
-            blitBorder(centreOffset_ - frameWidth, centreOffset_ + (vramHeight * frameWidth), vramWidth, centreOffset_ - frameWidth - 1, centreOffset_ + vramWidth - frameWidth, vramHeight + 10, 0x80, 0x01);
-
-            auto errc = metadata_.Blit(frame->begin(), frame->end(), 0 /* invert no lines */, 0 /* starting from line 0 */); // maybe todo: add line to blit, much like invert - blitLineStart, blitLineCount ... probably a bit complicated for now
-
-            if (errc)
-            {
-                printf("Failed to blit text: %s\n", errc.message().c_str());
-            }
-
-            errc = credits_.Blit(frame->begin(), frame->end(), 0 /* invert no lines */, 0 /* starting from line 0 */); // maybe todo: add line to blit, much like invert - blitLineStart, blitLineCount ... probably a bit complicated for now
-
-            if (errc)
-            {
-                printf("Failed to blit text: %s\n", errc.message().c_str());
-            }
-
+            // The allocated frame is now owned by the frame pool
             framePool_.AddResource(frame);
         }
 
