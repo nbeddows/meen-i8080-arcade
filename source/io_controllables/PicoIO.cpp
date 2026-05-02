@@ -563,35 +563,14 @@ namespace meen_i8080_arcade
         return std::errc{};
     }
 
-    std::errc PicoIO::ClearDisplay(bool clearDisplay)
+    std::errc PicoIO::ClearDisplay([[maybe_unused]] BoundingBox&& rect)
     {
-        // The vram is positioned at the center of the display
-        int ho = (height_ - MemoryController::vramHeight) / 2;
-        // The vram is 1bpp hence we need to multiply the width by 8
-        int wo = (width_ - (MemoryController::vramWidth << 3)) / 2;
+        int u16_bytes_to_clear = (width_ / 2) * height_;
+        uint16_t p = 0x0000;
 
-        // Clear the centre of the display (where the vram is blitted), one row at a time
-        for(int i = ho; i < ho + MemoryController::vramHeight; i++)
+        for (int i = 0; i < u16_bytes_to_clear; i++)
         {
-            gpio_put(Pin::CS, 1);
-            // Write 8 bits at a time
-            spi_set_format(spi1, 8, SPI_CPOL_0, SPI_CPHA_0, SPI_MSB_FIRST);
-            // Clear the blittable region to the current row
-            PicoIO::SetRegion(wo, i /* row start */, width_ - wo, 1/* Cover a height of 1, ie; 1 row*/);
-            // Write to lcd ram
-            PicoIO::WriteCmd(0X2C);
-            // Write 16 bits at a time
-            spi_set_format(spi1, 16, SPI_CPOL_0, SPI_CPHA_0, SPI_MSB_FIRST);
-
-            gpio_put(Pin::DC, 1);
-            gpio_put(Pin::CS, 0);
-
-            // Clear the current row of the display
-            for(int j = 0; j < (MemoryController::vramWidth << 3) / 2; j++)
-            {
-                uint16_t p = 0x0000;
-                spi_write16_blocking(spi1, &p, 1);
-            }
+            spi_write16_blocking(spi1, &p, 1);
         }
 
         return std::errc{};

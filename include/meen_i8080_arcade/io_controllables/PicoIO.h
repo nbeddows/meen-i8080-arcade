@@ -287,7 +287,7 @@ namespace meen_i8080_arcade
         std::errc RenderVideoFrame(int scanline, int numScanlines, uint64_t timestamp);
 
         /** End the video frame rendering process.
-        
+
             This sets the last scanline rendered back to 0 in preperation for rendering the next frame
 
             @param    timestamp           Not used.
@@ -307,16 +307,18 @@ namespace meen_i8080_arcade
             @remark            Error messages can be viewed via a minicom.
         */
         std::errc RenderErrorString(const std::string& error);
-        
+
         /** Clear the display
 
-            Clean the display to black scanline at a time.
+            Clear the entire display panel to black.
 
-            @param    clearDisplay    Not used.
+            @param    rect            The bounding box to clear.
 
             @return                   Always returns std::errc{}.
+
+            @remark                   The rect parameter is currently unused, the entire display is cleared.
         */
-        std::errc ClearDisplay(bool clearDisplay);
+        std::errc ClearDisplay(BoundingBox&& rect);
 
         /** Read user input
 
@@ -361,7 +363,7 @@ namespace meen_i8080_arcade
             @param    numScanlines   The number of scanlines that should be rendered in one pass.
                                      For PicoIO this should be set to 1 (scanline rendering).
                                      Setting it to other values may cause issues with rendering performance.
-        
+
             @return                  A std::errc indicating success or failure.
         */
         std::errc LoadVideoTextures(int bpp, int textureWidth, int textureHeight, int* numScanlines);
