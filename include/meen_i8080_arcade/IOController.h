@@ -53,7 +53,7 @@ namespace meen_i8080_arcade
     template<class T>
     concept IOControllable = requires(T ioc, const int32_t* audioFrame, int audioFrameSize, uint64_t audioFrameTimestamp, int scanlineStart,
                                       int numScanlines, int* scanlinesToRender, uint64_t videoFrameTimestamp, const std::string& error,
-                                      bool clearDisplay, int width, int height, int fullscreen, int bpp, int textureWidth, int textureHeight,
+                                      BoundingBox&& rect, int width, int height, int fullscreen, int bpp, int textureWidth, int textureHeight,
                                       int sampleRate, int channels, int sampleSize, uint8_t** dst, int* dstRowBytes, Screen curr, Screen next)
     {
 
@@ -102,7 +102,7 @@ namespace meen_i8080_arcade
 
             Called when the display needs to be cleared.
         */
-        { ioc.ClearDisplay(clearDisplay) } -> std::same_as<std::errc>;
+        { ioc.ClearDisplay(std::move(rect)) } -> std::same_as<std::errc>;
 
         /** UUID
 
@@ -295,7 +295,7 @@ private:
         */
 
         /** TODO: the clear variant needs to be a bounding box: struct{ x, y, w, h }, rather than a bool */
-        using EventData = std::variant<std::string, bool, Frame<int32_t>, Frame<uint8_t>>;
+        using EventData = std::variant<std::string, BoundingBox, Frame<int32_t>, Frame<uint8_t>>;
 
         /** Event data queue
 
@@ -591,9 +591,10 @@ public:
 
                         // This method will ensure that all video frames are returned to the memory controller
                         // frame pool before clearing them.
-                        static_cast<MemoryController*>(memoryController)->Clear(backBuffer_.get());
+                        static_cast<MemoryController*>(memoryController)->Clear(backBuffer_ ? backBuffer_.get() : nullptr);
 
-                        AddEventToQueue(true);
+                        // Clear the screen to black
+                        AddEventToQueue(BoundingBox{ 0, 0, textureWidth_, textureHeight_ });
                     }
                     else
                     {
@@ -903,9 +904,23 @@ public:
 
             return std::visit(overloaded
 		    {
-                [this](bool clearDisplay)
-                {
-                    return ioController_.ClearDisplay(clearDisplay) != std::errc{};
+                [this](BoundingBox& rect)
+                {                    
+                    // Clear the back buffer, the remaining memory controller frame pool frames will be cleared at this point
+                    if (backBuffer_)
+                    {
+                        // The back buffer is compressed: TODO - need to generalise this compression, some will be compressed at different ratios, some not
+                        int cw = rect.w >> 3;
+
+                        for (int y = rect.y; y < rect.h; y++)
+                        {
+                            int offset = rect.x + y * cw;
+                            std::ranges::fill(backBuffer_->begin() + offset, backBuffer_->begin() + offset + cw, 0x00);
+                        }
+                    }
+    
+                    // Clear the display device
+                    return ioController_.ClearDisplay(std::move(rect)) != std::errc{};
                 },
                 [this](const std::string& error)
 			    {
@@ -1008,8 +1023,6 @@ public:
 
                     if (backBuffer_ != nullptr)
                     {
-                        // TODO: SDL2IO - returning back to the rom select screen from gameplay gives flickering screen with scanlineToRender_ being 1 with back buffer support
-
                         // We are done, move the video frame to the back buffer.
                         // This will return the previous back buffer to the memory controller frame pool.                    
                         backBuffer_ = std::move(videoFrame.bitstream);
@@ -1019,7 +1032,6 @@ public:
                         // Release the video frame bitstream immediately back to the memory controller frame pool
                         videoFrame.bitstream = nullptr;
                     }
-
 
                     return ret;
                 }
@@ -1112,16 +1124,6 @@ public:
             {
                 return std::make_error_code(std::errc::not_supported);
             }
-
-            // For now we will disable the backbuffer optimisation when we are not scanline rendering, we could change this in the future via a config option (raster_optimise=True/False for example)
-            if (scanlinesToRender_ != 1)
-            {
-                // return the back buffer back to the frame pool, ultimately we should reduce the frame pool size when we don't want this opimisation, therefore we would have to set the enable/disable of this via a config option
-                // and handle it in the main function; ie; set the frame pool size in the main function and pass in nullptr for the back buffer for this io controllable during contruction rather than setting nullptr here.
-                backBuffer_ = nullptr;
-            }
-
-            // TODO: push an event to the queue to clear the display
 
             textureWidth_ = textureWidth;
             textureHeight_ = textureHeight;
