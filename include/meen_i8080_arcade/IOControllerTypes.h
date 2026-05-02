@@ -46,13 +46,13 @@ namespace meen_i8080_arcade
         P2Fire = 0x001000,
         P2Right = 0x002000,
         Exit = 0x004000,
-        LoadRom = 0x008000,
+        LoadRom = 0x008000, // Load from a save file
         P1Fire = 0x010000,
         Tilt = 0x020000,
         SaveRom = 0x040000,
         NextRom = 0x080000,
         QuitRom = 0x100000,
-        SelectRom = 0x200000,
+        SelectRom = 0x200000, // Load from rom file
         PreviousRom = 0x400000
     };
 
@@ -67,6 +67,14 @@ namespace meen_i8080_arcade
     {
         RomSelect,  /**< The rom select screen where the user can select a rom to load. */
         Gameplay    /**< The emulated game play for the selected rom that was loaded in the rom select screen. */
+    };
+
+    struct BoundingBox
+    {
+        int x{};
+        int y{};
+        int w{};
+        int h{};
     };
 } // namespace meen_i8080_arcade
 
