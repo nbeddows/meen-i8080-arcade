@@ -64,9 +64,6 @@ namespace meen_i8080_arcade
 			}
 		}
 
-		// We don't use a back buffer, return it immediately
-		//backBuffer_ = nullptr;
-
 		return std::errc{};
 	}
 
@@ -159,8 +156,11 @@ namespace meen_i8080_arcade
 		return std::errc{};
 	}
 
-	std::errc SDL2IO::LoadVideoTextures(int bpp, int textureWidth, int textureHeight)
+	std::errc SDL2IO::LoadVideoTextures(int bpp, int textureWidth, int textureHeight, int* numScanlines)
 	{
+		// This is coming from the base template, should never be nullptr.
+		assert(numScanlines != nullptr);
+
 		int windowWidth = 0;
 		int windowHeight = 0;
 		auto pf = SDL_PIXELFORMAT_UNKNOWN;
@@ -194,6 +194,9 @@ namespace meen_i8080_arcade
 		SDL_GetWindowSize(window_, &windowWidth, &windowHeight);
 		dstRect_.x = (windowWidth - dstRect_.w) / 2;
 		dstRect_.y = (windowHeight - dstRect_.h) / 2;
+
+		// Full frame blitting of our texture thankyou
+		*numScanlines = textureHeight;
 		return std::errc{};
 	}
 
@@ -255,15 +258,44 @@ namespace meen_i8080_arcade
         return std::errc{};
 	}
 
-	std::errc SDL2IO::GetTextureBuffer(uint8_t** dst, int* dstRowBytes) const
+	std::errc SDL2IO::GetVideoFrameBuffer(uint8_t** dst, int* dstRowBytes, int scanlineStart, int numScanlines) const
 	{
-		auto err = SDL_LockTexture(texture_, nullptr, std::bit_cast<void**>(dst), dstRowBytes);
+		/*
+			The backbuffer should be considered invalidated after each present; do not assume that previous contents will exist between frames.
+			You are strongly encouraged to call SDL_RenderClear() to initialize the backbuffer before starting each new frame's drawing, even if you plan to overwrite every pixel.
+		*/
+		//SDL_RenderClear(renderer_);
+
+		// Lock a specific part of hte video texture
+		SDL_Rect srcRect{ 0, scanlineStart, dstRect_.w, numScanlines };
+
+		auto err = SDL_LockTexture(texture_, &srcRect, std::bit_cast<void**>(dst), dstRowBytes);
 		assert(err == 0);
 		return std::errc{};
 	}
 
-	std::errc SDL2IO::RenderVideoFrame([[maybe_unused]] const uint8_t* backBuffer, const uint8_t* videoFrame, [[maybe_unused]] int videoFrameSize, [[maybe_unused]] uint64_t timestamp)
+	std::errc SDL2IO::RenderVideoFrame(int scanlineStart, int numScanlines, [[maybe_unused]] uint64_t timestamp)
 	{
+		SDL_UnlockTexture(texture_);
+
+		// Render a subsection of the texture, a scanline for example or the full frame
+		SDL_Rect srcRect{ 0, scanlineStart, dstRect_.w, numScanlines };
+		
+		// scanline start: where to start rendering on the display in the y direction, numScanlines: the number of scanlines to occupy on the display
+		// if our window were bigger we would adjust the x position (0) accordingly
+		SDL_Rect dstRect{ 0, scanlineStart, dstRect_.w, numScanlines };
+
+        // Scale the texture_ if the dst rect is different to the texture dimensions
+		auto err = SDL_RenderCopy(renderer_, texture_, &srcRect, &dstRect);
+		assert(err == 0);
+	
+		return std::errc{};
+    }
+
+	std::errc SDL2IO::DisplayVideoFrame([[maybe_unused]] uint64_t timestamp)
+	{
+		SDL_RenderPresent(renderer_);
+
 		// todo: need to move pumpEvents/HasEvent to ReadPeripheralDevice, it needs to return std::expected or negative -1
 		SDL_PumpEvents();
 
@@ -271,11 +303,6 @@ namespace meen_i8080_arcade
 		{
 			return std::errc::connection_aborted;
 		}
-
-		SDL_UnlockTexture(texture_);
-        auto err = SDL_RenderCopy(renderer_, texture_, nullptr, &dstRect_);
-        assert(err == 0);
-        SDL_RenderPresent(renderer_);
 
         return std::errc{};
     }
@@ -318,8 +345,14 @@ namespace meen_i8080_arcade
         return std::errc{};
 	}
 
-    std::errc SDL2IO::ClearDisplay(bool clearDisplay)
+    std::errc SDL2IO::ClearDisplay([maybe_unused] BoundingBox&& rect)
 	{
+		/*
+			The backbuffer should be considered invalidated after each present; do not assume that previous contents will exist between frames.
+			You are strongly encouraged to call SDL_RenderClear() to initialize the backbuffer before starting each new frame's drawing, even if you plan to overwrite every pixel.
+		*/
+		SDL_RenderClear(renderer_);
+
 		return std::errc{};
 	}
 } // namespace meen_i8080_arcade
