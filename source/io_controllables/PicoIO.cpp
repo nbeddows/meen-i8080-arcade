@@ -81,7 +81,7 @@ namespace meen_i8080_arcade
         PicoIO::WriteParam(Xstart >>8);
         PicoIO::WriteParam(Xstart & 0xff);
         PicoIO::WriteParam((Xend - 1) >> 8);
-        PicoIO::WriteParam((Xend-1) & 0xFF);
+        PicoIO::WriteParam((Xend - 1) & 0xFF);
 
         //set the Y coordinates
         PicoIO::WriteCmd(0x2B);
@@ -256,7 +256,9 @@ namespace meen_i8080_arcade
 
         // We decompress and write one scanline at a time to lcd ram
         texture_.resize((textureWidth * bpp) / 8); // 8 - bits per pixel
-        // Used to center the video ram on the display
+        // Used to center the emulated output on the display
+        // TODO: this should be anchor point that is passed into this method
+        // these offsets would be centre (AnchorPoint.Centre), other would be left, right, top, bottom, etc
         widthOffset_ = (width_ - textureWidth) / 2;
         heightOffset_ = (height_ - textureHeight) / 2;
 
@@ -341,17 +343,17 @@ namespace meen_i8080_arcade
         return std::errc{};
     };
 
-    void PicoIO::ScreenTransition(Screen curr, Screen next)
+    std::errc PicoIO::ScreenTransition(Screen curr, Screen next)
     {
         screen_ = next;
 
         switch (curr)
-		{
-			case Screen::Gameplay:
-			{
-				switch (next)
-				{
-					case Screen::RomSelect:
+        {
+            case Screen::Gameplay:
+            {
+                switch (next)
+                {
+                    case Screen::RomSelect:
                     {
                         // I think needs to be moved??? Into ReadPeripheralDevice??
                         //buttonPress_[Pin::K1] = false;
@@ -371,10 +373,10 @@ namespace meen_i8080_arcade
             }
             case Screen::RomSelect:
             {
-				switch (next)
-				{
-					case Screen::Gameplay:
-					{
+                switch (next)
+                {
+                    case Screen::Gameplay:
+                    {
                         /*** In read peripheral device we need to set one player input at the same time that we add a credit in order to move straight to a 1P game */
 
                         // I think needs to be moved??? Into ReadPeripheralDevice??
@@ -384,21 +386,27 @@ namespace meen_i8080_arcade
                         //ret |= 0x01;
                         // Move straight to a 1P game.
                         // Set the amount of ships (this could be also 4/5/6 if this demo supported setting the ship count)
-                        ships_ = 3;
-						break;
-					}
-					default:
-					{
-						break;
-					}
-				}
-				break;
-			}
-			default:
-			{
-				break;
-			}
+                        
+						// We have transitioned to the gameplay screen, reset the ship count
+                        ships_ = 0;
+                        // Used on Gameplay, enable it
+                        gpio_set_irq_enabled(Pin::K0, GPIO_IRQ_EDGE_FALL | GPIO_IRQ_EDGE_RISE, true);
+                        break;
+                    }
+                    default:
+                    {
+                        break;
+                    }
+                }
+                break;
+            }
+            default:
+            {
+                break;
+            }
         }
+
+        return std::errc{};
     }
 
     std::array<uint8_t, 16> PicoIO::Uuid() const
@@ -496,62 +504,47 @@ namespace meen_i8080_arcade
         return std::errc{};
     }
 
-    // Buttons have different meaning depending on what screen we are on - TODO: cahe the current screen so we can use it here
+    // Buttons have different meaning depending on what screen we are on - TODO: cache the current screen so we can use it here
     uint32_t PicoIO::ReadPeripheralDevice()
     {
         int buttons = 0;
 
         if (screen_ == Screen::Gameplay)
         {
-            // if are in screen::gameplay
-            if (PicoIO::buttonPress_[Pin::K1] == true)
+            buttons = PicoIO::buttonPress_[Pin::K1] * Input::QuitRom;
+
+            if (buttons == Input::QuitRom)
             {
                 PicoIO::buttonPress_[Pin::K1] == false;
-                buttons = Input::QuitRom;
+                return buttons;
+            }
+
+            if (ships_ > 0)
+            {
+                buttons |= (PicoIO::buttonPress_[Pin::K0] * Input::P1Left);
+                buttons |= (PicoIO::buttonPress_[Pin::K3] * Input::P1Right);
+                buttons |= (PicoIO::buttonPress_[Pin::K2] * Input::P1Fire);
             }
             else
-            {
-                if (ships_ > 0)
+            {                
+                if (PicoIO::buttonPress_[Pin::K0] == true)
                 {
-                    buttons |= (PicoIO::buttonPress_[Pin::K0] * Input::P1Left);
-                    buttons |= (PicoIO::buttonPress_[Pin::K3] * Input::P1Right);
-                    buttons |= (PicoIO::buttonPress_[Pin::K2] * Input::P1Fire);
-                }
-                else
-                {
-                    if (PicoIO::buttonPress_[Pin::K0] == true)
-                    {
-                        PicoIO::buttonPress_[Pin::K0] = false;
-                        // Add a credit and move straight to a one player game
-                        buttons |= (Input::Credit | Input::OnePlayer);
-                        // Set the amount of ships (this could be also 4/5/6 if this demo supported setting the ship count)
-                        ships_ = 3;
-                    }
+                    // Add a credit and move straight to a one player game
+                    buttons |= (Input::Credit | Input::OnePlayer);
+                    // Set the amount of ships (this could be also 4/5/6 if this demo supported setting the ship count)
+                    ships_ = 3;
+                    PicoIO::buttonPress_[Pin::K0] = false;
                 }
             }
         }
         else
         {
-            // Set Inputs for scrolling the rom select screen
-
-            // Check button 1 press to trigger a rom load interrupt
-            if (PicoIO::buttonPress_[Pin::K1] == true)
-            {
-                buttons |= (PicoIO::buttonPress_[Pin::K1] * Input::SelectRom);
-                PicoIO::buttonPress_[Pin::K1] = false;
-            }
-
-            if(PicoIO::buttonPress_[Pin::K2] == true)
-            {
-                buttons |= (PicoIO::buttonPress_[Pin::K2] * Input::PreviousRom);
-                PicoIO::buttonPress_[Pin::K2] = false;
-            }
-
-            if(PicoIO::buttonPress_[Pin::K3] == true)
-            {
-                buttons |= (PicoIO::buttonPress_[Pin::K3] * Input::NextRom);
-                PicoIO::buttonPress_[Pin::K3] = false;
-            }
+            buttons |= ((PicoIO::buttonPress_[Pin::K1] == true) * Input::SelectRom);
+            buttons |= ((PicoIO::buttonPress_[Pin::K2] == true) * Input::PreviousRom);
+            buttons |= ((PicoIO::buttonPress_[Pin::K3] == true) * Input::NextRom);
+            PicoIO::buttonPress_[Pin::K1] = false;
+            PicoIO::buttonPress_[Pin::K2] = false;
+            PicoIO::buttonPress_[Pin::K3] = false;
         }
 
         return buttons;
@@ -563,14 +556,33 @@ namespace meen_i8080_arcade
         return std::errc{};
     }
 
-    std::errc PicoIO::ClearDisplay([[maybe_unused]] BoundingBox&& rect)
+    std::errc PicoIO::ClearDisplay(BoundingBox&& rect)
     {
-        int u16_bytes_to_clear = (width_ / 2) * height_;
+        // Make sure we are positioned at the start of display area that we want to clear
+        gpio_put(Pin::CS, 1);
+        // Write 8 bits at a time
+        spi_set_format(spi1, 8, SPI_CPOL_0, SPI_CPHA_0, SPI_MSB_FIRST);
+        // Set the region to the start of the display
+        //PicoIO::SetRegion(0, 0, width_, height_);
+        PicoIO::SetRegion(rect.x, rect.y, rect.w, rect.h);
+        // Write to lcd ram
+        PicoIO::WriteCmd(0X2C);
+        // Write 16 bits at a time
+        spi_set_format(spi1, 16, SPI_CPOL_0, SPI_CPHA_0, SPI_MSB_FIRST);
+
+        gpio_put(Pin::DC, 1);
+        gpio_put(Pin::CS, 0);
+
+
+        // Clear the section of the display defined by rect to black
         uint16_t p = 0x0000;
 
-        for (int i = 0; i < u16_bytes_to_clear; i++)
+        for (int y = rect.y; y < rect.h; y++)
         {
-            spi_write16_blocking(spi1, &p, 1);
+            for (int x = rect.x; x < rect.w; x++)
+            {
+                spi_write16_blocking(spi1, &p, 1);
+            }
         }
 
         return std::errc{};
