@@ -24,7 +24,6 @@ SOFTWARE.
 #define PICOIO_H
 
 #include <ArduinoJson.h>
-#include <atomic>
 #include <list>
 #include <variant>
 #include <vector>
@@ -100,10 +99,8 @@ namespace meen_i8080_arcade
         /** The current screen
 
             See the Screen enumeration for further details.
-
-            Made atomic as it can be called from a different thread if hte runAsync parameter is set to the true
         */
-        std::atomic<Screen> screen_{};
+        Screen screen_{};
 
         /** Centre width offset
 
@@ -339,7 +336,7 @@ namespace meen_i8080_arcade
             @param    curr    The screen that we are on and are about to leave.
             @param    next    The screen that we are moving to.
         */
-        void ScreenTransition(Screen curr, Screen next);
+        std::errc ScreenTransition(Screen curr, Screen next);
 
         /** Perform any actions once the audio samples are loaded
 
