@@ -66,7 +66,7 @@ namespace meen_i8080_arcade
     enum Screen
     {
         RomSelect,  /**< The rom select screen where the user can select a rom to load. */
-        Gameplay    /**< The emulated game play for the selected rom that was loaded in the rom select screen. */
+        Gameplay    /**< The emulated game play screen for the selected rom that was loaded in the rom select screen. */
     };
 
     struct BoundingBox
@@ -76,6 +76,13 @@ namespace meen_i8080_arcade
         int w{};
         int h{};
     };
+
+    struct ScreenTransition
+    {
+        Screen current; /**< The screen that we are currently on as documented in the Screen enum */
+        Screen next;    /**< The screen that we are transitioning to as documented in the Screen enum */
+    };
+
 } // namespace meen_i8080_arcade
 
 #endif // IOCONTROLLER_TYPES_H
