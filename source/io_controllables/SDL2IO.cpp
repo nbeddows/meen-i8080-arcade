@@ -200,7 +200,7 @@ namespace meen_i8080_arcade
 		return std::errc{};
 	}
 
-	void SDL2IO::ScreenTransition(Screen curr, Screen next)
+	std::errc SDL2IO::ScreenTransition(Screen curr, Screen next)
 	{
 		switch (curr)
 		{
@@ -245,6 +245,8 @@ namespace meen_i8080_arcade
 				break;
 			}
 		}
+
+		return std::errc{};
 	}
 
 	std::array<uint8_t, 16> SDL2IO::Uuid() const

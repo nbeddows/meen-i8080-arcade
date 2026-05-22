@@ -241,7 +241,7 @@ namespace meen_i8080_arcade
 				@param    curr    The screen that we are on and are about to leave.
 				@param    next    The screen that we are moving to.
 			*/
-			void ScreenTransition(Screen curr, Screen next);
+			std::errc ScreenTransition(Screen curr, Screen next);
 
 			/** Perform any actions once the audio samples are loaded.
 			
