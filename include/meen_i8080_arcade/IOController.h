@@ -74,7 +74,7 @@ namespace meen_i8080_arcade
         /** Start video frame rendering
 
             Called when a new frame is ready to be rendered.
-            The callee fills the dst and dstRowBytes pts with the frame buffer from scalineStart for numScanlines
+            The callee fills the dst and dstRowBytes pts with the frame buffer from scanlineStart for numScanlines
         */
         { ioc.GetVideoFrameBuffer(dst, dstRowBytes, scanlineStart, numScanlines) } -> std::same_as<std::errc>;
 
@@ -145,7 +145,7 @@ namespace meen_i8080_arcade
 
             Called when the screen changes from one type to another.
         */
-        { ioc.ScreenTransition(curr, next) } -> std::same_as<void>;
+        { ioc.ScreenTransition(curr, next) } -> std::same_as<std::errc>;
 
         /** Peripheral device reading
 
@@ -289,14 +289,14 @@ private:
 
             A using directve for ease of use. This will hold the active event data to be processed.
 
-            std::string:     The application has encountered and error.
-            bool:            True to clear the vram area of the display, false otherwise.
-            Frame<int32_t>:  The next audio frame is ready to be rendered. This is a video frame duration worth of samples.
-            Frame<uint8_t>:  The next video frame is ready to be rendered. This event drives the control loop.
+            std::string:      The application has encountered and error.
+            BoundingBox:      Rectangular area of the screen to clear.
+            ScreenTransition: The screen state change goind from the current screen to the next screen.
+            Frame<int32_t>:   The next audio frame is ready to be rendered. This is a video frame duration worth of samples.
+            Frame<uint8_t>:   The next video frame is ready to be rendered. This event drives the control loop.
         */
 
-        /** TODO: the clear variant needs to be a bounding box: struct{ x, y, w, h }, rather than a bool */
-        using EventData = std::variant<std::string, BoundingBox, Frame<int32_t>, Frame<uint8_t>>;
+        using EventData = std::variant<std::string, ScreenTransition, BoundingBox, Frame<int32_t>, Frame<uint8_t>>;
 
         /** Event data queue
 
@@ -555,8 +555,6 @@ public:
 
                     if (input & Input::QuitRom)
                     {
-                        ioController_.ScreenTransition(screen_, Screen::RomSelect);
-
                         // Clear all queued chunks and reset chunk->samples to -1
                         while (audioMixChunks_.empty() == false)
                         {
@@ -588,14 +586,17 @@ public:
                             }
                         }
 
-                        screen_ = Screen::RomSelect;
-
                         // This method will ensure that all video frames are returned to the memory controller
                         // frame pool before clearing them.
                         static_cast<MemoryController*>(memoryController)->Clear(backBuffer_ ? backBuffer_.get() : nullptr);
 
                         // Clear the screen to black
                         AddEventToQueue(BoundingBox{ 0, 0, textureWidth_, textureHeight_ });
+
+                        // Transition the screen to rom select
+                        AddEventToQueue(ScreenTransition{ screen_, Screen::RomSelect });
+
+                        screen_ = Screen::RomSelect;
                     }
                     else
                     {
@@ -905,6 +906,10 @@ public:
 
             return std::visit(overloaded
 		    {
+                [this](ScreenTransition& st)
+                {
+                    return ioController_.ScreenTransition(st.current, st.next) != std::errc{};
+                },
                 [this](BoundingBox& rect)
                 {
                     // Clear the back buffer, the remaining memory controller frame pool frames will be cleared at this point
@@ -1054,7 +1059,8 @@ public:
         */
         meen::errc HandleLoadComplete()
         {
-            ioController_.ScreenTransition(screen_, Screen::Gameplay);
+            // Transition the screen to gameplay
+            AddEventToQueue(ScreenTransition{ screen_, Screen::Gameplay });
 
             // We successfully loaded the rom, transition into gameplay.
             screen_ = Screen::Gameplay;
