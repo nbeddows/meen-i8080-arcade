@@ -386,8 +386,8 @@ namespace meen_i8080_arcade
                         //ret |= 0x01;
                         // Move straight to a 1P game.
                         // Set the amount of ships (this could be also 4/5/6 if this demo supported setting the ship count)
-                        
-						// We have transitioned to the gameplay screen, reset the ship count
+    
+                        // We have transitioned to the gameplay screen, reset the ship count
                         ships_ = 0;
                         // Used on Gameplay, enable it
                         gpio_set_irq_enabled(Pin::K0, GPIO_IRQ_EDGE_FALL | GPIO_IRQ_EDGE_RISE, true);
@@ -432,6 +432,10 @@ namespace meen_i8080_arcade
     // When this method is called, it is assumed that your rendering a new frame from the top of the display
     std::errc PicoIO::GetVideoFrameBuffer(uint8_t** dst, int* dstRowBytes, [[maybe_unused]] int scanlineStart, [[maybe_unused]] int numScanLines) const
     {
+        // TODO: still assert on numScanlines, but we can use the scanlineStart parameter. Assert that it is one. We can also determine the number of scanlines in our render buffer. For this example
+        //       it will always be one, but we can figure it out by total frame buffer bytes / frame buffer row bytes. If scanline start greater than that number return an error, if num scanlines
+        //       plus scanlineStart exeeceds the total number of scanlines return an error. We can probably omit the asserts if we implement this
+
         assert(numScanlines == 1);
 
         *dst = const_cast<uint8_t*>(texture_.data());
@@ -515,7 +519,7 @@ namespace meen_i8080_arcade
 
             if (buttons == Input::QuitRom)
             {
-                PicoIO::buttonPress_[Pin::K1] == false;
+                PicoIO::buttonPress_[Pin::K1] = false;
                 return buttons;
             }
 
@@ -526,7 +530,7 @@ namespace meen_i8080_arcade
                 buttons |= (PicoIO::buttonPress_[Pin::K2] * Input::P1Fire);
             }
             else
-            {                
+            {
                 if (PicoIO::buttonPress_[Pin::K0] == true)
                 {
                     // Add a credit and move straight to a one player game
