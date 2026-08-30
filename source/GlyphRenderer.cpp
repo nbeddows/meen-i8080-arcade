@@ -38,7 +38,7 @@ namespace meen_i8080_arcade
         {
             found = text_.find('\n', ++lastPos);
             auto currPos = found == std::string::npos ? text_.length() : found;
-            auto txtHeight = (currPos - lastPos) * 8; // 8 - store all heights in uncompressed bytes
+            auto txtHeight = static_cast<int>(currPos - lastPos) * 8; // 8 - store all heights in uncompressed bytes
 
             // skip consecutive new lines
             while (currPos + 1 < text_.length() && text_[currPos + 1] == '\n')
