@@ -80,7 +80,8 @@ namespace meen_i8080_arcade
         return memUsage;
     }
 
-    MemoryController::MemoryController(const std::vector<std::pair<std::string, std::string>>& jsonRoms)
+    MemoryController::MemoryController(double timescale, const std::vector<std::pair<std::string, std::string>>& jsonRoms)
+        : timescale_{ timescale }
     {
         std::string txtToBlit;
 
@@ -219,7 +220,7 @@ namespace meen_i8080_arcade
     void MemoryController::UpdateAndBlitMetadata(uint64_t currTime, std::vector<uint8_t>* frame)
     {
         // Update the metadata every second
-        if (currTime - lastTime_ >= 1000000000)
+        if (currTime - lastTime_ >= timescale_)
         {
             char buf[32]; // length of the metadata string rounded to the next power of 2
             auto t = time(nullptr);
