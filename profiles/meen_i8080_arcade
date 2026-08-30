@@ -10,7 +10,15 @@ meen_hw/*:with_i8080_arcade=True
   meen_hw/*:shared=False
   meen_hw/*:with_board={{ os }}
 {% else %}
-  {% if framework == 'sdl' %}
+  {% if framework == 'qt' %}
+    {{ framework }}/*:shared = True
+    {{ framework }}/*:with_pq = False
+    {{ framework }}/*:with_odbc = False
+    {{ framework }}/*:with_openal = False
+    {{ framework }}/*:widgets = False
+    {{ framework }}/*:qtdeclarative = True
+    {{ framework }}/*:qtshadertools = True
+  {% elif framework == 'sdl' %}
     {{ framework }}/*:shared = True
     {{ framework }}/*:alsa = False
     {{ framework }}/*:xcursor = False
@@ -25,15 +33,5 @@ meen_hw/*:with_i8080_arcade=True
     {{ framework }}/*:opengl = False
     {{ framework }}/*:opengles = False
     {{ framework }}/*:vulkan = False
-    {{ framework }}_mixer/*:shared = True
-    {{ framework }}_mixer/*:flac = False
-    {{ framework }}_mixer/*:mpg123 = False
-    {{ framework }}_mixer/*:mad = False
-    {{ framework }}_mixer/*:ogg = False
-    {{ framework }}_mixer/*:opus = False
-    {{ framework }}_mixer/*:mikmod = False
-    {{ framework }}_mixer/*:modplug = False
-    {{ framework }}_mixer/*:nativemidi = False
-    {{ framework }}_mixer/*:tinymidi = False
   {% endif %}
 {% endif %}
