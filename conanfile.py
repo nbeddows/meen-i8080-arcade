@@ -5,7 +5,7 @@ from conan.tools.cmake import CMake, CMakeDeps, CMakeToolchain, cmake_layout
 
 class I8080ArcadeRecipe(ConanFile):
     settings = "os", "compiler", "build_type", "arch"
-    options = {"with_framework": ["none", "sdl", "st7789vw"]}
+    options = {"with_framework": ["none", "rtsp", "sdl", "st7789vw"]}
     default_options = {"with_framework": "none"}
 
     def requirements(self):
@@ -13,7 +13,9 @@ class I8080ArcadeRecipe(ConanFile):
         self.requires("meen_hw/0.5.0")
         self.requires("arduinojson/7.0.1")
 
-        if self.options.get_safe("with_framework", "none") == "sdl":
+        if self.options.get_safe("with_framework", "none") == "rtsp":
+            self.requires("openh264/2.6.0")
+        elif self.options.get_safe("with_framework", "none") == "sdl":
             self.requires("sdl/2.28.5")
 
     def configure(self):
