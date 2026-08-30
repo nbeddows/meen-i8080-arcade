@@ -18,8 +18,8 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-cmake_minimum_required (VERSION 3.25)
-set(project_name meen-i8080-arcade)
+cmake_minimum_required (VERSION 3.50)
+set(project_name meen_i8080_arcade)
 set(major 1)
 set(minor 1)
 set(bugfix 0)
@@ -27,6 +27,9 @@ set(bugfix 0)
 if(${enable_board} STREQUAL "pico")
   include ($ENV{PICO_SDK_PATH}/external/pico_sdk_import.cmake)
 endif()
+
+include("${CMAKE_BINARY_DIR}/MeenDeployPathDebug.cmake")
+include("${CMAKE_BINARY_DIR}/MeenDeployPathRelease.cmake")
 
 project(${project_name} VERSION ${major}.${minor}.${bugfix} LANGUAGES C CXX ASM)
 set(CMAKE_CXX_STANDARD 23)
@@ -115,7 +118,16 @@ if(${build_os} STREQUAL "baremetal")
     set(${project_name}_deps ${${project_name}_deps} pico_stdlib hardware_dma hardware_spi hardware_gpio hardware_pio hardware_pwm)
   endif()
 else()
-  if(${enable_framework} STREQUAL "sdl")
+  if(${enable_framework} STREQUAL "qt")
+    find_package(Qt6 REQUIRED COMPONENTS Quick QuickControls2 GuiPrivate)
+    #qt_policy(SET QTP0001 NEW)
+    qt_policy(SET QTP0004 NEW)
+
+    set(${project_name}_include_files ${${project_name}_include_files} include/meen_i8080_arcade/io_controllables/QT6IO.h include/meen_i8080_arcade/io_controllables/QT6IODisplay.h include/meen_i8080_arcade/io_controllables/QT6IOTexture.h)
+    set(${project_name}_source_files ${${project_name}_source_files} source/io_controllables/QT6IO.cpp source/io_controllables/QT6IODisplay.cpp source/io_controllables/QT6IOTexture.cpp)
+    set(${project_name}_qml_files source/io_controllables/QT6IOMain.qml)
+    set(${project_name}_deps ${${project_name}_deps} Qt6::Quick Qt6::QuickControls2 Qt6::GuiPrivate)
+  elseif(${enable_framework} STREQUAL "sdl")
     find_package(SDL2 REQUIRED)
     set(${project_name}_include_files ${${project_name}_include_files} include/meen_i8080_arcade/io_controllables/SDL2IO.h)
     set(${project_name}_source_files ${${project_name}_source_files} source/io_controllables/SDL2IO.cpp)
@@ -123,11 +135,18 @@ else()
   endif()
 endif()
 
-add_executable(${project_name}
-  ${${project_name}_include_files}
-  ${${project_name}_source_files}
-  ${${project_name}_resource_files}
-)
+if(${enable_framework} STREQUAL "qt")
+  qt_standard_project_setup(REQUIRES 6.5)
+  qt_add_executable(${project_name} ${${project_name}_include_files} ${${project_name}_source_files} ${${project_name}_resource_files})
+  qt_add_qml_module(${project_name}
+    URI ${project_name}
+    VERSION ${major}.${minor}.${bugfix}
+    QML_FILES
+      ${${project_name}_qml_files}
+  )
+else()
+  add_executable(${project_name} ${${project_name}_include_files} ${${project_name}_source_files} ${${project_name}_resource_files})
+endif()
 
 if(DEFINED MSVC)
     set_target_properties(${project_name} PROPERTIES VS_DEBUGGER_COMMAND_ARGUMENTS "\"${CMAKE_SOURCE_DIR}/conf/config.json\"")
@@ -234,20 +253,54 @@ if(NOT DEFINED MSVC)
   endif()
 endif()
 
-if(DEFINED meenBinDir)
-    install(DIRECTORY ${meenBinDir}/ DESTINATION lib FILES_MATCHING PATTERN "*${soExt}*")
+set(MEEN_BIN_DIR "$<$<CONFIG:Debug>:${MEEN_BIN_DIR_DEBUG}>$<$<CONFIG:Release>:${MEEN_BIN_DIR_RELEASE}>")
+set(MEENHW_BIN_DIR "$<$<CONFIG:Debug>:${MEENHW_BIN_DIR_DEBUG}>$<$<CONFIG:Release>:${MEENHW_BIN_DIR_RELEASE}>")
+set(ZLIB_BIN_DIR "$<$<CONFIG:Debug>:${ZLIB_BIN_DIR_DEBUG}>$<$<CONFIG:Release>:${ZLIB_BIN_DIR_RELEASE}>")
+set(SDL_BIN_DIR "$<$<CONFIG:Debug>:${SDL_BIN_DIR_DEBUG}>$<$<CONFIG:Release>:${SDL_BIN_DIR_RELEASE}>")
+set(QT_ROOT_DIR "$<$<CONFIG:Debug>:${QT_ROOT_DIR_DEBUG}>$<$<CONFIG:Release>:${QT_ROOT_DIR_RELEASE}>")
+
+if(DEFINED MEEN_BIN_DIR)
+    install(DIRECTORY ${MEEN_BIN_DIR}/ DESTINATION lib FILES_MATCHING PATTERN "*${soExt}*")
 endif()
 
-if(DEFINED meenHwBinDir)
-    install(DIRECTORY ${meenHwBinDir}/ DESTINATION lib FILES_MATCHING PATTERN "*${soExt}*")
+if(DEFINED MEENHW_BIN_DIR)
+    install(DIRECTORY ${MEENHW_BIN_DIR}/ DESTINATION lib FILES_MATCHING PATTERN "*${soExt}*")
 endif()
 
-if(DEFINED sdlBinDir)
-    install(DIRECTORY ${sdlBinDir}/ DESTINATION lib FILES_MATCHING PATTERN "*${soExt}*")
+if(DEFINED ZLIB_BIN_DIR)
+    install(DIRECTORY ${ZLIB_BIN_DIR}/ DESTINATION lib FILES_MATCHING PATTERN "*${soExt}*")
 endif()
 
-if(DEFINED zlibBinDir)
-    install(DIRECTORY ${zlibBinDir}/ DESTINATION lib FILES_MATCHING PATTERN "*${soExt}*")
+if(${enable_framework} STREQUAL "qt")
+  if(DEFINED QT_ROOT_DIR)
+    install(DIRECTORY "${QT_ROOT_DIR}/bin" 
+      DESTINATION lib
+      FILES_MATCHING
+        PATTERN "Qt6Core*.${soExt}"
+        PATTERN "Qt6Gui*.${soExt}"
+        PATTERN "Qt6Network*.${soExt}"
+        PATTERN "Qt6OpenGL*.${soExt}"
+        PATTERN "Qt6Qml*.${soExt}"
+        PATTERN "Qt6Quick*.${soExt}"
+    )
+
+    install(DIRECTORY "${QT_ROOT_DIR}/plugins/platforms"
+      DESTINATION libs
+      FILES_MATCHING
+        PATTERN "qwindows*.${soExt}" # TODO: need to differentiate the platform shared library here for linux, etc
+    )
+
+    # TODO: is this right? - we need to copy our qml files .... these are coming from the framework root dir
+    #install(DIRECTORY "${QT_ROOT_DIR}/qml"
+    #  DESTINATION lib
+    #)
+  endif()
+endif()
+
+if(${enable_framework} STREQUAL "sdl")
+  if(DEFINED SDL_BIN_DIR)
+      install(DIRECTORY ${SDL_BIN_DIR}/ DESTINATION lib FILES_MATCHING PATTERN "*${soExt}*")
+  endif()
 endif()
 
 if(NOT DEFINED WIN32)
