@@ -1,9 +1,12 @@
 1.2.0
 
 * Moved all common code used by all controllers
-  to a base template io controller class.
+  to a base template io controller class and
+  defined an io controllable concept.
 * Added an SDL2IO controllable which replaces
   the old SdlIoController.
+* Added a PicoIO controllable which replaces
+  the old RpIoController. 
 * Added an empty io controllable called `BlankIO`
   which can be used as a template for future
   io controllable implementations.

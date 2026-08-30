@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2021-2025 Nicolas Beddows <nicolas.beddows@gmail.com>
+Copyright (c) 2021-2026 Nicolas Beddows <nicolas.beddows@gmail.com>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -290,6 +290,18 @@ namespace meen_i8080_arcade
             @param  frame       The arcade surface to blit to.
         */
         void UpdateAndBlitMetadata(uint64_t currTime, std::vector<uint8_t>* frame);
+
+        /** Render border and credits
+        
+            Blit a border around the drawable vram portion of the frame pool frames
+            and the frames themselves.
+            Blit the credits to the top of each frame makeing sure NOT to overwrite the
+            vram portion of the frame.
+
+            @param  frame       The arcade surface to blit to.
+            
+        */
+        void BlitBorderAndCredits(std::vector<uint8_t>* frame);
 
         /** Obtain the current ram usage for the application
 

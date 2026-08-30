@@ -27,10 +27,12 @@ SOFTWARE.
 
 #include <algorithm>
 #include <ArduinoJson.h>
+#include <atomic>
 #include <bit>
 #include <bitset>
 #include <charconv>
 #include <concepts>
+#include <cstring>
 #include <string>
 #include <system_error>
 #include <variant>
@@ -43,91 +45,110 @@ SOFTWARE.
 namespace meen_i8080_arcade
 {
     /** IO Controllable concept
-    
+
         The rules that an io controllable must adhere to in order to be valid.
 
         An IO Controllable MUST implement the methods defined in the
         IOControllable concept.
     */
     template<class T>
-    concept IOControllable = requires(T ioc, const int32_t* audioFrame, uint64_t audioFrameTimestamp, const uint8_t* videoFrame, uint64_t videoFrameTimestamp,
-                                      const std::string& error, bool clearDisplay, int width, int height, int fullscreen, int bpp, int textureWidth,
-                                      int textureHeight, int sampleRate, int channels, int sampleSize, uint8_t** dst, int* dstRowBytes, Screen curr, Screen next)
+    concept IOControllable = requires(T ioc, const int32_t* audioFrame, int audioFrameSize, uint64_t audioFrameTimestamp, int scanlineStart,
+                                      int numScanlines, int* scanlinesToRender, uint64_t videoFrameTimestamp, const std::string& error,
+                                      BoundingBox&& rect, int width, int height, int fullscreen, int bpp, int textureWidth, int textureHeight,
+                                      int sampleRate, int channels, int sampleSize, uint8_t** dst, int* dstRowBytes, Screen curr, Screen next)
     {
+
+        /** One time callback registration
+
+            This method is registered with MEEN who will invoke it on a thread determined
+            by the MEEN `runAsync` configuration parameter.
+        */
+        { T::Init() } -> std::same_as<void>;
+
         /** Render audio frame
-        
+
             Called when an audio frame is ready to be rendered.
         */
-        { ioc.RenderAudioFrame(audioFrame, audioFrameTimestamp) } -> std::same_as<std::errc>;
+        { ioc.RenderAudioFrame(audioFrame, audioFrameSize, audioFrameTimestamp) } -> std::same_as<std::errc>;
+
+        /** Start video frame rendering
+
+            Called when a new frame is ready to be rendered.
+            The callee fills the dst and dstRowBytes pts with the frame buffer from scanlineStart for numScanlines
+        */
+        { ioc.GetVideoFrameBuffer(dst, dstRowBytes, scanlineStart, numScanlines) } -> std::same_as<std::errc>;
 
         /** Render video frame
-        
+
             Called when a video frame is ready to be rendered.
+
+            scanline: the start of the target row to be rendered to.
+            numScanlines: the number of row to render.
         */
-        { ioc.RenderVideoFrame(videoFrame, videoFrameTimestamp) } -> std::same_as<std::errc>;
- 
+        { ioc.RenderVideoFrame(scanlineStart, numScanlines, videoFrameTimestamp) } -> std::same_as<std::errc>;
+
+        /** End video frame rendering
+
+            Signal to the renderer that the frame rendering is done and can be displayed.
+        */
+        { ioc.DisplayVideoFrame(videoFrameTimestamp) } -> std::same_as<std::errc>;
+
         /** Render error string
-        
+
             Called when an error has been encountered.
         */
         { ioc.RenderErrorString(error) } -> std::same_as<std::errc>;
 
         /** Clear display
-        
+
             Called when the display needs to be cleared.
         */
-        { ioc.ClearDisplay(clearDisplay) } -> std::same_as<std::errc>;
+        { ioc.ClearDisplay(std::move(rect)) } -> std::same_as<std::errc>;
 
         /** UUID
-        
+
             Called when the uuid is required.
         */
         { ioc.Uuid() } -> std::same_as<std::array<uint8_t, 16>>;
 
         /** Video device configuration
-        
+
             Called when the video device needs to be configured.
         */
         { ioc.ConfigureVideoDevice(width, height, fullscreen) } -> std::same_as<std::errc>;
 
         /** Audio device configuration
-        
+
             Called when the audio device needs to be configured.
         */
         { ioc.ConfigureAudioDevice(sampleRate, channels, sampleSize) } -> std::same_as<std::errc>;
 
         /** Peripheral device configuration
-        
+
             Called when peipheral devices need to be configured.
         */
         { ioc.ConfigurePeripheralDevice() } -> std::same_as<std::errc>;
 
         /** Audio sample loading
-        
+
             Called when audio samples need to be loaded.
         */
         { ioc.LoadAudioSamples(sampleRate, channels, sampleSize) } -> std::same_as<std::errc>;
 
         /** Video sample loading
-        
+
             Called when video textures need to be loaded.
         */
-        { ioc.LoadVideoTextures(bpp, textureWidth, textureHeight) } -> std::same_as<std::errc>;
-
-        /** Get texture buffer
-        
-            Called when the current texture buffer is required.
-        */
-        { ioc.GetTextureBuffer(dst, dstRowBytes) } -> std::same_as<std::errc>;
+        { ioc.LoadVideoTextures(bpp, textureWidth, textureHeight, scanlinesToRender) } -> std::same_as<std::errc>;
 
         /** Screen transition
-        
+
             Called when the screen changes from one type to another.
         */
-        { ioc.ScreenTransition(curr, next) } -> std::same_as<void>;
+        { ioc.ScreenTransition(curr, next) } -> std::same_as<std::errc>;
 
         /** Peripheral device reading
-        
+
             Called when the peripheral device needs to be read.
         */
         { ioc.ReadPeripheralDevice() } -> std::same_as<uint32_t>;
@@ -138,7 +159,7 @@ namespace meen_i8080_arcade
     {
 private:
         /** Custom IO Controllable
-        
+
             A controller that adheres to the IOControllable concept that allows the base IOController to
             target different frameworks.
         */
@@ -149,14 +170,14 @@ private:
             @remark    A frame templated with uint8_t is a video frame taken from video ram.
             @remark    A frame templated with int32_t is a video frame duration worth of mixed audio samples (signed 16 bit stereo).
         */
-        template<class T>
+        template<class F>
         struct Frame
         {
             /** Audio/Video frame
 
                 Video frames belong to the memory controller frame pool and audio frames belong to the audio frame pool.
             */
-            meen_hw::MH_ResourcePool<std::vector<T>>::ResourcePtr bitstream;
+            meen_hw::MH_ResourcePool<std::vector<F>>::ResourcePtr bitstream;
 
             /** Time stamp
 
@@ -268,12 +289,14 @@ private:
 
             A using directve for ease of use. This will hold the active event data to be processed.
 
-            std::string:     The application has encountered and error.
-            bool:            True to clear the vram area of the display, false otherwise.
-            Frame<int32_t>:  The next audio frame is ready to be rendered. This is a video frame duration worth of samples.
-            Frame<uint8_t>:  The next video frame is ready to be rendered. This event drives the control loop.
+            std::string:      The application has encountered and error.
+            BoundingBox:      Rectangular area of the screen to clear.
+            ScreenTransition: The screen state change goind from the current screen to the next screen.
+            Frame<int32_t>:   The next audio frame is ready to be rendered. This is a video frame duration worth of samples.
+            Frame<uint8_t>:   The next video frame is ready to be rendered. This event drives the control loop.
         */
-        using EventData = std::variant<std::string, bool, Frame<int32_t>, Frame<uint8_t>>;
+
+        using EventData = std::variant<std::string, ScreenTransition, BoundingBox, Frame<int32_t>, Frame<uint8_t>>;
 
         /** Event data queue
 
@@ -323,7 +346,7 @@ private:
         std::atomic_int romIndex_{};
 
         /** User input
-        
+
             The user input represents to possible actions that can be taken by the user. Certain inputs are only
             valid in certain screens of the emulation. The `Input` enumeration in `IOControllerTypes.h` describes
             all the supported inputs.
@@ -333,11 +356,10 @@ private:
             @see Input
         */
         std::atomic_int input_{};
-        
-        /** Previous user input
-        
-            This the previous value of the last sampled values of `input_`.
 
+        /** Previous user input
+
+            This the previous value of the last sampled values of `input_`.
         */
         int lastInput_{};
 
@@ -362,13 +384,13 @@ private:
         Screen screen_{};
 
         /** The audio hardware output sample rate
-        
+
             This is set via the audio hardware section of the configuration file.
         */
         int sampleRate_{};
 
         /** The audio hardware output channel count
-        
+
             This is set via the audio hardware section of the configuration file.
 
             @remark    Only a value of 2 (stereo) is supported.
@@ -376,13 +398,13 @@ private:
         int channels_{};
 
         /** The width of the output display
-        
+
             This is set via the video hardware section of the configuration file.
         */
         int width_{};
 
         /** The height of the output display
-        
+
             This is set via the audio hardware section of the configuration file.
         */
         int height_{};
@@ -390,10 +412,10 @@ private:
         /** Fullscreen output
 
             This is set via the audio hardware section of the configuration file.
-            
+
             True to run the emulation at fullscreen, false otherwise.
 
-            @remark    This option won't be valid certain platforms
+            @remark    This option won't be valid on certain platforms.
         */
         bool fullscreen_{};
 
@@ -402,15 +424,24 @@ private:
             The value is used for texture memory allocation for rendering onto the output display.
         */
         int textureWidth_{};
-        
+
         /** The height of the uncompressed video ram
 
             The value is used for texture memory allocation for rendering onto the output display.
         */
         int textureHeight_{};
 
+        /** Render the frame in scanlines
+
+            The number of scanlines to render at a time.
+
+            @remark     A value of 1 would render out the frame scanline at a time.
+                        A value of the texture height would do full frame rendering.
+        */
+        int scanlinesToRender_{};
+
         /** Add an event to the event queue
-        
+
             This method is thread safe and will notify the condition
             variable when the event is added so any witing threads can
             process the new event.
@@ -423,7 +454,7 @@ private:
             {
                 {
                     meen_hw::MH_LockGuard lg(eventQMutex_);
-                    
+
                     if (eventQ_.size() < 5)
                     {
                         eventQ_.emplace_back(std::move(eventData));
@@ -524,8 +555,6 @@ public:
 
                     if (input & Input::QuitRom)
                     {
-                        ioController_.ScreenTransition(screen_, Screen::RomSelect);
-                        
                         // Clear all queued chunks and reset chunk->samples to -1
                         while (audioMixChunks_.empty() == false)
                         {
@@ -557,19 +586,23 @@ public:
                             }
                         }
 
-                        screen_ = Screen::RomSelect;
-
                         // This method will ensure that all video frames are returned to the memory controller
                         // frame pool before clearing them.
-                        static_cast<MemoryController*>(memoryController)->Clear(backBuffer_.get());
+                        static_cast<MemoryController*>(memoryController)->Clear(backBuffer_ ? backBuffer_.get() : nullptr);
 
-                        AddEventToQueue(true);
+                        // Clear the screen to black
+                        AddEventToQueue(BoundingBox{ 0, 0, textureWidth_, textureHeight_ });
+
+                        // Transition the screen to rom select
+                        AddEventToQueue(ScreenTransition{ screen_, Screen::RomSelect });
+
+                        screen_ = Screen::RomSelect;
                     }
                     else
                     {
                         if (port == 1)
                         {
-                            ret = 0x08; 
+                            ret = 0x08;
                             ret |= ((input & Input::Credit) != 0) * 0x01; // Credit
                             ret |= ((input & Input::OnePlayer) != 0) * 0x04; // 1P
                             ret |= ((input & Input::TwoPlayer) != 0) * 0x02; // 2P
@@ -613,7 +646,7 @@ public:
 
             @remark                     Chunks will be mixed and sent out in video frame duration
                                         sample sizes when the meen::ISR::Two interrupt is triggered
-                                        in the `GenerateInterrupts` method. 
+                                        in the `GenerateInterrupts` method.
         */
         void Write(uint16_t port, uint8_t data, [[maybe_unused]] meen::IController* memoryController) final
         {
@@ -852,7 +885,7 @@ public:
                 {
                     return eventQ_.empty() == false;
                 });
-                
+
                 eventData = std::move(eventQ_.front());
                 eventQ_.pop_front();
             }
@@ -873,9 +906,27 @@ public:
 
             return std::visit(overloaded
 		    {
-                [this](bool clearDisplay)
+                [this](ScreenTransition& st)
                 {
-                    return ioController_.ClearDisplay(clearDisplay) != std::errc{};
+                    return ioController_.ScreenTransition(st.current, st.next) != std::errc{};
+                },
+                [this](BoundingBox& rect)
+                {
+                    // Clear the back buffer, the remaining memory controller frame pool frames will be cleared at this point
+                    if (backBuffer_)
+                    {
+                        // The back buffer is compressed: TODO - need to generalise this compression, some will be compressed at different ratios, some not
+                        int cw = rect.w >> 3;
+
+                        for (int y = rect.y; y < rect.h; y++)
+                        {
+                            int offset = rect.x + y * cw;
+                            std::ranges::fill(backBuffer_->begin() + offset, backBuffer_->begin() + offset + cw, 0x00);
+                        }
+                    }
+
+                    // Clear the display device
+                    return ioController_.ClearDisplay(std::move(rect)) != std::errc{};
                 },
                 [this](const std::string& error)
 			    {
@@ -883,7 +934,7 @@ public:
                 },
 			    [this](Frame<int32_t>& audioFrame)
 			    {
-                    return ioController_.RenderAudioFrame(audioFrame.bitstream->data(), audioFrame.timestamp) != std::errc{};
+                    return ioController_.RenderAudioFrame(audioFrame.bitstream->data(), audioFrame.bitstream->size(), audioFrame.timestamp) != std::errc{};
                     // frame.bitstream = nullptr ... or not
                 },
 			    [this](Frame<uint8_t>& videoFrame)
@@ -925,7 +976,7 @@ public:
                     auto scrollIndex = [this, input, &noRepeatInput](Input i, int dir)
                     {
                         int romIndex = romIndex_;
-                            
+
                         if(noRepeatInput(i) == true)
                         {
                             romIndex = (romIndex + dir) % romCount_;
@@ -943,22 +994,58 @@ public:
                     romIndex_ = scrollIndex(Input::NextRom, -1);
                     lastInput_ = input;
 
-                    // Do the video rendering
-
                     uint8_t* dst = nullptr;
                     int dstRowBytes = 0;
-                    ioController_.GetTextureBuffer(&dst, &dstRowBytes);
-                    i8080ArcadeIO_->BlitVRAM(std::span(dst, textureHeight_ * dstRowBytes), textureWidth_, dstRowBytes, std::span(*(videoFrame.bitstream.get())), MemoryController::frameWidth);
-                    // Release the video frame bitstream immediately back to the memory controller frame pool
-                    videoFrame.bitstream = nullptr;
-                    
-                    return ioController_.RenderVideoFrame(dst, videoFrame.timestamp) != std::errc{};                    
+                    uint8_t* bb = nullptr;
+                    auto vf = videoFrame.bitstream.get()->data();
+
+                    if (backBuffer_ != nullptr)
+                    {
+                        bb = backBuffer_.get()->data();
+                    }
+
+                    int compressedBytes = (textureWidth_ >> 3) * scanlinesToRender_;
+
+                    for (int i = 0; i < textureHeight_; i += scanlinesToRender_)
+                    {
+                        if (bb == nullptr || std::memcmp(bb, vf, compressedBytes) != 0)
+                        {
+                            ioController_.GetVideoFrameBuffer(&dst, &dstRowBytes, i, scanlinesToRender_);
+                            i8080ArcadeIO_->BlitVRAM(std::span<uint8_t>(dst, scanlinesToRender_ * dstRowBytes), textureWidth_, dstRowBytes, std::span<uint8_t>(vf, compressedBytes), MemoryController::frameWidth);
+                            // some io controllables may render to the display directly, others may need to have their frame presented to the display (see DisplayVideoFrame below)
+                            ioController_.RenderVideoFrame(i, scanlinesToRender_, videoFrame.timestamp);
+                        }
+
+                        if (bb != nullptr)
+                        {
+                            bb += compressedBytes;
+                        }
+
+                        vf += compressedBytes;
+                    }
+
+                    // Some io controllables may have an internal buffering system which may require the frame to be displayed, ie; flipped onto the presentation display
+                    auto ret = ioController_.DisplayVideoFrame(videoFrame.timestamp) != std::errc{};
+
+                    if (backBuffer_ != nullptr)
+                    {
+                        // We are done, move the video frame to the back buffer.
+                        // This will return the previous back buffer to the memory controller frame pool.
+                        backBuffer_ = std::move(videoFrame.bitstream);
+                    }
+                    else
+                    {
+                        // Release the video frame bitstream immediately back to the memory controller frame pool
+                        videoFrame.bitstream = nullptr;
+                    }
+
+                    return ret;
                 }
 		    }, eventData);
         }
 
         /** Process the error string.
-        
+
             @param    errorMsg    The generated error message.
         */
         void HandleError(std::string&& errorMsg)
@@ -967,12 +1054,13 @@ public:
         }
 
         /** Perfom post load actions
-        
+
             Once a rom has been successfully loaded, this method will be called.
         */
         meen::errc HandleLoadComplete()
         {
-            ioController_.ScreenTransition(screen_, Screen::Gameplay);
+            // Transition the screen to gameplay
+            AddEventToQueue(ScreenTransition{ screen_, Screen::Gameplay });
 
             // We successfully loaded the rom, transition into gameplay.
             screen_ = Screen::Gameplay;
@@ -1024,15 +1112,30 @@ public:
                 return std::make_error_code(std::errc::io_error);
             }
 
-            if (videoTextures["orientation"] != nullptr && videoTextures["orientation"].as<std::string>() == "upright")
+            bool upright = videoTextures["orientation"] != nullptr && videoTextures["orientation"].as<std::string>() == "upright";
+
+            if (upright == true)
             {
                 textureWidth ^= textureHeight ^= textureWidth ^= textureHeight;
+            }
+
+            err = std::make_error_code(ioController_.LoadVideoTextures(videoTextures["bpp"], textureWidth, textureHeight, &scanlinesToRender_));
+
+            if (scanlinesToRender_ <= 0 || scanlinesToRender_ > textureHeight)
+            {
+                return std::make_error_code(std::errc::result_out_of_range);
+            }
+
+            // NOTE: NON FULLFRAME RENDERING ONLY WORKS IN COCKTAIL MODE
+            if (upright == true && scanlinesToRender_ != textureHeight)
+            {
+                return std::make_error_code(std::errc::not_supported);
             }
 
             textureWidth_ = textureWidth;
             textureHeight_ = textureHeight;
 
-            return std::make_error_code(ioController_.LoadVideoTextures(videoTextures["bpp"], textureWidth, textureHeight));
+            return err;
         }
 
         /** Load Audio Samples
@@ -1263,7 +1366,7 @@ public:
         };
 
         /** Absolute save file path
-        
+
             Constructs the path to save the machine state to.
 
             @param    jsonRoms        The list of supported roms.
@@ -1271,7 +1374,7 @@ public:
             @param    uri             A buffer supplied by the caller to write the final path to.
             @param    uriLen          The length in bytes of uri parameter. The final length of
                                       of the uri parameter will be written to uriLen.
-                                      
+
             @return                   A meen::errc denoting the success of the path write.
         */
         meen::errc GetSaveUri(const std::vector<std::pair<std::string, std::string>>& jsonRoms, const std::string& saveFilePath, char* uri, int* uriLen) //change to std::span
@@ -1281,7 +1384,7 @@ public:
         }
 
         /** The path to the rom to load
-        
+
             The path is determined by whether or not a rom is being loaded or a save state. For rom loading
             the rom path will be used, otherwise the save directory will be used.
 
@@ -1290,7 +1393,7 @@ public:
             @param    uri             A buffer supplied by the caller to write the final path to.
             @param    uriLen          The length in bytes of uri parameter. The final length of
                                       of the uri parameter will be written to uriLen.
-                                      
+
             @return                   A meen::errc denoting the success of the path write.
         */
         meen::errc GetLoadUri(const std::vector<std::pair<std::string, std::string>>& jsonRoms, const std::string& saveFilePath, char* uri, int* uriLen) //change to std::span

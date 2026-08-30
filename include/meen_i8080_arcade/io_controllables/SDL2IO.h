@@ -101,6 +101,15 @@ namespace meen_i8080_arcade
 			*/
 			~SDL2IO();
 
+            /** One time callback registration
+
+                This method is registered with MEEN who will invoke it on a thread determined
+                by the MEEN `runAsync` configuration parameter.
+
+				@remark		This method is a no-op for this controllable.
+            */
+            static void Init() {};
+
 			/** Video Device setup
 			
 				Configure the SDL video subsystem in order to render video frames.
@@ -145,24 +154,53 @@ namespace meen_i8080_arcade
 			
 				Use SDL_QueueAudio API to deliver the next audio frame to the speaker.
 
-				@param    audioFrame    The next audio frame to render. The format of the
-				                        output audio frame will always be 8 bit stereo.
-				@param    timstamp      Not used.
+				@param    audioFrame        The next audio frame to render. The format of the
+				                            output audio frame will always be 8 bit stereo.
+				@param    audioFrameSize    The length of the audio frame in bytes.
+				@param    timstamp          Not used.
 
-				@return                 A std::errc indicating success or failure.
+				@return                     A std::errc indicating success or failure.
 			*/
-			std::errc RenderAudioFrame(const int32_t* audioFrame, uint64_t timestamp);
+			std::errc RenderAudioFrame(const int32_t* audioFrame, int audioFrameSize, uint64_t timestamp);
             
+			/** Start the video frame rendering process.
+
+				Lock the SDL_Texture buffer and return the raw buffer for blitting.
+
+				@param    dst            A pointer to the raw texture buffer that was configured
+									     in `ConfigureVideoDevice`.
+				@param    rowBytes       The number of bytes in each scanline of the raw texture
+									     buffer pointed to by dst.
+				@param    scanlineStart  The row number in the texture buffer to set the dst pointer to.
+				@param    numScanlines   The number of scanlines that the dst pointer refers to.
+
+				@return                  A std::errc indicating success or failure.
+
+				@remark                  Must be paired with a call to EndVideoFrame
+			*/
+			std::errc GetVideoFrameBuffer(uint8_t** dst, int* dstRowBytes, int scanlineStart, int numScanlines) const;
+
 			/** Render the next video frame.
 			
 			    Unlock the SDL texture and present the texture for display to the screen.
 
-				@param    videoFrame    The next video frame to blit.
-				@param    timestamp     Not used.
+				@param    scanlineStart       The row to start renderering from.
+				@param    numScanlines        The number of scanlnes to render.
+				@param    timestamp           Not used.
 
-				@return                 A std::errc indicating success or failure.
+				@return                       A std::errc indicating success or failure.
+
+				@remark              Must be paired with a call to GetVideoFrameBuffer
 			*/
-			std::errc RenderVideoFrame(const uint8_t* videoFrame, uint64_t timestamp);
+			std::errc RenderVideoFrame(int scanlineStart, int numScanlines, uint64_t timestamp);
+
+			/** End the video frame rendering process.
+
+                Indicate to SDL2 that this frame has finished drawing and can be presented to the display.
+
+				@param    timestamp           Not used.
+			*/
+			std::errc DisplayVideoFrame(uint64_t timestamp);
 
 			/** Print an error message
 			
@@ -173,16 +211,16 @@ namespace meen_i8080_arcade
 				@return            A std::errc indicating success or failure.
 			*/
 			std::errc RenderErrorString(const std::string& error);
-			
+
 			/** Clear the display
 			
-			    This method is currently not used.
+			    Clear the screen within a bounding box to black.
 
-				@param    clearDisplay    Not used.
+				@param    rect    The section of the screen to clear.
 
-				@return                   Always returns std::errc{}.
+				@return            Always returns std::errc{}.
 			*/
-			std::errc ClearDisplay(bool clearDisplay);
+			std::errc ClearDisplay(BoundingBox&& rect);
 			
 			/** Read user input
 			
@@ -194,19 +232,6 @@ namespace meen_i8080_arcade
 				@sa        IOControllerTypes.h
 			*/
 			uint32_t ReadPeripheralDevice();
-
-			/** SDL_Texture buffer
-			
-			    Lock the SDL_Texture buffer and return the raw buffer for blitting.
-
-				@param    dst        A pointer to the raw texture buffer that was configured
-				                     in `ConfigureVideoDevice`.
-				@param    rowBytes   The number of bytes in each scanline of the raw texture
-				                     buffer pointed to by dst.
-
-				@return              A std::errc indicating success or failure.
-			*/
-			std::errc GetTextureBuffer(uint8_t** dst, int* dstRowBytes) const;
 			
 			/** Perform required tasks when the screen is updated.
 			
@@ -216,7 +241,7 @@ namespace meen_i8080_arcade
 				@param    curr    The screen that we are on and are about to leave.
 				@param    next    The screen that we are moving to.
 			*/
-			void ScreenTransition(Screen curr, Screen next);
+			std::errc ScreenTransition(Screen curr, Screen next);
 
 			/** Perform any actions once the audio samples are loaded.
 			
@@ -237,10 +262,13 @@ namespace meen_i8080_arcade
 				@param    bpp            The bit depth of the texture to create. Only 8 and 16 bit is supported.
 				@param    textureWidth   The width of the texture to create.
 				@param    textureHeight  The height of the texture to create.
+				@param    numScanlines   The number of scanlines that should be rendered in one pass.
+				                         For SDL2 this should be set to the texture height (full frame rendering).
+										 Setting it to any other value may cause issues with rendering performance.
 			
 				@return                  A std::errc indicating success or failure.
 			*/
-			std::errc LoadVideoTextures(int bpp, int textureWidth, int textureHeight);
+			std::errc LoadVideoTextures(int bpp, int textureWidth, int textureHeight, int* numScanlines);
 	};
 } // namespace meen_i8080_arcade
 

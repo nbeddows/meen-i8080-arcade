@@ -40,7 +40,7 @@ while(value)\
 
 #include <pico/stdlib.h>
 
-#include "meen_i8080_arcade/RPIoController.h"
+#include "meen_i8080_arcade/io_controllables/PicoIO.h"
 
 extern uint8_t invadersHStart;
 extern uint8_t invadersHEnd;
@@ -120,6 +120,10 @@ extern uint8_t mvt4End;
 
 extern char rpConfigStart;
 extern char rpConfigEnd;
+
+
+#define IOCONTROLLABLE PicoIO
+
 #else
 /*
  Print out the error message and exit
@@ -311,14 +315,35 @@ int main(int argc, char** argv)
 		machine->AttachIoController(meen::IControllerPtr(std::move(ioController)));
 		machine->AttachMemoryController(meen::IControllerPtr(std::move(memoryController)));
 
+/*
+	If you want to perform the one time initialisation on the machine thread you need to define
+	IOC_INIT_ON_MACHINE_THREAD. By default it is undefined as this is what this example application
+	requires.
+	When the `runAsync` parameter is set to false both methods of initialisation will run off the 
+	main thread.
+*/
+#ifdef IOC_INIT_ON_MACHNE_THREAD
 		//cppcheck-suppress constParameterPointer
-		machine->OnInit([](meen::IController* ioController)
+		machine->OnInit([]([[maybe_unused]] meen::IController* ioController)
 		{
-#ifdef ENABLE_MH_RP2040
-			RPIoController::Init();
-#endif // ENABLE_MH_RP2040
+			/*
+				TODO:
+					1. This concept needs to return a meen::errc
+					2. The Init method should proabably accept ioController instance??
+
+					meen::errc IOCONTROLLABLE::Init(IOCONTROLLABLE* ioController);
+			*/
+			IOCONTROLLABLE::Init();
+
 			return meen::errc::no_error;
 		});
+#else
+		// While performing the initialisation like this will suffice, it would be better to have IMachine do it from its run loop before it launches the machine thread
+		// This would mean adding a json config option to IMachine settings to tell it how to initialise ("init_on_main_thread":true (by default))
+
+		// Perform the one time initialisation on the main thread
+		IOCONTROLLABLE::Init();
+#endif /* IOC_INIT_ON_MACHINE_THREAD */
 
 		// Will be called from a different thread if the 'runAsync' or 'saveAsync' options are set to true.
 		machine->OnSave([&jsonRoms, &saveFilePath](char* uri, int* uriLen, meen::IController* ioController)
