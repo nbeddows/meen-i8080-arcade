@@ -120,6 +120,16 @@ else()
     set(${project_name}_include_files ${${project_name}_include_files} include/meen_i8080_arcade/io_controllables/SDL2IO.h)
     set(${project_name}_source_files ${${project_name}_source_files} source/io_controllables/SDL2IO.cpp)
     set(${project_name}_deps ${${project_name}_deps} SDL2::SDL2)
+  elseif(${enable_framework} STREQUAL "rtsp")
+    find_package(OpenH264 REQUIRED)
+
+    set(${project_name}_include_files ${${project_name}_include_files} include/meen_i8080_arcade/RTSPIO.h include/meen_i8080_arcade/RTPH264Encoder.h) 
+    set(${project_name}_source_files ${${project_name}_source_files} source/RTSPIO.cpp source/RTPH264Encoder.cpp)
+    set(${project_name}_deps ${${project_name}_deps} openh264::openh264)
+ 
+    if(DEFINED MSVC)
+      set(${project_name}_deps ${${project_name}_deps} Ws2_32)
+    endif()
   endif()
 endif()
 
