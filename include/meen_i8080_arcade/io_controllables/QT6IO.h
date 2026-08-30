@@ -57,8 +57,27 @@ namespace meen_i8080_arcade
             { Qt::Key::Key_Q, Input::Exit },
             { Qt::Key::Key_Down, Input::NextRom },
             { Qt::Key::Key_Up, Input::PreviousRom },
-            { Qt::Key::Key_Enter, Input::LoadRom },
-            { Qt::Key::Key_Return, Input::LoadRom }
+            { Qt::Key::Key_Enter, Input::SelectRom },
+            { Qt::Key::Key_Return, Input::SelectRom },
+            { Qt::Key::Key_Escape, Input::QuitRom },
+            { Qt::Key::Key_C, Input::Credit },
+            { Qt::Key::Key_1, Input::OnePlayer },
+            { Qt::Key::Key_2, Input::TwoPlayer },
+            { Qt::Key::Key_3, Input::ThreeShips },
+            { Qt::Key::Key_4, Input::FourShips },
+            { Qt::Key::Key_5, Input::FiveShips },
+            { Qt::Key::Key_6, Input::SixShips },
+            { Qt::Key::Key_T, Input::Tilt },
+            { Qt::Key::Key_E, Input::ExtraShip },
+            { Qt::Key::Key_I, Input::CoinInfo },
+            { Qt::Key::Key_A, Input::P1Left },
+            { Qt::Key::Key_S, Input::P1Fire },
+            { Qt::Key::Key_D, Input::P1Right },
+            { Qt::Key::Key_J, Input::P2Left },
+            { Qt::Key::Key_K, Input::P2Fire },
+            { Qt::Key::Key_L, Input::P2Right },
+            { Qt::Key::Key_R, Input::LoadRom },
+            { Qt::Key::Key_Y, Input::SaveRom }
         };
 
         std::unique_ptr<QGuiApplication> app_;
