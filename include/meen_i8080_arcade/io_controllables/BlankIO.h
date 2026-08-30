@@ -23,12 +23,13 @@ SOFTWARE.
 #ifndef BLANKIO_H
 #define BLANKIO_H
 
+#include <array>
 #include <system_error>
 /*
     Add additional includes here.
 */
 
-#include "meen_i8080_arcade/IOControllerTypes.h"
+#include "meen_i8080_arcade/io_controllables/IOControllerTypes.h"
 
 namespace meen_i8080_arcade
 {
@@ -60,6 +61,15 @@ namespace meen_i8080_arcade
             Free the various BlankIO controller objects.
         */
         ~BlankIO() = default;
+
+        /** One time callback registration
+
+            This method is registered with MEEN who will invoke it on a thread determined
+            by the MEEN `runAsync` configuration parameter.
+
+            @remark		This method is a no-op for this controllable.
+        */
+        static void Init() {};
 
         /** Video Device setup
 			
@@ -105,25 +115,53 @@ namespace meen_i8080_arcade
 
             Custom audio frame rendering
 
-            @param    audioFrame    The next audio frame to render
-            @param    timestamp     The timestamp at which to render the audio frame
-                                    in MEEN timescale units.
+            @param    audioFrame        The next audio frame to render.
+            @param    audioFrameSize    The length of the audio frame in bytes.
+            @param    timestamp         The timestamp at which to render the audio frame
+                                        in MEEN timescale units.
 
             @return    A std::errc indicating success or failure.
         */
-        std::errc RenderAudioFrame(const int32_t* audioFrame, uint64_t timestamp);
+        std::errc RenderAudioFrame(const int32_t* audioFrame, int audioFrameSize, uint64_t timestamp);
 
-        /** Render video frame
+        /** Start the video frame rendering process.
 
-            Custom video frame rendering.
+            Sets the frame buffer to render to.
 
-            @param    videoFrame    The next video frame to render.
-            @param    timestamp     The timestamp at which to render the video frame
-                                    in MEEN timescale units.
+            @param    dst                A pointer to the raw texture buffer that was configured
+                                         in `ConfigureVideoDevice`.
+            @param    rowBytes           The number of bytes in each scanline of the raw texture
+                                         buffer pointed to by dst.
+            @param    scanlineStart      The row number in the texture buffer to set the dst pointer to.
+            @param    numScanlines       The number of scanlines that the dst pointer refers to.
 
-            @return    A std::errc indicating success or failure.
+            @return                      A std::errc indicating success or failure.
+
+            @remark                      Must be paired with a call to EndVideoFrame
         */
-        std::errc RenderVideoFrame(const uint8_t* videoFrame, uint64_t timestmap);
+        std::errc GetVideoFrameBuffer(uint8_t** dst, int* dstRowBytes, int scanlineStart, int numScanlines) const;
+
+        /** Render the next video frame.
+
+            Indicate that this frame has finished drawing.
+
+            @param    scanlineStart       The row to start renderering from.
+            @param    numScanlines        The number of scanlnes to render.
+            @param    timestamp           Not used.
+
+            @return                       A std::errc indicating success or failure.
+
+            @remark                       Must be paired with a call to GetVideoFrameBuffer
+        */
+        std::errc RenderVideoFrame(int scanlineStart, int numScanlines, uint64_t timestamp);
+
+        /** End the video frame rendering process.
+
+            Indicate that this fram can be presented to the display.
+
+            @param    timestamp           Not used.
+        */
+        std::errc DisplayVideoFrame(uint64_t timestamp);
 
         /** Render error string
 
@@ -135,15 +173,15 @@ namespace meen_i8080_arcade
         */
         std::errc RenderErrorString(const std::string& error);
 
-        /** Clear the display.
+        /** Clear the display
 
-            Clear the BlankIO display
+            Clear the screen within the bounding box to black.
 
-            @param    clearDisplay    true to clear, false otherwise.
+            @param    rect     The section of the screen to clear.
 
-            @return    A std::errc indicating success or failure.
+            @return            Always returns std::errc{}.
         */
-        std::errc ClearDisplay(bool clearDisplay);
+        std::errc ClearDisplay(BoundingBox&& rect);
 
         /** Read from BlankIO device
 
@@ -173,8 +211,10 @@ namespace meen_i8080_arcade
 
             @param    curr    The current screen.
             @param    next    The screen that is being transitioned to.
+
+            @return           A std::errc indicating success or failure.
         */
-        void ScreenTransition(Screen curr, Screen next);
+        std::errc ScreenTransition(Screen curr, Screen next);
 
         /** Custom audio sample load
 
@@ -190,15 +230,16 @@ namespace meen_i8080_arcade
 
         /** Custom video texture load
 
-            Load custom video textures via BlankIO.
+            Sets the required texure properties.
 
-            @param    bpp             The bits per pixel of the texture to create.
-            @param    textureWidth    The width of the texture to create.
-            @param    textureHeight   The height of the texture to create.
+            @param    bpp            The bit depth of the texture to create.
+            @param    textureWidth   The width of the texture to create.
+            @param    textureHeight  The height of the texture to create.
+            @param    numScanlines   The number of scanlines that should be rendered in one pass.
 
-            @return    A std::errc indicating success or failure.
+            @return                  A std::errc indicating success or failure.
         */
-        std::errc LoadVideoTextures(int bpp, int textureWidth, int textureHeight);
+        std::errc LoadVideoTextures(int bpp, int textureWidth, int textureHeight, int* numScanlines);
 
         /*
         
