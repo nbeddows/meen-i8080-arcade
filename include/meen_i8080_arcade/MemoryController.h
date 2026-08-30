@@ -99,11 +99,12 @@ namespace meen_i8080_arcade
             ram frame pool for single/double/triple buffered video frames for
             optimised rendering.
 
+            @param      timescale           The ticks per second of the timestamps being passed into the Get*Frame methods.
             @param      jsonRoms            A vector of pairs with first being the rom name and second being the rom json configuration.
 
             @remark     The default frame pool size is 1.
         */
-        MemoryController(const std::vector<std::pair<std::string, std::string>>& jsonRoms);
+        MemoryController(double timescale, const std::vector<std::pair<std::string, std::string>>& jsonRoms);
 
         /** Destructor
 
@@ -217,6 +218,12 @@ namespace meen_i8080_arcade
             The offset from the beginning of the frame at which to blit the vram so that it is blitted in the middle of the frame.
         */
         static constexpr int centreOffset_{ (((frameHeight - vramHeight) / 2) * frameWidth) + ((frameWidth - vramWidth) / 2) };
+
+        /** Ticks per second
+
+            The ticks per second of the timestamps being passed into the Get*Frame methods, defaults to nanos.
+        */
+        double timescale_{ 1000000000 };
 
         /** Memory buffer
 
