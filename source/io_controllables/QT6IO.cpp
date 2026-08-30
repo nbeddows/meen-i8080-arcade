@@ -44,7 +44,11 @@ namespace meen_i8080_arcade
 
     std::errc QT6IO::ConfigureVideoDevice(int width, int height, int fullscreen)
     {
-        // TODO: check if app_, engine_ qtIODisplay are set, if so then return already initialised (errc::busy), need to do this for the other io controllables
+        // QT6 IO controller can only be successsfully configured once
+        if (app_ != nullptr && engine_ != nullptr && QT6IODisplay_ != nullptr)
+        {
+            return std::errc::operation_not_permitted;
+        }
 
         int argc = 0;
         char** argv = nullptr;
@@ -57,6 +61,7 @@ namespace meen_i8080_arcade
 
         engine_->loadFromModule("meen_i8080_arcade", "QT6IOMain");
 
+        // QT6IOMain module faile to load
         if (engine_->rootObjects().isEmpty() == true)
         {
             return std::errc::connection_aborted;
@@ -64,14 +69,16 @@ namespace meen_i8080_arcade
 
         auto* window = qobject_cast<QQuickWindow*>(engine_->rootObjects().constFirst());
 
+        // QML has no window declared
         if (window == nullptr)
         {
-            return std::errc::not_enough_memory;
+            return std::errc::not_connected;
         }
 
         // Grab the qml display so we can render frames to it
         QT6IODisplay_ = window->findChild<QT6IODisplay*>();
 
+        // QML has no QTIO6Display declared
         if (QT6IODisplay_ == nullptr)
         {
             return std::errc::not_connected;
@@ -146,6 +153,8 @@ namespace meen_i8080_arcade
 
     std::errc QT6IO::RenderErrorString(const std::string& error)
     {
+        printf("ERROR: %s\n", error.c_str());
+
         return std::errc{};
     }
 
@@ -154,7 +163,6 @@ namespace meen_i8080_arcade
         return std::errc{};
     }
 
-    // TODO: have a table that maps Qt::key to Input, then the mapping becomes a one liner
     void QT6IO::KeyPressed(Qt::Key key)
     {
         if (keyToInput_.contains(key) == true)
@@ -163,7 +171,6 @@ namespace meen_i8080_arcade
         }
     }
 
-    // TODO: have a table that maps Qt::key to Input, then the mapping becomes a one liner
     void QT6IO::KeyReleased(Qt::Key key)
     {
         if (keyToInput_.contains(key) == true)
