@@ -55,7 +55,7 @@ namespace meen_i8080_arcade
     concept IOControllable = requires(T ioc, const int32_t* audioFrame, int audioFrameSize, uint64_t audioFrameTimestamp, int scanlineStart,
                                       int numScanlines, int* scanlinesToRender, uint64_t videoFrameTimestamp, const std::string& error,
                                       BoundingBox&& rect, int width, int height, int fullscreen, int bpp, int textureWidth, int textureHeight,
-                                      int sampleRate, int channels, int sampleSize, uint8_t** dst, int* dstRowBytes, Screen curr, Screen next)
+                                      int sampleRate, int channels, int sampleSize, const uint8_t** dst, int* dstRowBytes, Screen curr, Screen next)
     {
 
         /** One time callback registration
@@ -994,7 +994,7 @@ public:
                     romIndex_ = scrollIndex(Input::NextRom, -1);
                     lastInput_ = input;
 
-                    uint8_t* dst = nullptr;
+                    const uint8_t* dst = nullptr;
                     int dstRowBytes = 0;
                     uint8_t* bb = nullptr;
                     auto vf = videoFrame.bitstream.get()->data();
@@ -1011,7 +1011,7 @@ public:
                         if (bb == nullptr || std::memcmp(bb, vf, compressedBytes) != 0)
                         {
                             ioController_.GetVideoFrameBuffer(&dst, &dstRowBytes, i, scanlinesToRender_);
-                            i8080ArcadeIO_->BlitVRAM(std::span<uint8_t>(dst, scanlinesToRender_ * dstRowBytes), textureWidth_, dstRowBytes, std::span<uint8_t>(vf, compressedBytes), MemoryController::frameWidth);
+                            i8080ArcadeIO_->BlitVRAM(std::span<uint8_t>(const_cast<uint8_t*>(dst), scanlinesToRender_ * dstRowBytes), textureWidth_, dstRowBytes, std::span<uint8_t>(vf, compressedBytes), MemoryController::frameWidth);
                             // some io controllables may render to the display directly, others may need to have their frame presented to the display (see DisplayVideoFrame below)
                             ioController_.RenderVideoFrame(i, scanlinesToRender_, videoFrame.timestamp);
                         }
