@@ -157,34 +157,18 @@ namespace meen_i8080_arcade
     // TODO: have a table that maps Qt::key to Input, then the mapping becomes a one liner
     void QT6IO::KeyPressed(Qt::Key key)
     {
-        switch (key)
+        if (keyToInput_.contains(key) == true)
         {
-            case Qt::Key_Q:
-            {
-                input_ |= Input::Exit;
-                break;
-            }
-            default:
-            {
-                break;
-            }
+            input_ |= keyToInput_[key];
         }
     }
 
     // TODO: have a table that maps Qt::key to Input, then the mapping becomes a one liner
     void QT6IO::KeyReleased(Qt::Key key)
     {
-        switch (key)
+        if (keyToInput_.contains(key) == true)
         {
-            case Qt::Key_Q:
-            {
-                input_ &= ~Input::Exit;
-                break;
-            }
-            default:
-            {
-                break;
-            }
+            input_ &= ~keyToInput_[key];
         }
     }
 } // namespace meen_i8080_arcade

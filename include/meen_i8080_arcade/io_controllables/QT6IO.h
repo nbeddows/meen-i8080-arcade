@@ -52,6 +52,15 @@ namespace meen_i8080_arcade
         void windowHeightChanged();
 
     private:
+        static inline std::unordered_map<Qt::Key, Input> keyToInput_ =
+        {
+            { Qt::Key::Key_Q, Input::Exit },
+            { Qt::Key::Key_Down, Input::NextRom },
+            { Qt::Key::Key_Up, Input::PreviousRom },
+            { Qt::Key::Key_Enter, Input::LoadRom },
+            { Qt::Key::Key_Return, Input::LoadRom }
+        };
+
         std::unique_ptr<QGuiApplication> app_;
         std::unique_ptr<QQmlApplicationEngine> engine_;
         uint32_t input_{};
