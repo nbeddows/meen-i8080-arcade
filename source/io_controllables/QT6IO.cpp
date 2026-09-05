@@ -107,26 +107,8 @@ namespace meen_i8080_arcade
         format.setChannelCount(channels);
         format.setSampleFormat(QAudioFormat::Int16);
 
-        //qDebug() << "Format supported:"
-        //    << device.isFormatSupported(format);
-
-        //qDebug() << "Requested:"
-        //    << format;
-
-        //qDebug() << "Preferred:"
-        //    << device.preferredFormat();
-
-
         QT6IOAudioSink_ = std::make_unique<QAudioSink>(QMediaDevices::defaultAudioOutput(), format);
-
-        // set this the size of our incoming frames
-        //QT6IOAudioSink_->setBufferFrameCount(1024);//(sampleSize * channels) + 0.5);
-        //QT6IOAudioSink_->setBufferFrameCount((sampleSize * channels) + 0.5);
-
         QT6IOAudioSink_->start(&QT6IOAudio_);
-        
-        //state = QT6IOAudioSink_->state();
-        //error = QT6IOAudioSink_->error();
 
         QObject::connect(QT6IOAudioSink_.get(), &QAudioSink::stateChanged, [](QAudio::State state)
         {
@@ -159,13 +141,6 @@ namespace meen_i8080_arcade
                 }
             }
         });
-
-        //pause
-        //QT6IOAudioSink_->suspend();
-        //resume
-        //QT6IOAudioSink_->resume();
-        //stop - requires a call to start
-        //QT6IOAudioSink_->stop();
 
         return std::errc{};
     }
