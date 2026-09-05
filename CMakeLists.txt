@@ -119,14 +119,26 @@ if(${build_os} STREQUAL "baremetal")
   endif()
 else()
   if(${enable_framework} STREQUAL "qt")
-    find_package(Qt6 REQUIRED COMPONENTS Quick QuickControls2 GuiPrivate)
+    find_package(Qt6 REQUIRED COMPONENTS GuiPrivate Multimedia Quick QuickControls2)
     #qt_policy(SET QTP0001 NEW)
     qt_policy(SET QTP0004 NEW)
 
-    set(${project_name}_include_files ${${project_name}_include_files} include/meen_i8080_arcade/io_controllables/QT6IO.h include/meen_i8080_arcade/io_controllables/QT6IODisplay.h include/meen_i8080_arcade/io_controllables/QT6IOTexture.h)
-    set(${project_name}_source_files ${${project_name}_source_files} source/io_controllables/QT6IO.cpp source/io_controllables/QT6IODisplay.cpp source/io_controllables/QT6IOTexture.cpp)
+    set(${project_name}_include_files ${${project_name}_include_files}
+      include/meen_i8080_arcade/io_controllables/QT6IO.h
+      include/meen_i8080_arcade/io_controllables/QT6IOAudio.h
+      include/meen_i8080_arcade/io_controllables/QT6IODisplay.h
+      include/meen_i8080_arcade/io_controllables/QT6IOTexture.h
+    )
+    
+    set(${project_name}_source_files ${${project_name}_source_files}
+      source/io_controllables/QT6IO.cpp
+      source/io_controllables/QT6IOAudio.cpp
+      source/io_controllables/QT6IODisplay.cpp
+      source/io_controllables/QT6IOTexture.cpp
+    )
+
     set(${project_name}_qml_files source/io_controllables/QT6IOMain.qml)
-    set(${project_name}_deps ${${project_name}_deps} Qt6::Quick Qt6::QuickControls2 Qt6::GuiPrivate)
+    set(${project_name}_deps ${${project_name}_deps} Qt6::GuiPrivate Qt6::Multimedia Qt6::Quick Qt6::QuickControls2)
   elseif(${enable_framework} STREQUAL "sdl")
     find_package(SDL2 REQUIRED)
     set(${project_name}_include_files ${${project_name}_include_files} include/meen_i8080_arcade/io_controllables/SDL2IO.h)
