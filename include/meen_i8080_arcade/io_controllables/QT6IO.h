@@ -25,10 +25,12 @@ SOFTWARE.
 
 #include <array>
 #include <system_error>
+#include <QAudioSink>
 #include <QGuiApplication>
 #include <QQmlApplicationEngine>
 
 #include "meen_i8080_arcade/IOControllerTypes.h"
+#include "meen_i8080_arcade/io_controllables/QT6IOAudio.h"
 #include "meen_i8080_arcade/io_controllables/QT6IODisplay.h"
 
 namespace meen_i8080_arcade
@@ -84,6 +86,8 @@ namespace meen_i8080_arcade
         std::unique_ptr<QQmlApplicationEngine> engine_;
         uint32_t input_{};
         QT6IODisplay* QT6IODisplay_{};
+        QT6IOAudio QT6IOAudio_{ QT6IOAudio(nullptr) };
+        std::unique_ptr<QAudioSink> QT6IOAudioSink_;
 
         int windowWidth_{};
         int windowHeight_{};
@@ -157,14 +161,13 @@ namespace meen_i8080_arcade
 
             Custom audio frame rendering
 
-            @param    audioFrame        The next audio frame to render.
-            @param    audioFrameSize    The length of the audio frame in bytes.
+            @param    audioFrame        A resource ptr containing the next audio frame to render.
             @param    timestamp         The timestamp at which to render the audio frame
                                         in MEEN timescale units.
 
             @return    A std::errc indicating success or failure.
         */
-        std::errc RenderAudioFrame(const int32_t* audioFrame, int audioFrameSize, uint64_t timestamp);
+        std::errc RenderAudioFrame(meen_hw::MH_ResourcePool<std::vector<int32_t>>::ResourcePtr&& audioFrame, uint64_t timestamp);
 
         /** Start the video frame rendering process.
 
