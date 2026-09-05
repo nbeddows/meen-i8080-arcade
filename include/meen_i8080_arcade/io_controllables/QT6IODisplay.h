@@ -28,6 +28,10 @@ SOFTWARE.
 
 namespace meen_i8080_arcade
 {
+    /** The qml display
+
+        Can be instatiated via qml
+    */
     class QT6IODisplay : public QQuickItem
     {
         Q_OBJECT
@@ -35,10 +39,35 @@ namespace meen_i8080_arcade
     public:
         explicit QT6IODisplay(QQuickItem* parent = nullptr);
 
+        /** Create QImage
+        
+            This images is used for texture based rendering.
+
+            @param      width           The width of the image.
+            @param      height          The height of the image.
+            @param      bpp             The number of bits per pixel.
+            @param      numScanlines    The number of scan lines to render from the image per pass.
+
+            @return                     A standard error code.
+        */
         std::errc AllocateImage(int width, int height, int bpp, int* numScanlines);
+
+        /** Set a pointer to a contiguous number of scanlines from the image buffer
+        
+            @param      dst             A double pointer which is set to the image buffer position to start
+                                        blitting to.
+            @param      rowBytes        The number of bytes per row of the image buffer.
+            @param      scanlineStart   The first scanline of the image to set.
+            @param      numScanlines    The total number of scanlines from the image buffer.
+        */
         std::errc GetImageBuffer(const uint8_t** dst, int* dstRowBytes, int scanlineStart, int numScanlines) const;
 
     protected:
+        /** Update the rendering texture with the image to render
+        
+            @param      oldNode         The previous render node.
+            @param      data            Unused.
+        */
         QSGNode* updatePaintNode(QSGNode* oldNode, UpdatePaintNodeData* data) final;
 
     private:
