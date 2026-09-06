@@ -156,6 +156,37 @@ if(${enable_framework} STREQUAL "qt")
     QML_FILES
       ${${project_name}_qml_files}
   )
+
+  # This comes close to the deployment that we want but fails to install a couple of dependent shared libraries
+  # so we do a manual install in the installation section later in this script to collect the remaining shared libraries
+  # Deploying a debug distribution fails as it always looks for the release deps, we won't be doing debug distributions
+  # anyway so we will leave that issue alone
+  qt_generate_deploy_script(
+    TARGET ${project_name}
+    OUTPUT_SCRIPT deploy_script
+    CONTENT "
+        include(\"${QT_DEPLOY_SUPPORT}\")
+
+        set(QT_DEPLOY_QML_DIR \"lib/qml\")
+
+        qt_deploy_qml_imports(
+            TARGET ${project_name}
+            PLUGINS_FOUND plugins_found
+        )
+
+        qt_deploy_runtime_dependencies(
+            EXECUTABLE \"$<TARGET_FILE:${project_name}>\"
+            ADDITIONAL_MODULES \${plugins_found}
+            BIN_DIR \"lib\"
+            PLUGINS_DIR \"lib\"
+            GENERATE_QT_CONF
+            NO_TRANSLATIONS
+            VERBOSE
+        )
+    "
+  )
+
+  install(SCRIPT ${deploy_script})
 else()
   add_executable(${project_name} ${${project_name}_include_files} ${${project_name}_source_files} ${${project_name}_resource_files})
 endif()
@@ -285,27 +316,15 @@ endif()
 
 if(${enable_framework} STREQUAL "qt")
   if(DEFINED QT_ROOT_DIR)
-    install(DIRECTORY "${QT_ROOT_DIR}/bin" 
+    # Install files that qt deploy fails to install
+    install(DIRECTORY "${QT_ROOT_DIR}/bin/"
       DESTINATION lib
       FILES_MATCHING
-        PATTERN "Qt6Core*.${soExt}"
-        PATTERN "Qt6Gui*.${soExt}"
-        PATTERN "Qt6Network*.${soExt}"
-        PATTERN "Qt6OpenGL*.${soExt}"
-        PATTERN "Qt6Qml*.${soExt}"
-        PATTERN "Qt6Quick*.${soExt}"
+        PATTERN "Qt6QuickControls2.*"
+        PATTERN "Qt6QuickControls2Basic.*"
+        PATTERN "Qt6QuickControls2Fusion.*"
+        PATTERN "Qt6QuickTemplates2.*"
     )
-
-    install(DIRECTORY "${QT_ROOT_DIR}/plugins/platforms"
-      DESTINATION libs
-      FILES_MATCHING
-        PATTERN "qwindows*.${soExt}" # TODO: need to differentiate the platform shared library here for linux, etc
-    )
-
-    # TODO: is this right? - we need to copy our qml files .... these are coming from the framework root dir
-    #install(DIRECTORY "${QT_ROOT_DIR}/qml"
-    #  DESTINATION lib
-    #)
   endif()
 endif()
 
