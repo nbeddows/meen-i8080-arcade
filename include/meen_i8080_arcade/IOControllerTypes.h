@@ -31,6 +31,7 @@ namespace meen_i8080_arcade
     */
     enum Input
     {
+        None = 0x000000,
         OnePlayer = 0x000001,
         TwoPlayer = 0x000002,
         ThreeShips = 0x000004,

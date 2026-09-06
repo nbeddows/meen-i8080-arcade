@@ -20,60 +20,106 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-#ifndef BLANKIO_H
-#define BLANKIO_H
+#ifndef QT6IO_H
+#define QT6IO_H
 
 #include <array>
 #include <system_error>
-/*
-    Add additional includes here.
-*/
+#include <QAudioSink>
+#include <QGuiApplication>
+#include <QQmlApplicationEngine>
 
-#include "meen_i8080_arcade/io_controllables/IOControllerTypes.h"
+#include "meen_i8080_arcade/IOControllerTypes.h"
+#include "meen_i8080_arcade/io_controllables/QT6IOAudio.h"
+#include "meen_i8080_arcade/io_controllables/QT6IODisplay.h"
 
 namespace meen_i8080_arcade
 {
-    /** An empty IO Controllable.
+    /** QT 6 IO Controllable.
 
-        An controllable which can be used as a template for creating
-        a new IOControllable.
-
-        @remark    Replace the class name BlankIO with your IOControllable
-                   class name.
+        An io controllable based on the qt 6 framework.
 	*/
-    class BlankIO final
+    class QT6IO final : public QObject
     {
-    private:
-        /*
-        
-        Place your private variables/types/methods here.
+        Q_OBJECT
+        Q_PROPERTY(int windowWidth READ windowWidth NOTIFY windowWidthChanged)
+        Q_PROPERTY(int windowHeight READ windowHeight NOTIFY windowHeightChanged)
 
-        */
+    public:
+        Q_INVOKABLE void KeyPressed(Qt::Key key);
+        Q_INVOKABLE void KeyReleased(Qt::Key key);
+
+    signals:
+        void windowWidthChanged();
+        void windowHeightChanged();
+
+    private:
+        static inline std::unordered_map<Qt::Key, Input> keyToInput_ =
+        {
+            { Qt::Key::Key_Q, Input::Exit },
+            { Qt::Key::Key_Down, Input::NextRom },
+            { Qt::Key::Key_Up, Input::PreviousRom },
+            { Qt::Key::Key_Enter, Input::SelectRom },
+            { Qt::Key::Key_Return, Input::SelectRom },
+            { Qt::Key::Key_Escape, Input::QuitRom },
+            { Qt::Key::Key_C, Input::Credit },
+            { Qt::Key::Key_1, Input::OnePlayer },
+            { Qt::Key::Key_2, Input::TwoPlayer },
+            { Qt::Key::Key_3, Input::ThreeShips },
+            { Qt::Key::Key_4, Input::FourShips },
+            { Qt::Key::Key_5, Input::FiveShips },
+            { Qt::Key::Key_6, Input::SixShips },
+            { Qt::Key::Key_T, Input::Tilt },
+            { Qt::Key::Key_E, Input::ExtraShip },
+            { Qt::Key::Key_I, Input::CoinInfo },
+            { Qt::Key::Key_A, Input::P1Left },
+            { Qt::Key::Key_S, Input::P1Fire },
+            { Qt::Key::Key_D, Input::P1Right },
+            { Qt::Key::Key_J, Input::P2Left },
+            { Qt::Key::Key_K, Input::P2Fire },
+            { Qt::Key::Key_L, Input::P2Right },
+            { Qt::Key::Key_R, Input::LoadRom },
+            { Qt::Key::Key_Y, Input::SaveRom }
+        };
+
+        std::unique_ptr<QGuiApplication> app_;
+        std::unique_ptr<QQmlApplicationEngine> engine_;
+        uint32_t input_{};
+        QT6IODisplay* QT6IODisplay_{};
+        QT6IOAudio QT6IOAudio_{ QT6IOAudio(nullptr) };
+        std::unique_ptr<QAudioSink> QT6IOAudioSink_;
+
+        int windowWidth_{};
+        int windowHeight_{};
+
+        int windowWidth() const;
+        int windowHeight() const;
+
     public:
         /** Default constructor
 
-            Default implementation.
+            Initialise the qt gui application
         */
-        BlankIO() = default;
+        QT6IO() = default;
 
         /** Destructor
 
-            Free the various BlankIO controller objects.
+            Free the various QT6IO controller objects.
         */
-        ~BlankIO() = default;
+        ~QT6IO() = default;
 
         /** One time callback registration
 
             This method is registered with MEEN who will invoke it on a thread determined
             by the MEEN `runAsync` configuration parameter.
 
-            @remark		This method is a no-op for this controllable.
+            @remark		This method sets the QT style to Fusion.
         */
-        static void Init() {};
+        static void Init();
 
         /** Video Device setup
 			
-            Configure the BlankIO video subsystem in order to render video frames.
+            Configure QT6IO video subsystem in order to render video frames.
 
             @param    width      The width of the display window.
             @param    height     The height of the display window.
@@ -85,7 +131,7 @@ namespace meen_i8080_arcade
 
         /** Audio device setup
 			
-            Configure the BlankIO audio subsystem in order to render audio frames.
+            Configure QT6IO audio subsystem in order to render audio frames.
 
             @param    sampleRate    The output audio device number of samples per second.
             @param    channels      The output audio device number of channels.
@@ -97,7 +143,7 @@ namespace meen_i8080_arcade
 
         /** Peripheral device setup
 
-            Configure the BlankIO events subsystem in order to process user input.
+            Configure the QT6IO events subsystem in order to process user input.
 
             @return    A std::errc indicating success or failure.
         */
@@ -115,14 +161,13 @@ namespace meen_i8080_arcade
 
             Custom audio frame rendering
 
-            @param    audioFrame        The next audio frame to render.
-            @param    audioFrameSize    The length of the audio frame in bytes.
+            @param    audioFrame        A resource ptr containing the next audio frame to render.
             @param    timestamp         The timestamp at which to render the audio frame
                                         in MEEN timescale units.
 
             @return    A std::errc indicating success or failure.
         */
-        std::errc RenderAudioFrame(const int32_t* audioFrame, int audioFrameSize, uint64_t timestamp);
+        std::errc RenderAudioFrame(meen_hw::MH_ResourcePool<std::vector<int32_t>>::ResourcePtr&& audioFrame, uint64_t timestamp);
 
         /** Start the video frame rendering process.
 
@@ -139,11 +184,11 @@ namespace meen_i8080_arcade
 
             @remark                      Must be paired with a call to EndVideoFrame
         */
-        std::errc GetVideoFrameBuffer(uint8_t** dst, int* dstRowBytes, int scanlineStart, int numScanlines) const;
-
+        std::errc GetVideoFrameBuffer(const uint8_t** dst, int* dstRowBytes, int scanlineStart, int numScanlines) const;
+        
         /** Render the next video frame.
 
-            Indicate that this frame has finished drawing.
+            Present the texture for display to the screen.
 
             @param    scanlineStart       The row to start renderering from.
             @param    numScanlines        The number of scanlnes to render.
@@ -183,27 +228,15 @@ namespace meen_i8080_arcade
         */
         std::errc ClearDisplay(BoundingBox&& rect);
 
-        /** Read from BlankIO device
+        /** Read from QT6IO device
 
-            Read user input from BlankIO device.
+            Read user input from QT6IO device.
 
             @return    A 32 bit mask of Input values.
 
             @sa        IOControllerTypes.h
         */
         uint32_t ReadPeripheralDevice();
-
-        /** Get custom texture buffer
-
-            Get the rendering buffer from BlankIO.
-
-            @param    dst        The destination address that will hold the video memory.
-            @param    rowBytes   The number of bytes in a scanline of the video memory pointed
-                                 to by dst.
-
-            @return    A std::errc indicating success or failure.
-        */
-        std::errc GetTextureBuffer(uint8_t** dst, int* dstRowBytes) const;
 
         /** Screen Transition
 
@@ -240,14 +273,7 @@ namespace meen_i8080_arcade
             @return                  A std::errc indicating success or failure.
         */
         std::errc LoadVideoTextures(int bpp, int textureWidth, int textureHeight, int* numScanlines);
-
-        /*
-        
-        Place your public variables/types/methods here.
-
-        */
-
     };
 } // namespace meen_i8080_arcade
 
-#endif // BLANKIO_H
+#endif // QT6IO_H

@@ -52,10 +52,10 @@ namespace meen_i8080_arcade
         IOControllable concept.
     */
     template<class T>
-    concept IOControllable = requires(T ioc, const int32_t* audioFrame, int audioFrameSize, uint64_t audioFrameTimestamp, int scanlineStart,
+    concept IOControllable = requires(T ioc, meen_hw::MH_ResourcePool<std::vector<int32_t>>::ResourcePtr && audioFrame, uint64_t audioFrameTimestamp, int scanlineStart,
                                       int numScanlines, int* scanlinesToRender, uint64_t videoFrameTimestamp, const std::string& error,
                                       BoundingBox&& rect, int width, int height, int fullscreen, int bpp, int textureWidth, int textureHeight,
-                                      int sampleRate, int channels, int sampleSize, uint8_t** dst, int* dstRowBytes, Screen curr, Screen next)
+                                      int sampleRate, int channels, int sampleSize, const uint8_t** dst, int* dstRowBytes, Screen curr, Screen next)
     {
 
         /** One time callback registration
@@ -69,7 +69,7 @@ namespace meen_i8080_arcade
 
             Called when an audio frame is ready to be rendered.
         */
-        { ioc.RenderAudioFrame(audioFrame, audioFrameSize, audioFrameTimestamp) } -> std::same_as<std::errc>;
+        { ioc.RenderAudioFrame(std::move(audioFrame), audioFrameTimestamp) } -> std::same_as<std::errc>;
 
         /** Start video frame rendering
 
@@ -934,7 +934,7 @@ public:
                 },
 			    [this](Frame<int32_t>& audioFrame)
 			    {
-                    return ioController_.RenderAudioFrame(audioFrame.bitstream->data(), audioFrame.bitstream->size(), audioFrame.timestamp) != std::errc{};
+                    return ioController_.RenderAudioFrame(std::move(audioFrame.bitstream), audioFrame.timestamp) != std::errc{};
                     // frame.bitstream = nullptr ... or not
                 },
 			    [this](Frame<uint8_t>& videoFrame)
@@ -994,7 +994,7 @@ public:
                     romIndex_ = scrollIndex(Input::NextRom, -1);
                     lastInput_ = input;
 
-                    uint8_t* dst = nullptr;
+                    const uint8_t* dst = nullptr;
                     int dstRowBytes = 0;
                     uint8_t* bb = nullptr;
                     auto vf = videoFrame.bitstream.get()->data();
@@ -1011,8 +1011,9 @@ public:
                         if (bb == nullptr || std::memcmp(bb, vf, compressedBytes) != 0)
                         {
                             ioController_.GetVideoFrameBuffer(&dst, &dstRowBytes, i, scanlinesToRender_);
-                            i8080ArcadeIO_->BlitVRAM(std::span<uint8_t>(dst, scanlinesToRender_ * dstRowBytes), textureWidth_, dstRowBytes, std::span<uint8_t>(vf, compressedBytes), MemoryController::frameWidth);
+                            i8080ArcadeIO_->BlitVRAM(std::span<uint8_t>(const_cast<uint8_t*>(dst), scanlinesToRender_ * dstRowBytes), textureWidth_, dstRowBytes, std::span<uint8_t>(vf, compressedBytes), MemoryController::frameWidth);
                             // some io controllables may render to the display directly, others may need to have their frame presented to the display (see DisplayVideoFrame below)
+                            // TODO: change RenderVideoFrame to RenderScanlines
                             ioController_.RenderVideoFrame(i, scanlinesToRender_, videoFrame.timestamp);
                         }
 
@@ -1035,7 +1036,7 @@ public:
                     }
                     else
                     {
-                        // Release the video frame bitstream immediately back to the memory controller frame pool
+                        // Release the video frame bitstream immediately back to the memory controller frame pool - could probably omit this though the video frame would take fractionally longer to return back to the frame pool
                         videoFrame.bitstream = nullptr;
                     }
 
