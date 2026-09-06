@@ -31,6 +31,7 @@ SOFTWARE.
 #include <variant>
 #include <vector>
 
+#include "meen_i8080_arcade/AudioFrameSizer.h"
 #include "meen_i8080_arcade/IIoController.h"
 #include "meen_hw/MH_Factory.h"
 #include "meen_hw/MH_ResourcePool.h"
@@ -77,6 +78,10 @@ namespace meen_i8080_arcade
 				When SDL audio is opened with a desired format, the obtained format is what SDL audio actually returns.
 			*/
 			SDL_AudioSpec obtainedSpec_{};
+
+			/** Configured audio sample rate and fractional frame-size tracker. */
+			std::uint32_t sampleRate_{};
+			AudioFrameSizer audioFrameSizer_{};
 
 			/** Audio device identifer
 

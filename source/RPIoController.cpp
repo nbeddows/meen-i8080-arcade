@@ -61,6 +61,7 @@ namespace meen_i8080_arcade
         height_ = videoHardware["height"].as<int>();
         // The sample rate of the audio chunks
         sampleRate_ = audioHardware["sampleRate"].as<int>();
+        audioFrameSizer_ = AudioFrameSizer{ static_cast<std::uint32_t>(sampleRate_) };
 
         spi_init(spi1, 62.5 * 1000000);
 
@@ -422,10 +423,10 @@ namespace meen_i8080_arcade
         {
             for (int i = 0; i < 2 /* total number of audio frames in the pool */; i++)
             {
-                // Resize the output buffers so they write a video frame duration (or close to) of audio frames to the speaker.
-                // Note: depending on the sample rate this may not be a whole number and will be truncated,
-                // hence it could be one sample less than a video frame duration (this should be fine).
-                audioFramePool_.AddResource(new std::vector<int32_t>(sampleRate_ / 60));
+                // Allocate enough room for the largest frame. AudioFrameSizer
+                // resizes each buffer before mixing so fractional samples are
+                // distributed across the 60 Hz video frames.
+                audioFramePool_.AddResource(new std::vector<int32_t>(audioFrameSizer_.Max()));
             }
 
             dma_channel_cleanup(0);
@@ -744,6 +745,8 @@ namespace meen_i8080_arcade
 
                     if (audioFrame.bitstream != nullptr)
                     {
+                        audioFrame.bitstream->resize(audioFrameSizer_.Next());
+
                         // Apply some very basic mixing
                         // Only supports unsigned 8 bit mono samples for input and signed 16 bit stereo samples for output
                         for(auto& sample : *audioFrame.bitstream)
