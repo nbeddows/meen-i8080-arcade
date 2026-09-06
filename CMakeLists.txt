@@ -80,6 +80,7 @@ set(${project_name}_source_files
 )
 
 set(${project_name}_include_files
+  include/meen_i8080_arcade/AudioFrameSizer.h
   include/meen_i8080_arcade/GlyphRenderer.h
   include/meen_i8080_arcade/IIoController.h
   include/meen_i8080_arcade/MemoryController.h

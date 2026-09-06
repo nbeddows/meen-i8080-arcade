@@ -78,19 +78,20 @@ namespace meen_i8080_arcade
 			printf("Failed to create i8080 arcade hardware");
 		}
 
-		int sampleRate = audioHardware["sampleRate"].as<int>();
+		sampleRate_ = audioHardware["sampleRate"].as<std::uint32_t>();
+		audioFrameSizer_ = AudioFrameSizer{ sampleRate_ };
 
-		if (sampleRate > 0)
+		if (sampleRate_ > 0)
 		{
 			// Fill out the desired output format
 			SDL_AudioSpec desiredSpec{};
-			desiredSpec.freq = sampleRate;    // sample rate
+			desiredSpec.freq = static_cast<int>(sampleRate_);    // sample rate
 			desiredSpec.format = AUDIO_S16;   // 16-bit signed audio
 			desiredSpec.channels = 2;         // stereo
 			// Allocate a sample buffer large enough to span one video frame duration (video runs at 60Hz).
-			// Note: depending on the sample rate this may not be a whole number and will be truncated,
-			// hence it could be one sample less than a video frame duration (this should be fine).
-			desiredSpec.samples = sampleRate / 60; // Internal sample buffer spanning a video frame duration (approx).
+			// Individual queued frames may contain one fewer sample; AudioFrameSizer
+			// distributes the fractional sample over subsequent video frames.
+			desiredSpec.samples = static_cast<int>(audioFrameSizer_.Max());
 
 			audioDeviceId_ = SDL_OpenAudioDevice(nullptr, 0, &desiredSpec, &obtainedSpec_, 0);
 
@@ -328,7 +329,7 @@ namespace meen_i8080_arcade
 		{
 			for (int i = 0; i < 2 /* total number of audio frames in the pool */; i++)
 			{
-				audioFramePool_.AddResource(new std::vector<int32_t>(obtainedSpec_.samples));
+				audioFramePool_.AddResource(new std::vector<int32_t>(audioFrameSizer_.Max()));
 			}
 
 			// Start audio playback
@@ -649,6 +650,8 @@ namespace meen_i8080_arcade
 
 					if (audioFrame.bitstream != nullptr)
 					{
+						audioFrame.bitstream->resize(audioFrameSizer_.Next());
+
 						// Apply some very basic mixing
 						// Only supports 8 bit mono samples for input and 16 bit stereo samples for output
 						for(auto& sample : *audioFrame.bitstream)
@@ -760,7 +763,8 @@ namespace meen_i8080_arcade
 			},
 			[this](Frame<int32_t>& frame)
 			{
-				SDL_QueueAudio(audioDeviceId_, static_cast<const void*>(frame.bitstream->data()), obtainedSpec_.size);
+				SDL_QueueAudio(audioDeviceId_, static_cast<const void*>(frame.bitstream->data()),
+					static_cast<Uint32>(frame.bitstream->size() * sizeof(int32_t)));
 				// We are done with the frame, return it immediately to the audio frame pool by explicitly setting it to nullptr
 				frame.bitstream = nullptr;
 				return false;

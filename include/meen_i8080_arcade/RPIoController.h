@@ -29,6 +29,7 @@ SOFTWARE.
 #include <variant>
 #include <vector>
 
+#include "meen_i8080_arcade/AudioFrameSizer.h"
 #include "meen_i8080_arcade/IIoController.h"
 #include "meen_hw/MH_Factory.h"
 
@@ -143,6 +144,9 @@ namespace meen_i8080_arcade
             The config file audio sample rate (if one is specified).
         */
         int sampleRate_{};
+
+        /** Distributes fractional audio samples across video frames. */
+        AudioFrameSizer audioFrameSizer_{};
 
         /** A chunk of audio samples
 
