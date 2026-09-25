@@ -15,9 +15,10 @@ meen_hw/*:with_i8080_arcade=True
     {{ framework }}/*:with_pq = False
     {{ framework }}/*:with_odbc = False
     {{ framework }}/*:with_openal = False
-    {{ framework }}/*:widgets = False
+    {{ framework }}/*:widgets = True
     {{ framework }}/*:qtdeclarative = True
     {{ framework }}/*:qtshadertools = True
+    {{ framework }}/*:qtmultimedia = True
   {% elif framework == 'sdl' %}
     {{ framework }}/*:shared = True
     {{ framework }}/*:alsa = False
