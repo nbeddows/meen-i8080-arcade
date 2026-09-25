@@ -31,7 +31,10 @@ ApplicationWindow {
     }
 
     Keys.onReleased: function(event) {
-      QT6IO.KeyReleased(event.key)
+      if (!event.isAutoRepeat) {
+        QT6IO.KeyReleased(event.key)
+      }
+
       event.accepted = true
     }
   }
