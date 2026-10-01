@@ -271,6 +271,9 @@ namespace meen_i8080_arcade
             @param    numScanlines   The number of scanlines that should be rendered in one pass.
 
             @return                  A std::errc indicating success or failure.
+
+            @remark                  The method only accepts a bpp of 32, anything else will
+                                     result in an invalid_argument error being returned.
         */
         std::errc LoadVideoTextures(int bpp, int textureWidth, int textureHeight, int* numScanlines);
     };
