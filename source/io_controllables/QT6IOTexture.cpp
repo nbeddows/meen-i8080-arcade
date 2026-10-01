@@ -42,7 +42,7 @@ namespace meen_i8080_arcade
 
         if (texture_ == nullptr)
         {
-            texture_ = std::unique_ptr<QRhiTexture>(rhi->newTexture(QRhiTexture::R8, image_.size()));
+            texture_ = std::unique_ptr<QRhiTexture>(rhi->newTexture(QRhiTexture::Format::BGRA8, image_.size()));
 
             if (texture_->create() == false)
             {

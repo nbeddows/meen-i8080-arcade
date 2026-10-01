@@ -38,14 +38,9 @@ namespace meen_i8080_arcade
 
         switch (bpp)
         {
-            case 8:
+            case 32:
             {
-                format = QImage::Format::Format_Grayscale8;
-                break;
-            }
-            case 16:
-            {
-                format = QImage::Format::Format_Grayscale16;
+                format = QImage::Format::Format_RGBA8888;
                 break;
             }
             default:
@@ -54,19 +49,23 @@ namespace meen_i8080_arcade
             }
         }
 
-        image_ = QImage(width, height, format);
-        
-        if (image_.isNull())
+        if (err == std::errc{})
         {
-            err = std::errc::not_enough_memory;
-        }
-        else
-        {
-            *numScanlines = image_.height();
+            image_ = QImage(width, height, format);
+
+            if (image_.isNull())
+            {
+                err = std::errc::not_enough_memory;
+            }
+            else
+            {
+                *numScanlines = image_.height();
+            }
+
+            //setTextureSize(QSize(width, height));
+            //setAntialiasing(false);
         }
 
-        //setTextureSize(QSize(width, height));
-        //setAntialiasing(false);
         return err;
     }
 
