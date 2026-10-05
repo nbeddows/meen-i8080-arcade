@@ -28,6 +28,7 @@ SOFTWARE.
 #include <system_error>
 
 #include "meen_i8080_arcade/IOControllerTypes.h"
+#include "meen_hw/MH_ResourcePool.h"
 
 namespace meen_i8080_arcade
 {
@@ -150,18 +151,17 @@ namespace meen_i8080_arcade
 			*/
 			std::array<uint8_t, 16> Uuid() const;
 
-			/** Queue the next audio sample
-			
-				Use SDL_QueueAudio API to deliver the next audio frame to the speaker.
+			/** Render audio frames
 
-				@param    audioFrame        The next audio frame to render. The format of the
-				                            output audio frame will always be 8 bit stereo.
-				@param    audioFrameSize    The length of the audio frame in bytes.
-				@param    timstamp          Not used.
+				Use SDL_QueueAudio API to deliver a number of audio frames to the speaker.
 
-				@return                     A std::errc indicating success or failure.
+				@param    audioFrame        A resource ptr containing a number of audio frames to render.
+				@param    timestamp         The timestamp at which to render the audio frame
+											in MEEN timescale units (not used).
+
+				@return						A std::errc indicating success or failure.
 			*/
-			std::errc RenderAudioFrame(const int32_t* audioFrame, int audioFrameSize, uint64_t timestamp);
+			std::errc RenderAudioFrame(meen_hw::MH_ResourcePool<std::vector<int32_t>>::ResourcePtr&& audioFrame, uint64_t timestamp);
             
 			/** Start the video frame rendering process.
 
@@ -178,7 +178,7 @@ namespace meen_i8080_arcade
 
 				@remark                  Must be paired with a call to EndVideoFrame
 			*/
-			std::errc GetVideoFrameBuffer(uint8_t** dst, int* dstRowBytes, int scanlineStart, int numScanlines) const;
+			std::errc GetVideoFrameBuffer(const uint8_t** dst, int* dstRowBytes, int scanlineStart, int numScanlines) const;
 
 			/** Render the next video frame.
 			
