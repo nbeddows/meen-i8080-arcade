@@ -173,6 +173,9 @@ namespace meen_i8080_arcade
 			case 16:
 				pf = SDL_PIXELFORMAT_RGB565;
 				break;
+			case 32:
+				pf = SDL_PIXELFORMAT_ARGB8888;
+				break;
 			default:
 				return std::errc::not_supported;
 		}
@@ -254,13 +257,13 @@ namespace meen_i8080_arcade
 		return{ 0x22, 0x61, 0xC9, 0x53, 0x9A, 0x36, 0x4B, 0xD3, 0xB9, 0x68, 0x47, 0x67, 0x6F, 0x52, 0x6D, 0x48 };
 	}
 
-	std::errc SDL2IO::RenderAudioFrame(const int32_t* audioFrame, int audioFrameSize, [[maybe_unused]] uint64_t timestamp)
+	std::errc SDL2IO::RenderAudioFrame(meen_hw::MH_ResourcePool<std::vector<int32_t>>::ResourcePtr&& audioFrame, uint64_t timestamp)
 	{
-        SDL_QueueAudio(audioDeviceId_, static_cast<const void*>(audioFrame), obtainedSpec_.size);
+        SDL_QueueAudio(audioDeviceId_, static_cast<const void*>(audioFrame.get()->data()), obtainedSpec_.size);
         return std::errc{};
 	}
 
-	std::errc SDL2IO::GetVideoFrameBuffer(uint8_t** dst, int* dstRowBytes, int scanlineStart, int numScanlines) const
+	std::errc SDL2IO::GetVideoFrameBuffer(const uint8_t** dst, int* dstRowBytes, int scanlineStart, int numScanlines) const
 	{
 		/*
 			The backbuffer should be considered invalidated after each present; do not assume that previous contents will exist between frames.

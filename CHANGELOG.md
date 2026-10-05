@@ -13,6 +13,8 @@
 * Added a QT6IO controllable based on the QT6
   framework.
 * Maintain correct audio sample playback rate.
+* Add 32 bit blit support to the SDL2IO
+  controllable.
 
 1.1.0 [26/12/25]
 * Added disabled GitHub Actions CI/CD support.

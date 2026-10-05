@@ -292,7 +292,6 @@ These settings affect visual output and can be changed. They apply to all game r
 | `orientation`       | "cocktail" | The window layout, "cocktail" for horizontal and "upright" for vertical                                                                                    |
 
 **NOTE**: the RP IO Controller only supports cocktail orientation @ 16bpp.
-**NOTE**: the SDL IO Controller only supports 8bpp and 16bpp.
 **NOTE**: the QT IO Controller only supports 32bpp.
 
 ##### Audio
