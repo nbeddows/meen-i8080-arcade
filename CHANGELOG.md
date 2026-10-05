@@ -12,6 +12,7 @@
   io controllable implementations.
 * Added a QT6IO controllable based on the QT6
   framework.
+* Maintain correct audio sample playback rate.
 
 1.1.0 [26/12/25]
 * Added disabled GitHub Actions CI/CD support.
