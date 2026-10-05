@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2021-2025 Nicolas Beddows <nicolas.beddows@gmail.com>
+Copyright (c) 2021-2026 Nicolas Beddows <nicolas.beddows@gmail.com>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -185,6 +185,25 @@ private:
             */
             uint64_t timestamp{};
         };
+
+        // Number of audio samples per video frame (60hz) for each sample rate
+        // We continually loop the selected array to maintain to correct rate
+        // I've added 22050, 44100 and 48000 even though we only use 11025 at
+        // the current time
+        std::unordered_map<int, std::array<int, 4>> audioFrameSizeTable_ =
+        {
+            // 11025 / 60 -> 183.75
+            { 11025, { 183, 184, 184, 184 } },
+            // 11025 / 60 -> 367.5
+            { 22050, { 367, 368, 367, 368 } },
+            // 44100 / 60 -> 735
+            { 44100, { 735, 735, 735, 735 } },
+            // 48000 / 60 -> 800
+            { 48000, { 800, 800, 800, 800 } }
+        };
+
+        // The current index into the chosen audio frame size array
+        int audioFrameSizeIndex_{};
 
         /** A chunk of audio samples
 
@@ -504,7 +523,7 @@ public:
                 printf("Failed to create i8080 arcade hardware");
             }
 
-            sampleRate_ = audioHardware["sampleRate"].as<int>();
+            sampleRate_ = audioHardware["sampleRate"].as<int>();            
             channels_ = audioHardware["channels"].as<int>();
             width_ = videoHardware["width"].as<int>();
             height_ = videoHardware["height"].as<int>();
@@ -804,6 +823,14 @@ public:
 
                         if (audioFrame.bitstream != nullptr)
                         {
+                            // Could cache this, just fetch it for now
+                            const auto& audioFrameSizes = audioFrameSizeTable_[sampleRate_];
+                            int numSamples = audioFrameSizes[audioFrameSizeIndex_];
+                            // The size of the array must be a power of 2 for this to work!
+                            audioFrameSizeIndex_ = (audioFrameSizeIndex_ + 1) & (audioFrameSizes.size() - 1);
+                            // Resize the output audio buffer to the number of samples
+                            audioFrame.bitstream->resize(numSamples);
+
                             // Apply some very basic mixing
                             // Only supports 8 bit mono samples for input and 16 bit stereo samples for output
                             for(auto& sample : *audioFrame.bitstream)
@@ -1122,6 +1149,11 @@ public:
 
             err = std::make_error_code(ioController_.LoadVideoTextures(videoTextures["bpp"], textureWidth, textureHeight, &scanlinesToRender_));
 
+            if (err)
+            {
+                return err;
+            }
+
             if (scanlinesToRender_ <= 0 || scanlinesToRender_ > textureHeight)
             {
                 return std::make_error_code(std::errc::result_out_of_range);
@@ -1162,7 +1194,7 @@ public:
                 return std::error_code{};
             }
 
-            if (sampleRate_ < 0 || channels_ != 2)
+            if (audioFrameSizeTable_.contains(sampleRate_) == false || channels_ != 2)
             {
                 return std::make_error_code(std::errc::not_supported);
             }
@@ -1357,12 +1389,12 @@ public:
 
             for (int i = 0; i < 2 /* total number of audio frames in the pool */; i++)
             {
-                // Resize the output buffers so they write a video frame duration (or close to) of audio frames to the speaker.
-                // Note: depending on the sample rate this may not be a whole number and will be truncated,
-                // hence it could be one sample less than a video frame duration (this should be fine).
+                // We set the initial allocation to an approximation of the frame size (to within a frame)
+                // since we resize the frame later to the correct size based on the audio frame size table
                 audioFramePool_.AddResource(new std::vector<int32_t>(sampleRate_ / 60));
             }
 
+            // Should pass in the audio frame size table here (low priority as implementations currently don't have a requirement for this yet)
             return std::make_error_code(ioController_.LoadAudioSamples(sampleRate_, channels_, sampleRate_ / 60));
         };
 
