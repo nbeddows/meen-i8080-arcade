@@ -23,8 +23,8 @@ This project has been tested against the following roms (which can be found else
 | Balloon Bomber                  | Has issues which go beyond the superficial that require further investigation |
 | Lunar Rescue                    | Passes general gameplay testing                                               |
 
-For supported desktop platforms The Simple DirectMedia Layer 2.x (SDL2) is used to render the video and audio and requires a keyboard for interaction (keyboard controls are documented towards the end of this document).<br>
-For supported embedded platforms an st7789 based lcd screen is requried for video rendering (tested with [this lcd](https://www.waveshare.com/wiki/Pico-LCD-2)), for audio rendering, an audio module that can transmit pcm mono 8/16it samples over the I2S bus (tested with [version 1 of this module](https://www.waveshare.com/wiki/Pico-Audio)) and a minimum of 4 buttons for interaction (button controls are documented towards the end of this document).
+For supported desktop platforms the Simple DirectMedia Layer 2.x (SDL2) or the Qt Framework 6.x.x is used to render the video and audio and requires a keyboard for interaction (keyboard controls are documented towards the end of this document).<br>
+For supported embedded platforms an st7789 based lcd screen is required for video rendering (tested with [this lcd](https://www.waveshare.com/wiki/Pico-LCD-2)), for audio rendering, an audio module that can transmit pcm mono 8/16it samples over the I2S bus (tested with [version 1 of this module](https://www.waveshare.com/wiki/Pico-Audio)) and a minimum of 4 buttons for interaction (button controls are documented towards the end of this document).
 
 I don't consider the emulation to be the most efficient, accurate, or to be extensively tested, but I'm happy with where it is at.
 
@@ -88,13 +88,16 @@ This project uses [CMake (minimum version 3.23)](https://cmake.org/) for its bui
 - `conan config install -sf profiles -tf profiles https://github.com/nbeddows/meen-conan-config.git --args "--branch v0.3.0"`
 
 **2.** Install dependencies:
-- Windows msvc x86_64 build and host: `conan install . --build=missing --profile:all=profiles/Windows-x86_64-msvc-193-sdl`
+- Windows msvc x86_64 SDL build and host: `conan install . --build=missing --profile:all=profiles/Windows-x86_64-msvc-193-sdl`
+- Windows msvc x86_64 Qt build and host: `conan install . --build=missing --profile:all=profiles/Windows-x86_64-msvc-195-qt`
 - Linux x86_64 build and host: `conan install . --build=missing --profile:all=profiles/Linux-x86_64-gcc-14-sdl`
 - Linux x86_64 build, Linux armv7hf host: `conan install . --build=missing --profile:build=Linux-x86_64-gcc-14 --profile:host=profiles/Linux-armv7hf-gcc-14-sdl`
 - Linux x86_64 build, Linux armv8 host: `conan install . --build=missing --profile:build=Linux-x86_64-gcc-14 --profile:host=profiles/Linux-armv8-gcc-14-sdl`
 - Linux x86_64 build, RP2040 microcontroller (baremetal armv6-m) host: `conan install . --build=missing --profile:build=Linux-x86_64-gcc-14 --profile:host=profiles/rp2040-armv6-gcc-14-st7789vw`<br>
 
 **NOTE**: when performing a cross compile using a host profile you must install the requisite toolchain of the target architecture, see pre-requisites.
+
+**NOTE**: Qt configuration requires a minimum meen_hw version of v0.6.0.
 
 **NOTE**: under Linux with an sdl host profile errors similar to the following, `ERROR: xorg/system: Error in system_requirements() method` require additional package installations as denoted by the above console messages: "`dpkg-query: no packages found matching ${pkg0}`": `sudo apt install ${pkg0} ${pkg1} ${pkgn}`
 When cross compiling for arm you may need to add the arm development repositories to your apt sources if the packages previously installed could not be found, for example (at the time of writing):
@@ -148,7 +151,7 @@ The following dependent packages will be (compiled if required and) installed:
 | meen_hw     | MEEN Hardware - must be installed manually (see note below)           |
 | ArduinoJson | A lightweight json parser                                             |
 | sdl         | Simple Direct Media Layer                                             |
-| sdl_mixer   | Simple Direct Media Layer Mixer                                       |
+| qt          | Qt Framework                                                          |
 
 **NOTE**: meen and meen_hw are not currently hosted on a Conan server and require manual installation, see the section titled [Export a Conan package](https://github.com/nbeddows/meen/blob/main/README.md).<br>
 **NOTE**: meen minimum version of 2.0.0 is required for RP2040 support.
@@ -282,13 +285,15 @@ These settings apply to the various arcade roms that can be loaded.
 
 These settings affect visual output and can be changed. They apply to all game roms loaded.
 
-| Option              | Value      | Remarks                                                                                                                                              |
-|:--------------------|:-----------|:-----------------------------------------------------------------------------------------------------------------------------------------------------|
-| `bpp`               | 16         | Bits per pixel, supported values are 1 (experimental and not universally supported), 8 (rgb332) and 16 (rgb565)                                      |
-| `colour`            | "white"    | The foreground colour (the background is always black), supported values are "white", "red", "green", "blue", "random" and a 16 bit custom hex value |
-| `orientation`       | "cocktail" | The window layout, "cocktail" for horizontal and "upright" for vertical                                                                              |
+| Option              | Value      | Remarks                                                                                                                                                    |
+|:--------------------|:-----------|:-----------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `bpp`               | 16         | Bits per pixel, supported values are 1 (experimental and not universally supported), 8 (rgb332), 16 (rgb565) and 32 (argb8888)                             |
+| `colour`            | "white"    | The foreground colour (the background is always black), supported values are "white", "red", "green", "blue", "random" and an 8/16/32 bit custom hex value |
+| `orientation`       | "cocktail" | The window layout, "cocktail" for horizontal and "upright" for vertical                                                                                    |
 
 **NOTE**: the RP IO Controller only supports cocktail orientation @ 16bpp.
+**NOTE**: the SDL IO Controller only supports 8bpp and 16bpp.
+**NOTE**: the QT IO Controller only supports 32bpp.
 
 ##### Audio
 

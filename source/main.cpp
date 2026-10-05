@@ -138,9 +138,12 @@ if(value)\
 #include <fstream>
 #include <memory>
 
-#define IOCONTROLLABLE SDL2IO
+//#define IOCONTROLLABLE SDL2IO
+//#include "meen_i8080_arcade/io_controllables/SDL2IO.h"
 
-#include "meen_i8080_arcade/io_controllables/SDL2IO.h"
+#define IOCONTROLLABLE QT6IO
+#include "meen_i8080_arcade/io_controllables/QT6IO.h"
+
 //#include "meen_i8080_arcade/io_controllables/RTSPIO.h"
 #endif // ENABLE_MH_RP2040
 
@@ -260,8 +263,38 @@ int main(int argc, char** argv)
 		auto meen = hardware["meen"];
 		CHECK_ERROR(!meen, printf("Invalid json config file format: meen section not found\n"));
 
+		/*
+			If you want to perform the one time initialisation on the machine thread you need to define
+			IOC_INIT_ON_MACHINE_THREAD. By default it is undefined as this is what this example application
+			requires.
+			When the `runAsync` parameter is set to false both methods of initialisation will run off the
+			main thread.
+		*/
+#ifdef IOC_INIT_ON_MACHNE_THREAD
+		//cppcheck-suppress constParameterPointer
+		machine->OnInit([]([[maybe_unused]] meen::IController* ioController)
+		{
+			/*
+				TODO:
+					1. This concept needs to return a meen::errc
+					2. The Init method should proabably accept ioController instance??
+
+					meen::errc IOCONTROLLABLE::Init(IOCONTROLLABLE* ioController);
+			*/
+			IOCONTROLLABLE::Init();
+
+			return meen::errc::no_error;
+		});
+#else
+		// While performing the initialisation like this will suffice, it would be better to have IMachine do it from its run loop before it launches the machine thread
+		// This would mean adding a json config option to IMachine settings to tell it how to initialise ("init_on_main_thread":true (by default))
+
+		// Perform the one time initialisation on the main thread
+		IOCONTROLLABLE::Init();
+#endif /* IOC_INIT_ON_MACHINE_THREAD */
+
 		// Create our custom i8080 arcade memory controller.
-		auto memoryController = new MemoryController(jsonRoms);
+		auto memoryController = new MemoryController(/*meen["timescale"],*/ jsonRoms);
 		CHECK_ERROR(!memoryController, printf("Failed to create the memory controller\n"));
 
 		// Create a frame pool of 4 frames, passing an empty one back for use as the initial io controller back buffer if required.
@@ -269,7 +302,7 @@ int main(int argc, char** argv)
 		CHECK_ERROR(!backBuffer, printf("Failed to create the memory controller frame pool\n"));
 
 		// Create our custom i8080 arcade I/O controller based on a specific configuration.
-		auto ioController = new IOController<IOCONTROLLABLE>(meen["runAsync"], std::move(backBuffer), jsonRoms.size(), hardware["audio"], hardware["video"]);
+		auto ioController = new IOController<IOCONTROLLABLE>(meen["runAsync"], std::move(backBuffer), static_cast<int>(jsonRoms.size()), hardware["audio"], hardware["video"]);
 		CHECK_ERROR(!ioController, printf("Failed to create the i/o controller\n"));
 
 		// Set up the custom controllers prior to configuring the machine.
@@ -314,36 +347,6 @@ int main(int argc, char** argv)
 		// so the io controller will be available in the OnError handler.
 		machine->AttachIoController(meen::IControllerPtr(std::move(ioController)));
 		machine->AttachMemoryController(meen::IControllerPtr(std::move(memoryController)));
-
-/*
-	If you want to perform the one time initialisation on the machine thread you need to define
-	IOC_INIT_ON_MACHINE_THREAD. By default it is undefined as this is what this example application
-	requires.
-	When the `runAsync` parameter is set to false both methods of initialisation will run off the 
-	main thread.
-*/
-#ifdef IOC_INIT_ON_MACHNE_THREAD
-		//cppcheck-suppress constParameterPointer
-		machine->OnInit([]([[maybe_unused]] meen::IController* ioController)
-		{
-			/*
-				TODO:
-					1. This concept needs to return a meen::errc
-					2. The Init method should proabably accept ioController instance??
-
-					meen::errc IOCONTROLLABLE::Init(IOCONTROLLABLE* ioController);
-			*/
-			IOCONTROLLABLE::Init();
-
-			return meen::errc::no_error;
-		});
-#else
-		// While performing the initialisation like this will suffice, it would be better to have IMachine do it from its run loop before it launches the machine thread
-		// This would mean adding a json config option to IMachine settings to tell it how to initialise ("init_on_main_thread":true (by default))
-
-		// Perform the one time initialisation on the main thread
-		IOCONTROLLABLE::Init();
-#endif /* IOC_INIT_ON_MACHINE_THREAD */
 
 		// Will be called from a different thread if the 'runAsync' or 'saveAsync' options are set to true.
 		machine->OnSave([&jsonRoms, &saveFilePath](char* uri, int* uriLen, meen::IController* ioController)

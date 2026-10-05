@@ -44,32 +44,43 @@ namespace meen_i8080_arcade
         return std::errc{};
     }
 
-    std::errc BlankIO::LoadVideoTextures(int bpp, int textureWidth, int textureHeight)
+    std::errc BlankIO::LoadVideoTextures(int bpp, int textureWidth, int textureHeight, int* numScanlines)
     {
         return std::errc{};
     }
 
-    void BlankIO::ScreenTransition(Screen curr, Screen next)
+    std::errc BlankIO::ScreenTransition(Screen curr, Screen next)
     {
-
+        return std::errc{};
     }
 
     std::array<uint8_t, 16> BlankIO::Uuid() const
     {
-        return{ /* INSERT UUID HERE!! */ };
+        // DO NOT COPY THIS UUID, ITS IS UNIQUE TO BLANKIO, CREATE A NEW ONE!
+        return { 0x61, 0x21, 0x7b, 0x56, 0x7c, 0xb7, 0x4d, 0xef, 0xac, 0xdf, 0x74, 0x54, 0x56, 0x41, 0xb5, 0x8 };
     }
 
-    std::errc BlankIO::RenderAudioFrame(const int32_t* audioFrame, uint64_t timestamp)
+    std::errc BlankIO::RenderAudioFrame(const int32_t* audioFrame, int audioFrameSize, uint64_t timestamp)
     {
         return std::errc{};
+    }
+
+    std::errc BlankIO::GetVideoFrameBuffer(uint8_t** dst, int* dstRowBytes, int scanlineStart, int numScanlines) const
+    {
+
     }
 
     std::errc BlankIO::GetTextureBuffer(uint8_t** dst, int* dstRowBytes) const
     {
         return std::errc{};
     }
+    
+    std::errc BlankIO::RenderVideoFrame(int scanlineStart, int numScanlines, uint64_t timestamp)
+    {
+        return std::errc{};
+    }
 
-    std::errc BlankIO::RenderVideoFrame(const uint8_t* videoFrame, uint64_t timestamp)
+    std::errc BlankIO::DisplayVideoFrame(uint64_t timestamp);
     {
         return std::errc{};
     }
@@ -84,7 +95,7 @@ namespace meen_i8080_arcade
         return std::errc{};
     }
 
-    std::errc BlankIO::ClearDisplay(bool clearDisplay)
+    std::errc BlankIO::ClearDisplay(BoundingBox&& rect)
     {
         return std::errc{};
     }

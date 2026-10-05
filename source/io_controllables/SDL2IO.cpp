@@ -268,7 +268,7 @@ namespace meen_i8080_arcade
 		*/
 		//SDL_RenderClear(renderer_);
 
-		// Lock a specific part of hte video texture
+		// Lock a specific part of the video texture
 		SDL_Rect srcRect{ 0, scanlineStart, dstRect_.w, numScanlines };
 
 		auto err = SDL_LockTexture(texture_, &srcRect, std::bit_cast<void**>(dst), dstRowBytes);
