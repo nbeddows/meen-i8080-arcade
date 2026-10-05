@@ -523,7 +523,7 @@ public:
                 printf("Failed to create i8080 arcade hardware");
             }
 
-            sampleRate_ = audioHardware["sampleRate"].as<int>();            
+            sampleRate_ = audioHardware["sampleRate"].as<int>();
             channels_ = audioHardware["channels"].as<int>();
             width_ = videoHardware["width"].as<int>();
             height_ = videoHardware["height"].as<int>();
