@@ -10,6 +10,8 @@
 * Added an empty io controllable called `BlankIO`
   which can be used as a template for future
   io controllable implementations.
+* Added a QT6IO controllable based on the QT6
+  framework.
 
 1.1.0 [26/12/25]
 * Added disabled GitHub Actions CI/CD support.
